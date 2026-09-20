@@ -1,6 +1,9 @@
 const { Router } = require("express");
 const { ObjectId } = require("mongodb");
 const { connect } = require("../db");
+const { withCache } = require("../cache");
+
+const SYNC_TTL = parseInt(process.env.SYNC_CACHE_TTL || "3");
 
 const router = Router();
 
@@ -64,10 +67,12 @@ router.post("/:env/sync", async (req, res) => {
       .json({ error: `Environment "${env}" not found. Valid values: ${ENVIRONMENTS.join(", ")}` });
   }
   try {
-    const db = await connect();
-    const docs = await db.collection(toCollection(env)).find().toArray();
-    const apps = docs.map(serialize);
-    const results = await Promise.all(apps.map(checkHealth));
+    const results = await withCache(`sync:${env}`, SYNC_TTL, async () => {
+      const db = await connect();
+      const docs = await db.collection(toCollection(env)).find().toArray();
+      const apps = docs.map(serialize);
+      return await Promise.all(apps.map(checkHealth));
+    });
     res.json(results);
   } catch (err) {
     res.status(500).json({ error: err.message });
