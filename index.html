@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orbital - App</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="_ds/nocturne-28f61539-545d-4d6c-bf33-6586e9d6e3fe/styles.css">
+<script src="_ds/nocturne-28f61539-545d-4d6c-bf33-6586e9d6e3fe/_ds_bundle.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<style>
+  html, body { margin:0; padding:0; background:#161826; }
+  * { box-sizing: border-box; }
+  a { color: var(--accent, #9184d9); }
+  a:hover { color: var(--accent-soft, #b7aee8); }
+  input, button { font-family: inherit; }
+  :focus-visible { outline:2px solid var(--accent, #9184d9); outline-offset:2px; }
+  @keyframes twinkle { 0%,100% { opacity:.25 } 50% { opacity:1 } }
+  @keyframes floatUp { from { opacity:0; transform: translateY(14px) scale(.98) } to { opacity:1; transform:none } }
+  @keyframes fadeIn { from { opacity:0 } to { opacity:1 } }
+  @media (max-width: 900px) {
+    #shell { grid-template-columns: minmax(0,1fr) !important; }
+    #orbitPanel { height: clamp(320px, 52vh, 460px) !important; }
+    #listCol { position: static !important; max-height: none !important; }
+  }
+  @media (max-width: 900px) {
+    #topBar { position: static !important; justify-content: flex-end; padding: 0 0 12px 0; }
+    #headerRow { align-items: flex-start !important; }
+    #statsRow { flex-wrap: wrap; }
+  }
+  @media (max-width: 640px) {
+    #page { padding: 12px 20px 120px 20px !important; }
+    #pageTitle { font-size: 30px !important; }
+    #envTabs { display: flex !important; flex-wrap: wrap; }
+  }
+  @keyframes drift { from { transform: translateX(-24vw) } to { transform: translateX(124vw) } }
+</style>
+</helmet>
+<div ref="{{ rootRef }}" style="position:relative; min-height:100vh; background:var(--bg); font-family:'Inter', system-ui, sans-serif; color:var(--ink); overflow:hidden; transition:background .4s ease, color .3s ease">
+
+  <div ref="{{ starsRef }}" style="position:absolute; inset:0; pointer-events:none; opacity:var(--star-opacity); transition:opacity .4s ease"></div>
+  <div ref="{{ cloudsRef }}" style="position:absolute; inset:0; pointer-events:none; opacity:var(--cloud-opacity); transition:opacity .5s ease"></div>
+  <div style="position:absolute; top:-180px; left:50%; width:900px; height:420px; transform:translateX(-50%); background:radial-gradient(closest-side, var(--halo), transparent 70%); pointer-events:none"></div>
+
+  <template id="__bundler_thumbnail" data-bg-color="#161826">
+    <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+      <rect width="1200" height="800" fill="#161826"></rect>
+      <ellipse cx="600" cy="400" rx="300" ry="126" fill="none" stroke="#3a3c55" stroke-width="4" stroke-dasharray="10 22"></ellipse>
+      <ellipse cx="600" cy="400" rx="170" ry="71" fill="none" stroke="#3a3c55" stroke-width="4" stroke-dasharray="10 22"></ellipse>
+      <circle cx="600" cy="400" r="52" fill="#c7c0ee"></circle>
+      <circle cx="580" cy="384" r="12" fill="#9e9ab8"></circle>
+      <circle cx="612" cy="412" r="15" fill="#9e9ab8"></circle>
+      <circle cx="900" cy="400" r="26" fill="#6fd39b"></circle>
+      <circle cx="430" cy="400" r="22" fill="#e8808c"></circle>
+      <circle cx="600" cy="471" r="20" fill="#9184d9"></circle>
+    </svg>
+  </template>
+
+  <div id="topBar" style="position:absolute; top:14px; right:20px; z-index:20; display:flex; flex-direction:column; align-items:flex-end; gap:6px">
+    <div style="display:flex; align-items:center; gap:10px">
+    <button onClick="{{ toggleTheme }}" title="Alternar tema" role="switch" aria-checked="{{ isLight }}" style="display:flex; align-items:center; gap:8px; padding:4px 6px; border:none; background:transparent; color:var(--ink); cursor:pointer">
+      <span style="{{ trackStyle }}"><span style="{{ knobStyle }}"></span></span>
+      <span style="font-family:'JetBrains Mono',monospace; font-size:12px; letter-spacing:.1em; color:var(--muted)">{{ themeLabel }}</span>
+    </button>
+    <button onClick="{{ checkAll }}" style="font-family:'JetBrains Mono',monospace; font-size:12px; letter-spacing:.1em; padding:4px 10px; border-radius:var(--radius-sm); border:1px solid var(--line); background:transparent; color:var(--muted); cursor:pointer" style-hover="border-color:var(--accent); color:var(--accent-soft)">{{ scanLabel }}</button>
+    <button onClick="{{ toggleRate }}" title="Periodicidade do health check" style="display:flex; align-items:center; gap:7px; padding:4px 6px; border:none; background:transparent; color:var(--muted); cursor:pointer" style-hover="color:var(--accent-soft)">
+      <svg width="15" height="15" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24Zm0 192a88 88 0 1 1 88-88 88.1 88.1 0 0 1-88 88Zm48-88a8 8 0 0 1-8 8h-40a8 8 0 0 1-8-8V72a8 8 0 0 1 16 0v48h32a8 8 0 0 1 8 8Z"></path></svg>
+      <span style="font-family:'JetBrains Mono',monospace; font-size:12px; letter-spacing:.1em">{{ rateLabel }}</span>
+    </button>
+    </div>
+    <sc-if value="{{ rateOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex; flex-direction:column; gap:2px; padding:4px; border:1px solid var(--line); border-radius:var(--radius-md); background:var(--dialog); box-shadow:var(--elev-md); animation:floatUp .16s ease">
+        <button onClick="{{ rate15 }}" style="{{ rate15Style }}">15s</button>
+        <button onClick="{{ rate30 }}" style="{{ rate30Style }}">30s</button>
+        <button onClick="{{ rate60 }}" style="{{ rate60Style }}">60s</button>
+      </div>
+    </sc-if>
+  </div>
+
+  <div id="page" style="position:relative; max-width:min(1800px, 96vw); margin:0 auto; padding:34px clamp(80px, 8vw, 140px) 110px clamp(20px, 3vw, 40px)">
+
+    <header id="headerRow" style="display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:20px; margin-bottom:28px">
+      <div>
+        <div style="display:flex; align-items:center; gap:14px; margin-bottom:10px">
+          <span style="font-family:'JetBrains Mono', monospace; font-size:12px; letter-spacing:.32em; text-transform:uppercase; color:var(--accent)">Centro de Controle</span>
+
+        </div>
+        <div id="envTabs" style="display:inline-flex; gap:4px; padding:4px; border:1px solid var(--line); border-radius:var(--radius-md); background:var(--surface); margin-bottom:14px">
+          <button onClick="{{ envDev }}" style="{{ envDevStyle }}">DESENVOLVIMENTO</button>
+          <button onClick="{{ envHml }}" style="{{ envHmlStyle }}">HOMOLOGAÇÃO</button>
+          <button onClick="{{ envPrd }}" style="{{ envPrdStyle }}">PRODUÇÃO</button>
+        </div>
+        <h1 id="pageTitle" style="margin:0; font-size:clamp(28px, 3.2vw, 48px); font-weight:500; letter-spacing:-.02em; line-height:1.02">Órbita de Aplicações</h1>
+        <p style="margin:10px 0 0; max-width:52ch; color:var(--muted); font-size:15px; line-height:1.5; text-wrap:pretty">Cada planeta é uma aplicação em órbita. O brilho indica se o health check respondeu na última varredura.</p>
+      </div>
+      <div id="statsRow" style="display:flex; gap:10px; align-items:center">
+        <div style="display:flex; align-items:baseline; gap:8px; padding:8px 14px; border:1px solid var(--up-line); border-radius:var(--radius-md); background:var(--up-fill)">
+          <span style="font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.18em; color:var(--up)">NO AR</span>
+          <span style="font-size:20px; font-weight:500; line-height:1">{{ upCount }}</span>
+        </div>
+        <div style="display:flex; align-items:baseline; gap:8px; padding:8px 14px; border:1px solid var(--down-line); border-radius:var(--radius-md); background:var(--down-fill)">
+          <span style="font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.18em; color:var(--down)">FORA</span>
+          <span style="font-size:20px; font-weight:500; line-height:1">{{ downCount }}</span>
+        </div>
+      </div>
+    </header>
+
+    <div id="shell" style="display:grid; grid-template-columns:minmax(0,1.5fr) minmax(300px,.8fr); gap:clamp(16px, 2vw, 34px); align-items:start">
+
+      <div style="display:flex; flex-direction:column; gap:14px; min-width:0">
+      <section id="orbitPanel" style="position:relative; display:flex; border:1px solid var(--line); border-radius:var(--radius-md); background:var(--panel); overflow:hidden; height:509px; transition:background .4s ease">
+        <div ref="{{ orbitRef }}" style="flex:1; min-height:0; display:flex"></div>
+        <div style="position:absolute; left:18px; bottom:14px; font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.16em; color:var(--faint)">CLIQUE EM UM PLANETA PARA DETALHES</div>
+      </section>
+      </div>
+
+      <section id="listCol" style="position:sticky; top:20px; display:flex; flex-direction:column; gap:12px">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding-left:2px">
+          <span style="font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.24em; color:var(--faint)">FROTA · {{ totalLabel }}</span>
+          <span style="font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--faint)">{{ shownLabel }}</span>
+        </div>
+
+        <input value="{{ query }}" onChange="{{ onQuery }}" placeholder="Buscar por nome ou time…" style="padding:9px 12px; border-radius:var(--radius-md); border:1px solid var(--line); background:var(--field); color:var(--ink); font-size:13.5px; outline:none" style-focus="border-color:var(--accent)">
+
+        <div style="display:flex; gap:6px; align-items:center">
+          <button onClick="{{ filterAll }}" style="{{ fAllStyle }}">TODAS</button>
+          <button onClick="{{ filterUp }}" style="{{ fUpStyle }}">NO AR</button>
+          <button onClick="{{ filterDown }}" style="{{ fDownStyle }}">FORA</button>
+          <div style="margin-left:auto; display:flex; align-items:center; gap:6px">
+            <button onClick="{{ prevPage }}" title="Página anterior" style="{{ prevStyle }}">‹</button>
+            <span style="font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:.1em; color:var(--faint); white-space:nowrap">{{ pageLabel }}</span>
+            <button onClick="{{ nextPage }}" title="Próxima página" style="{{ nextStyle }}">›</button>
+          </div>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:10px; overflow-y:auto; overscroll-behavior:contain; padding:2px 6px 8px 2px; margin-right:-4px">
+        <sc-for list="{{ apps }}" as="app" hint-placeholder-count="3">
+          <article onClick="{{ app.select }}" style="{{ app.cardStyle }}">
+            <button onClick="{{ app.remove }}" title="Remover" style="position:absolute; top:8px; right:8px; border:none; background:none; color:var(--faint); cursor:pointer; font-size:13px; padding:2px 4px" style-hover="color:var(--down)">✕</button>
+            <div style="display:flex; align-items:center; gap:10px; padding-right:22px">
+              <span style="{{ app.dotStyle }}"></span>
+              <div style="flex:1; min-width:0">
+                <div style="font-size:16px; font-weight:500; letter-spacing:-.01em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ app.nome }}</div>
+              </div>
+              <div style="display:flex; align-items:center; gap:6px; flex:none">
+                <span style="{{ app.badgeStyle }}">{{ app.statusLabel }}</span>
+              </div>
+            </div>
+            <div style="font-size:12.5px; color:var(--muted); margin-top:8px; text-wrap:pretty">Time responsável: {{ app.time }}</div>
+            <div style="display:flex; align-items:center; gap:10px; margin-top:12px; font-family:'JetBrains Mono',monospace; font-size:11.5px">
+              <a href="{{ app.swagger }}" target="_blank" rel="noopener" onClick="{{ stop }}" style="{{ app.swaggerStyle }}">
+                <svg width="12" height="12" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M136 80a8 8 0 0 1 8-8h64a8 8 0 0 1 8 8v64a8 8 0 0 1-16 0V99.31l-58.34 58.35a8 8 0 0 1-11.32-11.32L188.69 88H144a8 8 0 0 1-8-8Zm64 80a8 8 0 0 0-8 8v24H64V64h24a8 8 0 0 0 0-16H64a16 16 0 0 0-16 16v128a16 16 0 0 0 16 16h128a16 16 0 0 0 16-16v-24a8 8 0 0 0-8-8Z"></path></svg>
+                SWAGGER
+              </a>
+
+            </div>
+          </article>
+        </sc-for>
+        <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:26px; border:1px dashed var(--line); border-radius:var(--radius-md); color:var(--muted); font-size:14px; text-align:center">{{ emptyMsg }}</div>
+        </sc-if>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <button onClick="{{ openForm }}" title="Adicionar aplicação" style="position:fixed; right:28px; bottom:28px; width:60px; height:60px; border-radius:50%; border:1px solid var(--accent); background:var(--fab-bg); color:var(--accent-soft); font-size:30px; font-weight:400; line-height:1; cursor:pointer; box-shadow:var(--fab-glow); z-index:40" style-hover="background:var(--accent-tint)">+</button>
+
+  <sc-if value="{{ formOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed; inset:0; z-index:50; display:flex; align-items:center; justify-content:center; padding:24px; background:var(--scrim); backdrop-filter:blur(6px); animation:fadeIn .18s ease">
+      <div onClick="{{ stop }}" style="width:100%; max-width:480px; border:1px solid var(--line); border-radius:var(--radius-md); background:var(--dialog); box-shadow:var(--elev-lg); padding:26px; animation:floatUp .22s cubic-bezier(.2,.8,.3,1)">
+        <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:20px">
+          <div>
+            <div style="font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.24em; color:var(--accent)">NOVO LANÇAMENTO</div>
+            <h2 style="margin:8px 0 0; font-size:22px; font-weight:500; letter-spacing:-.01em">Adicionar aplicação</h2>
+          </div>
+          <button onClick="{{ closeForm }}" style="border:1px solid var(--line); background:var(--surface); color:var(--muted); width:32px; height:32px; border-radius:var(--radius-md); cursor:pointer; font-size:15px">✕</button>
+        </div>
+
+        <form onSubmit="{{ submit }}" style="display:flex; flex-direction:column; gap:14px">
+          <label style="display:flex; flex-direction:column; gap:6px">
+            <span style="font-size:12.5px; color:var(--muted)">Nome da aplicação <span style="color:var(--down)">*</span></span>
+            <input value="{{ fNome }}" onChange="{{ onNome }}" required="{{ true }}" placeholder="checkout-api" style="padding:11px 13px; border-radius:var(--radius-md); border:1px solid var(--line); background:var(--field); color:var(--ink); font-size:14px; outline:none" style-focus="border-color:var(--accent)">
+          </label>
+          <label style="display:flex; flex-direction:column; gap:6px">
+            <span style="font-size:12.5px; color:var(--muted)">Time responsável <span style="color:var(--down)">*</span></span>
+            <input value="{{ fTime }}" onChange="{{ onTime }}" required="{{ true }}" placeholder="Pagamentos" style="padding:11px 13px; border-radius:var(--radius-md); border:1px solid var(--line); background:var(--field); color:var(--ink); font-size:14px; outline:none" style-focus="border-color:var(--accent)">
+          </label>
+          <label style="display:flex; flex-direction:column; gap:6px">
+            <span style="font-size:12.5px; color:var(--muted)">Ambiente <span style="color:var(--down)">*</span></span>
+            <div style="display:flex; gap:6px">
+              <button type="button" onClick="{{ formEnvDev }}" style="{{ formEnvDevStyle }}">DESENVOLVIMENTO</button>
+              <button type="button" onClick="{{ formEnvHml }}" style="{{ formEnvHmlStyle }}">HOMOLOGAÇÃO</button>
+              <button type="button" onClick="{{ formEnvPrd }}" style="{{ formEnvPrdStyle }}">PRODUÇÃO</button>
+            </div>
+          </label>
+          <label style="display:flex; flex-direction:column; gap:6px">
+            <span style="font-size:12.5px; color:var(--muted)">URL do Swagger <span style="color:var(--faint)">(opcional)</span></span>
+            <input value="{{ fSwagger }}" onChange="{{ onSwagger }}" placeholder="https://api.exemplo.com/swagger-ui.html" style="padding:11px 13px; border-radius:var(--radius-md); border:1px solid var(--line); background:var(--field); color:var(--ink); font-size:14px; outline:none; font-family:'JetBrains Mono',monospace" style-focus="border-color:var(--accent)">
+          </label>
+          <label style="display:flex; flex-direction:column; gap:6px">
+            <span style="font-size:12.5px; color:var(--muted)">URL do health check <span style="color:var(--down)">*</span></span>
+            <input value="{{ fHealth }}" onChange="{{ onHealth }}" required="{{ true }}" placeholder="https://api.exemplo.com/actuator/health" style="padding:11px 13px; border-radius:var(--radius-md); border:1px solid var(--line); background:var(--field); color:var(--ink); font-size:14px; outline:none; font-family:'JetBrains Mono',monospace" style-focus="border-color:var(--accent)">
+          </label>
+          <div style="display:flex; gap:10px; margin-top:6px">
+            <button type="button" onClick="{{ closeForm }}" style="flex:1; padding:12px; border-radius:var(--radius-md); border:1px solid var(--line); background:transparent; color:var(--muted); font-size:14px; cursor:pointer">Cancelar</button>
+            <button type="submit" style="flex:1.4; padding:12px; border-radius:var(--radius-md); border:1px solid var(--accent); background:var(--accent-tint); color:var(--accent-soft); font-size:14px; font-weight:500; cursor:pointer">Lançar em órbita</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ confirmOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ cancelRemove }}" style="position:fixed; inset:0; z-index:60; display:flex; align-items:center; justify-content:center; padding:24px; background:var(--scrim); backdrop-filter:blur(6px); animation:fadeIn .18s ease">
+      <div onClick="{{ stop }}" style="width:100%; max-width:400px; border:1px solid var(--line); border-radius:var(--radius-md); background:var(--dialog); box-shadow:var(--elev-lg); padding:24px; animation:floatUp .22s cubic-bezier(.2,.8,.3,1)">
+        <div style="font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.24em; color:var(--down)">REMOVER DA ÓRBITA</div>
+        <h2 style="margin:10px 0 0; font-size:19px; font-weight:500; letter-spacing:-.01em">Remover {{ confirmNome }}?</h2>
+        <p style="margin:8px 0 0; font-size:14px; line-height:1.5; color:var(--muted)">A aplicação deixa de ser monitorada e some do painel. Você pode cadastrá-la de novo depois.</p>
+        <div style="display:flex; gap:10px; margin-top:20px">
+          <button onClick="{{ cancelRemove }}" style="flex:1; padding:11px; border-radius:var(--radius-md); border:1px solid var(--line); background:transparent; color:var(--muted); font-size:14px; cursor:pointer">Cancelar</button>
+          <button onClick="{{ confirmRemove }}" style="flex:1; padding:11px; border-radius:var(--radius-md); border:1px solid var(--down-line); background:var(--down-fill); color:var(--down); font-size:14px; font-weight:500; cursor:pointer">Remover</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:900}}">
+const KEY = 'orbital-apps-v1';
+const TKEY = 'orbital-theme-v1';
+const ENVS = [['dev', 'DESENVOLVIMENTO'], ['hml', 'HOMOLOGAÇÃO'], ['prd', 'PRODUÇÃO']];
+const SEED = [
+  { id: 's1', env: 'prd', nome: 'checkout-api', time: 'Pagamentos', swagger: 'https://petstore.swagger.io/', health: 'https://petstore.swagger.io/v2/swagger.json' },
+  { id: 's2', env: 'prd', nome: 'catalogo-service', time: 'Produtos', swagger: '', health: 'https://httpbin.org/status/200' },
+  { id: 's3', env: 'hml', nome: 'auth-gateway', time: 'Plataforma', swagger: 'https://petstore.swagger.io/', health: 'https://servico-inexistente-xyz.internal/health' },
+  { id: 's4', env: 'dev', nome: 'checkout-api', time: 'Pagamentos', swagger: '', health: 'https://petstore.swagger.io/v2/swagger.json' },
+  { id: 's5', env: 'dev', nome: 'catalogo-service', time: 'Produtos', swagger: 'https://petstore.swagger.io/', health: 'https://httpbin.org/status/200' },
+  { id: 's6', env: 'dev', nome: 'notificacoes-worker', time: 'Engajamento', swagger: '', health: 'https://dev-notificacoes.interno/health' },
+  { id: 's7', env: 'dev', nome: 'auth-gateway', time: 'Plataforma', swagger: 'https://petstore.swagger.io/', health: 'https://httpbin.org/status/204' },
+  { id: 's8', env: 'hml', nome: 'checkout-api', time: 'Pagamentos', swagger: 'https://petstore.swagger.io/', health: 'https://httpbin.org/status/200' },
+  { id: 's9', env: 'hml', nome: 'catalogo-service', time: 'Produtos', swagger: '', health: 'https://hml-catalogo.interno/actuator/health' },
+  { id: 's10', env: 'hml', nome: 'relatorios-api', time: 'Dados', swagger: 'https://petstore.swagger.io/', health: 'https://httpbin.org/status/200' }
+];
+
+const THEMES = {
+  dark: {
+    '--bg': 'radial-gradient(120% 80% at 50% 0%, var(--color-neutral-800) 0%, var(--color-neutral-900) 45%, var(--color-bg) 100%)',
+    '--ink': 'var(--color-text)', '--muted': 'var(--color-neutral-300)', '--faint': 'var(--color-neutral-500)',
+    '--line': 'color-mix(in srgb, var(--color-text) 14%, transparent)',
+    '--surface': 'color-mix(in srgb, var(--color-text) 5%, transparent)',
+    '--panel': 'linear-gradient(180deg, color-mix(in srgb, var(--color-text) 5%, transparent), color-mix(in srgb, var(--color-bg) 50%, transparent))',
+    '--dialog': 'var(--color-neutral-900)', '--field': 'var(--color-bg)',
+    '--accent': 'var(--color-accent)', '--accent-soft': 'var(--color-accent-200)',
+    '--accent-tint': 'color-mix(in srgb, var(--color-accent) 14%, transparent)',
+    '--halo': 'color-mix(in srgb, var(--color-accent) 16%, transparent)',
+    '--scrim': 'color-mix(in srgb, var(--color-bg) 75%, transparent)',
+    '--up': '#6fd39b', '--up-line': 'rgba(111,211,155,.35)', '--up-fill': 'rgba(111,211,155,.08)',
+    '--down': '#e8808c', '--down-line': 'rgba(232,128,140,.32)', '--down-fill': 'rgba(232,128,140,.08)',
+    '--fab-bg': 'color-mix(in srgb, var(--color-accent) 16%, transparent)',
+    '--fab-solid': 'var(--color-accent)', '--fab-ink': 'var(--color-bg)',
+    '--fab-glow': '0 0 0 1px color-mix(in srgb, var(--color-accent) 45%, transparent), 0 0 12px color-mix(in srgb, var(--color-accent) 40%, transparent), 0 0 26px color-mix(in srgb, var(--color-accent) 18%, transparent)',
+    '--elev-md': 'var(--shadow-md)', '--elev-lg': 'var(--shadow-lg)',
+    '--star-opacity': '1', '--cloud-opacity': '0'
+  },
+  light: {
+    '--bg': 'linear-gradient(180deg, #bcdcf5 0%, #d6e9f8 40%, #eef4fb 78%, #f6f9fd 100%)',
+    '--ink': '#16263a', '--muted': '#4c6480', '--faint': '#7d94ad',
+    '--line': 'rgba(22,38,58,.14)', '--surface': 'rgba(255,255,255,.55)',
+    '--panel': 'linear-gradient(180deg, rgba(255,255,255,.78), rgba(226,240,251,.55))',
+    '--dialog': 'rgba(252,253,255,.98)', '--field': '#ffffff',
+    '--accent': '#3d74b8', '--accent-soft': '#255291', '--accent-tint': 'rgba(61,116,184,.12)',
+    '--halo': 'rgba(255,205,120,.45)', '--scrim': 'rgba(40,62,88,.34)',
+    '--up': '#1c8a58', '--up-line': 'rgba(28,138,88,.34)', '--up-fill': 'rgba(28,138,88,.08)',
+    '--down': '#c0384a', '--down-line': 'rgba(192,56,74,.3)', '--down-fill': 'rgba(192,56,74,.07)',
+    '--fab-bg': 'rgba(61,116,184,.14)', '--fab-solid': '#3d74b8', '--fab-ink': '#f6fbff', '--fab-glow': '0 0 0 1px rgba(61,116,184,.35), 0 0 12px rgba(61,116,184,.3), 0 0 24px rgba(61,116,184,.14)',
+    '--elev-md': '0 8px 24px rgba(40,70,105,.16)', '--elev-lg': '0 30px 70px rgba(40,70,105,.24)',
+    '--star-opacity': '0', '--cloud-opacity': '1'
+  }
+};
+
+class Component extends DCLogic {
+  state = {
+    apps: [], status: {}, formOpen: false, scanning: false, selectedId: null, pendingRemoveId: null, theme: 'dark', query: '', filter: 'all', page: 0, env: 'prd', rate: 30, rateOpen: false,
+    form: { nome: '', time: '', swagger: '', health: '', env: 'prd' }
+  };
+
+  componentDidMount() {
+    let apps = SEED, theme = 'dark';
+    try {
+      const raw = localStorage.getItem(KEY);
+      if (raw) apps = JSON.parse(raw).map(a => ({ ...a, time: (a.time || '').replace(/^Squad\s+/i, '') }));
+      const t = localStorage.getItem(TKEY); if (t === 'light' || t === 'dark') theme = t;
+      const r = parseInt(localStorage.getItem('orbital-rate-v1'), 10); if (r) this.state.rate = r;
+    } catch (e) {}
+    this.setState({ apps, theme }, () => { this.applyTheme(); this.checkAll(); this.waitForD3(); this.startAuto(); });
+  }
+  componentWillUnmount() { if (this.timer) this.timer.stop(); if (this.ro) this.ro.disconnect(); clearInterval(this.autoId); }
+
+  startAuto() {
+    clearInterval(this.autoId);
+    const s = this.state.rate || 30;
+    this.autoId = setInterval(() => this.checkAll(), s * 1000);
+  }
+  setRate(s) {
+    try { localStorage.setItem('orbital-rate-v1', String(s)); } catch (e) {}
+    this.setState({ rate: s, rateOpen: false }, () => this.startAuto());
+  }
+
+  applyTheme() {
+    const el = this.rootEl; if (!el) return;
+    const vars = THEMES[this.state.theme];
+    Object.keys(vars).forEach(k => el.style.setProperty(k, vars[k]));
+    document.body.style.background = this.state.theme === 'light'
+      ? '#bcdcf5'
+      : getComputedStyle(el).getPropertyValue('--color-bg').trim() || '#161826';
+  }
+
+  waitForD3() {
+    if (window.d3) { this.drawStars(); this.drawClouds(); this.drawOrbits(); return; }
+    setTimeout(() => this.waitForD3(), 120);
+  }
+  redraw() { if (window.d3 && this.orbitEl) this.drawOrbits(); }
+  envApps() { return this.state.apps.filter(a => (a.env || 'prd') === this.state.env); }
+  setEnv(env) { this.setState({ env, page: 0, selectedId: null }, () => this.redraw()); }
+  select(id, fromOrbit) {
+    const next = { selectedId: id };
+    if (fromOrbit && id) {
+      const q = (this.state.query || '').trim().toLowerCase();
+      const f = this.state.filter || 'all';
+      const st = this.state.status;
+      const visible = this.envApps().filter(a => {
+        if (f !== 'all' && st[a.id] !== f) return false;
+        if (!q) return true;
+        return (a.nome + ' ' + a.time).toLowerCase().includes(q);
+      });
+      const i = visible.findIndex(a => a.id === id);
+      if (i >= 0) next.page = Math.floor(i / 3);
+      else { next.query = ''; next.filter = 'all'; next.page = Math.floor(this.envApps().findIndex(a => a.id === id) / 3); }
+    }
+    this.setState(next, () => { if (this.paintSelection) this.paintSelection(); else this.redraw(); });
+  }
+
+  persist(apps) { try { localStorage.setItem(KEY, JSON.stringify(apps)); } catch (e) {} }
+
+  drawStars() {
+    const el = this.starsEl; if (!el || el.dataset.done) return;
+    el.dataset.done = '1';
+    const d3 = window.d3;
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('height', '100%').style('display', 'block');
+    const data = d3.range(160).map(() => ({ x: Math.random() * 100, y: Math.random() * 100, r: Math.random() * 1.5 + .4, d: Math.random() * 6 }));
+    svg.selectAll('circle').data(data).join('circle')
+      .attr('cx', d => d.x + '%').attr('cy', d => d.y + '%').attr('r', d => d.r)
+      .attr('fill', d => d.r > 1.4 ? '#cfc9f2' : '#e9e9ed')
+      .style('animation', d => `twinkle ${3 + d.d}s ease-in-out ${d.d}s infinite`);
+  }
+
+  drawClouds() {
+    const el = this.cloudsEl; if (!el || el.dataset.done) return;
+    el.dataset.done = '1';
+    const d3 = window.d3;
+    const specs = [
+      { top: 6, scale: 1.5, dur: 160, delay: -40, op: .95 },
+      { top: 22, scale: .9, dur: 210, delay: -130, op: .75 },
+      { top: 44, scale: 1.2, dur: 250, delay: -60, op: .6 },
+      { top: 63, scale: .7, dur: 190, delay: -170, op: .5 },
+      { top: 78, scale: 1.35, dur: 300, delay: -20, op: .45 }
+    ];
+    d3.select(el).selectAll('div').data(specs).join('div')
+      .style('position', 'absolute')
+      .style('top', d => d.top + '%')
+      .style('left', '0')
+      .style('opacity', d => d.op)
+      .style('transform-origin', 'left center')
+      .style('animation', d => `drift ${d.dur}s linear ${d.delay}s infinite`)
+      .html(d => {
+        const s = d.scale;
+        return `<svg width="${260 * s}" height="${104 * s}" viewBox="0 0 260 104" fill="none">
+          <g fill="#ffffff">
+            <ellipse cx="82" cy="66" rx="74" ry="30"/>
+            <ellipse cx="104" cy="44" rx="46" ry="34"/>
+            <ellipse cx="152" cy="56" rx="52" ry="28"/>
+            <ellipse cx="192" cy="68" rx="46" ry="22"/>
+          </g>
+          <g fill="#cfe2f4" opacity=".55">
+            <ellipse cx="70" cy="80" rx="58" ry="12"/>
+            <ellipse cx="170" cy="80" rx="48" ry="10"/>
+          </g>
+        </svg>`;
+      });
+  }
+
+  drawCore(g, defs, light) {
+    if (light) {
+      const grad = defs.append('radialGradient').attr('id', 'coreSun');
+      grad.append('stop').attr('offset', '0%').attr('stop-color', '#fff3d6');
+      grad.append('stop').attr('offset', '100%').attr('stop-color', '#f0a83c');
+      g.append('circle').attr('r', 34).attr('fill', 'rgba(240,168,60,.14)');
+      g.append('g').selectAll('line').data(window.d3.range(12)).join('line')
+        .attr('x1', d => Math.cos(d * Math.PI / 6) * 21).attr('y1', d => Math.sin(d * Math.PI / 6) * 21)
+        .attr('x2', d => Math.cos(d * Math.PI / 6) * 28).attr('y2', d => Math.sin(d * Math.PI / 6) * 28)
+        .attr('stroke', '#e8a53c').attr('stroke-width', 1.6).attr('stroke-linecap', 'round').attr('opacity', .7);
+      g.append('circle').attr('r', 17).attr('fill', 'url(#coreSun)').attr('filter', 'url(#oglow)');
+      return 'SOL';
+    }
+    const grad = defs.append('radialGradient').attr('id', 'coreMoon').attr('cx', '35%').attr('cy', '32%');
+    grad.append('stop').attr('offset', '0%').attr('stop-color', '#f4f3fb');
+    grad.append('stop').attr('offset', '100%').attr('stop-color', '#b9b6cf');
+    g.append('circle').attr('r', 33).attr('fill', 'rgba(199,192,238,.09)');
+    g.append('circle').attr('r', 17).attr('fill', 'url(#coreMoon)').attr('filter', 'url(#oglow)');
+    const craters = [[-5, -4, 3.2], [4.5, 2.5, 4.2], [-2, 7, 2], [7, -6, 2]];
+    g.selectAll('circle.crater').data(craters).join('circle').attr('class', 'crater')
+      .attr('cx', d => d[0]).attr('cy', d => d[1]).attr('r', d => d[2])
+      .attr('fill', '#9e9ab8').attr('opacity', .45);
+    return 'LUA';
+  }
+
+  drawOrbits() {
+    const el = this.orbitEl; if (!el) return;
+    const d3 = window.d3;
+    const light = this.state.theme === 'light';
+    const W = Math.max(320, el.clientWidth || 860), H = Math.max(280, el.clientHeight || 560);
+    d3.select(el).selectAll('svg').remove();
+    const svg = d3.select(el).append('svg')
+      .attr('viewBox', `0 0 ${W} ${H}`)
+      .attr('preserveAspectRatio', 'xMidYMid meet')
+      .style('display', 'block').style('width', '100%').style('height', '100%');
+    const g = svg.append('g').attr('transform', `translate(${W / 2},${H / 2})`);
+
+    const defs = svg.append('defs');
+    const f = defs.append('filter').attr('id', 'oglow').attr('x', '-80%').attr('y', '-80%').attr('width', '260%').attr('height', '260%');
+    f.append('feGaussianBlur').attr('stdDeviation', 6).attr('result', 'b');
+    const m = f.append('feMerge'); m.append('feMergeNode').attr('in', 'b'); m.append('feMergeNode').attr('in', 'SourceGraphic');
+
+    const nodes = this.envApps().map((a, i) => {
+      const ring = i % 4;
+      const rMax = Math.min(W / 2 - 46, (H / 2 - 34) / 0.42);
+      const r = rMax * (0.34 + ring * 0.22);
+      return { ...a, r, ry: r * 0.42, phase: (i * 2.399) % (Math.PI * 2), speed: 0.32 / (1 + ring * 0.55), size: 9.5 + (ring === 0 ? 2.5 : 0) };
+    });
+
+    g.selectAll('ellipse.ring').data([...new Set(nodes.map(n => n.r))]).join('ellipse')
+      .attr('rx', d => d).attr('ry', d => d * 0.42).attr('fill', 'none')
+      .attr('stroke', light ? 'rgba(22,60,100,.22)' : 'rgba(233,233,237,.14)').attr('stroke-dasharray', '3 7');
+
+    this.drawCore(g, defs, light);
+
+    const up = light ? '#1c8a58' : '#6fd39b', down = light ? '#c0384a' : '#e8808c', idle = light ? '#7d94ad' : '#6e6e86';
+    const color = s => s === 'up' ? up : s === 'down' ? down : idle;
+    const st = this.state.status;
+
+    const node = g.selectAll('g.planet').data(nodes, d => d.id).join('g')
+      .attr('class', 'planet').style('cursor', 'pointer')
+      .on('click', (e, d) => this.select(d.id, true));
+
+    node.append('circle').attr('r', d => d.size + 7).attr('fill', d => color(st[d.id])).attr('opacity', light ? .14 : .18);
+    node.append('circle').attr('r', d => d.size).attr('fill', d => color(st[d.id]))
+      .attr('stroke', d => this.state.selectedId === d.id ? (light ? '#255291' : '#ffffff') : (light ? 'rgba(22,38,58,.2)' : 'rgba(255,255,255,.35)'))
+      .attr('stroke-width', d => this.state.selectedId === d.id ? 2.5 : 1)
+      .attr('filter', light ? null : 'url(#oglow)');
+    node.append('circle').attr('r', d => d.size * .45).attr('cx', d => -d.size * .3).attr('cy', d => -d.size * .3)
+      .attr('fill', light ? 'rgba(255,255,255,.5)' : 'rgba(255,255,255,.35)');
+    node.append('text').attr('y', d => d.size + 18).attr('text-anchor', 'middle')
+      .attr('fill', light ? '#1c3550' : '#c9c6e0').style('font', "500 12px 'Inter', sans-serif").text(d => d.nome);
+
+    if (!this.t0) this.t0 = Date.now();
+    if (this.timer) this.timer.stop();
+    this.timer = d3.timer(() => {
+      const t = (Date.now() - this.t0) / 1000;
+      node.attr('transform', d => {
+        const a = d.phase + t * d.speed;
+        return `translate(${Math.cos(a) * d.r},${Math.sin(a) * d.ry})`;
+      });
+    });
+    this.planetSel = node;
+    this.paintSelection = () => {
+      node.select('circle:nth-child(2)')
+        .attr('stroke', d => this.state.selectedId === d.id ? (light ? '#255291' : '#ffffff') : (light ? 'rgba(22,38,58,.2)' : 'rgba(255,255,255,.35)'))
+        .attr('stroke-width', d => this.state.selectedId === d.id ? 2.5 : 1);
+    };
+  }
+
+  async probe(app) {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 7000);
+    try { await fetch(app.health, { mode: 'no-cors', cache: 'no-store', signal: ctrl.signal }); clearTimeout(t); return 'up'; }
+    catch (e) { clearTimeout(t); return 'down'; }
+  }
+
+  checkAll = async () => {
+    if (this.state.scanning) return;
+    const apps = this.state.apps;
+    this.setState({ scanning: true, status: {} }, () => this.redraw());
+    const results = await Promise.all(apps.map(a => this.probe(a)));
+    const status = {};
+    apps.forEach((a, i) => { status[a.id] = results[i]; });
+    this.setState({ status, scanning: false }, () => this.redraw());
+  };
+
+  toggleTheme = () => {
+    const theme = this.state.theme === 'dark' ? 'light' : 'dark';
+    try { localStorage.setItem(TKEY, theme); } catch (e) {}
+    this.setState({ theme }, () => { this.applyTheme(); this.redraw(); });
+  };
+
+  renderVals() {
+    const { status, form, selectedId, theme, env } = this.state;
+    const apps = this.envApps();
+    const light = theme === 'light';
+    const label = s => s === 'up' ? 'NO AR' : s === 'down' ? 'FORA DO AR' : 'VERIFICANDO';
+    const col = s => s === 'up' ? (light ? '#1c8a58' : '#6fd39b') : s === 'down' ? (light ? '#c0384a' : '#e8808c') : (light ? '#7d94ad' : '#6e6e86');
+    const dot = s => `width:11px; height:11px; border-radius:50%; flex:none; background:${col(s)}; box-shadow:0 0 ${light ? 6 : 12}px ${col(s)}`;
+    const sel = apps.find(a => a.id === selectedId);
+    const pending = apps.find(a => a.id === this.state.pendingRemoveId);
+    const q = (this.state.query || '').trim().toLowerCase();
+    const filter = this.state.filter || 'all';
+    const visible = apps.filter(a => {
+      if (filter !== 'all' && status[a.id] !== filter) return false;
+      if (!q) return true;
+      return (a.nome + ' ' + a.time).toLowerCase().includes(q);
+    });
+    const PER = 3;
+    const pages = Math.max(1, Math.ceil(visible.length / PER));
+    const page = Math.min(this.state.page || 0, pages - 1);
+    const paged = visible.slice(page * PER, page * PER + PER);
+    const envTab = active => `font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.14em; padding:7px 12px; border-radius:var(--radius-sm); cursor:pointer; border:1px solid ${active ? 'var(--accent)' : 'transparent'}; background:${active ? 'var(--accent-tint)' : 'transparent'}; color:${active ? 'var(--accent-soft)' : 'var(--muted)'}`;
+    const rateOpt = active => `font-family:'JetBrains Mono',monospace; font-size:11.5px; letter-spacing:.1em; text-align:right; padding:6px 12px; border-radius:var(--radius-sm); cursor:pointer; border:none; background:${active ? 'var(--accent-tint)' : 'transparent'}; color:${active ? 'var(--accent-soft)' : 'var(--muted)'}`;
+    const navBtn = enabled => `width:26px; height:24px; display:flex; align-items:center; justify-content:center; border-radius:var(--radius-sm); font-size:15px; line-height:1; border:1px solid var(--line); background:transparent; color:${enabled ? 'var(--accent-soft)' : 'var(--faint)'}; opacity:${enabled ? 1 : .4}; cursor:${enabled ? 'pointer' : 'default'}`;
+    const chip = active => `font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:.14em; padding:6px 11px; border-radius:var(--radius-sm); cursor:pointer; border:1px solid ${active ? 'var(--accent)' : 'var(--line)'}; background:${active ? 'var(--accent-tint)' : 'transparent'}; color:${active ? 'var(--accent-soft)' : 'var(--muted)'}`;
+    const setF = k => e => this.setState({ form: { ...this.state.form, [k]: e.target.value } });
+    const selBorder = light ? 'rgba(61,116,184,.55)' : 'rgba(145,132,217,.55)';
+    const selBg = light ? 'rgba(61,116,184,.1)' : 'rgba(145,132,217,.1)';
+
+    return {
+      rootRef: el => { this.rootEl = el; if (el) this.applyTheme(); },
+      starsRef: el => { this.starsEl = el; },
+      cloudsRef: el => { this.cloudsEl = el; if (el && window.d3) this.drawClouds(); },
+      orbitRef: el => {
+        this.orbitEl = el;
+        if (el && !this.ro && window.ResizeObserver) {
+          this.ro = new ResizeObserver(() => this.redraw());
+          this.ro.observe(el);
+        }
+      },
+      theme,
+      envDev: () => this.setEnv('dev'),
+      envHml: () => this.setEnv('hml'),
+      envPrd: () => this.setEnv('prd'),
+      envDevStyle: envTab(env === 'dev'),
+      envHmlStyle: envTab(env === 'hml'),
+      envPrdStyle: envTab(env === 'prd'),
+      formEnvDev: () => this.setState({ form: { ...form, env: 'dev' } }),
+      formEnvHml: () => this.setState({ form: { ...form, env: 'hml' } }),
+      formEnvPrd: () => this.setState({ form: { ...form, env: 'prd' } }),
+      formEnvDevStyle: envTab(form.env === 'dev'),
+      formEnvHmlStyle: envTab(form.env === 'hml'),
+      formEnvPrdStyle: envTab(form.env === 'prd'),
+      isLight: light,
+      themeLabel: light ? 'LIGHT' : 'DARK',
+      trackStyle: `position:relative; width:38px; height:21px; border-radius:11px; flex:none; transition:background .25s ease, border-color .25s ease; border:1px solid ${light ? 'var(--accent)' : 'var(--line)'}; background:${light ? 'var(--accent-tint)' : 'transparent'}`,
+      knobStyle: `position:absolute; top:2px; left:2px; width:15px; height:15px; border-radius:50%; transition:transform .25s cubic-bezier(.3,.8,.3,1), background .25s ease; background:${light ? 'var(--accent)' : 'var(--faint)'}; transform:translateX(${light ? '17px' : '0'})`,
+      toggleTheme: this.toggleTheme,
+      upCount: apps.filter(a => status[a.id] === 'up').length,
+      downCount: apps.filter(a => status[a.id] === 'down').length,
+      totalLabel: `${apps.length} ${apps.length === 1 ? 'APLICAÇÃO' : 'APLICAÇÕES'}`,
+      isEmpty: visible.length === 0,
+      pageLabel: `${page + 1}/${pages}`,
+      prevStyle: navBtn(page > 0),
+      nextStyle: navBtn(page < pages - 1),
+      prevPage: () => { if (page > 0) this.setState({ page: page - 1 }); },
+      nextPage: () => { if (page < pages - 1) this.setState({ page: page + 1 }); },
+      emptyMsg: apps.length === 0
+        ? 'Nenhuma aplicação em órbita ainda. Use o botão + para lançar a primeira.'
+        : 'Nenhuma aplicação corresponde ao filtro.',
+      shownLabel: visible.length === apps.length ? '' : `${visible.length} DE ${apps.length}`,
+      query: this.state.query || '',
+      onQuery: e => this.setState({ query: e.target.value, page: 0 }),
+      filterAll: () => this.setState({ filter: 'all', page: 0 }),
+      filterUp: () => this.setState({ filter: 'up', page: 0 }),
+      filterDown: () => this.setState({ filter: 'down', page: 0 }),
+      fAllStyle: chip(filter === 'all'),
+      fUpStyle: chip(filter === 'up'),
+      fDownStyle: chip(filter === 'down'),
+      scanLabel: this.state.scanning ? 'Sincronizando…' : 'Sincronizar',
+      checkAll: this.checkAll,
+      rateLabel: `${this.state.rate}s`,
+      rateOpen: this.state.rateOpen,
+      toggleRate: () => this.setState({ rateOpen: !this.state.rateOpen }),
+      rate15: () => this.setRate(15),
+      rate30: () => this.setRate(30),
+      rate60: () => this.setRate(60),
+      rate15Style: rateOpt(this.state.rate === 15),
+      rate30Style: rateOpt(this.state.rate === 30),
+      rate60Style: rateOpt(this.state.rate === 60),
+      apps: paged.map(a => ({
+        ...a,
+        statusLabel: label(status[a.id]),
+        envLabel: ((ENVS.find(e => e[0] === (a.env || 'prd')) || [])[1] || 'PRODUÇÃO').slice(0, 3),
+        envBadgeStyle: `font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.14em; padding:4px 8px; border-radius:var(--radius-sm); color:var(--muted); border:1px solid var(--line); white-space:nowrap`,
+        dotStyle: dot(status[a.id]),
+        badgeStyle: `font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.14em; padding:4px 8px; border-radius:var(--radius-sm); color:${col(status[a.id])}; background:${col(status[a.id])}1f; white-space:nowrap`,
+        cardStyle: `position:relative; padding:14px 16px; border-radius:var(--radius-md); cursor:pointer; border:1px solid ${selectedId === a.id ? selBorder : 'var(--line)'}; background:${selectedId === a.id ? selBg : 'var(--surface)'}`,
+        swagger: a.swagger || undefined,
+        swaggerStyle: `display:inline-flex; align-items:center; gap:6px; padding:5px 11px; border-radius:var(--radius-sm); text-decoration:none; letter-spacing:.1em; font-size:11px; border:1px solid ${a.swagger ? 'var(--accent)' : 'var(--line)'}; color:${a.swagger ? 'var(--accent-soft)' : 'var(--faint)'}; ${a.swagger ? '' : 'opacity:.45; pointer-events:none;'}`,
+        healthShort: (a.health || '').replace(/^https?:\/\//, ''),
+        select: () => this.select(a.id),
+        remove: e => { e.stopPropagation(); this.setState({ pendingRemoveId: a.id }); }
+      })),
+      confirmOpen: !!pending,
+      confirmNome: pending ? pending.nome : '',
+      cancelRemove: () => this.setState({ pendingRemoveId: null }),
+      confirmRemove: () => {
+        const id = this.state.pendingRemoveId;
+        const next = this.state.apps.filter(x => x.id !== id);
+        this.persist(next);
+        this.setState({ apps: next, pendingRemoveId: null, selectedId: selectedId === id ? null : selectedId }, () => this.redraw());
+      },
+      hasSelection: !!sel,
+      selNome: sel ? sel.nome : '',
+      selTime: sel ? sel.time : '',
+      selHealth: sel ? sel.health : '',
+      selStatusLabel: sel ? label(status[sel.id]) : '',
+      selDotStyle: sel ? dot(status[sel.id]) : '',
+      selSwagger: sel && sel.swagger ? sel.swagger : undefined,
+      selSwaggerStyle: sel && sel.swagger
+        ? 'font-size:13px; padding:8px 12px; border-radius:var(--radius-md); border:1px solid var(--accent); color:var(--accent-soft); text-decoration:none; white-space:nowrap'
+        : 'font-size:13px; padding:8px 12px; border-radius:var(--radius-md); border:1px solid var(--line); color:var(--faint); opacity:.5; pointer-events:none; text-decoration:none; white-space:nowrap',
+      clearSelection: () => this.select(null),
+      formOpen: this.state.formOpen,
+      openForm: () => this.setState({ formOpen: true }),
+      closeForm: () => this.setState({ formOpen: false }),
+      stop: e => e.stopPropagation(),
+      fNome: form.nome, fTime: form.time, fSwagger: form.swagger, fHealth: form.health,
+      onNome: setF('nome'), onTime: setF('time'), onSwagger: setF('swagger'), onHealth: setF('health'),
+      submit: e => {
+        e.preventDefault();
+        const f = this.state.form;
+        if (!f.nome.trim() || !f.time.trim() || !f.health.trim()) return;
+        const url = v => { v = v.trim(); return v && !/^https?:\/\//i.test(v) ? 'https://' + v : v; };
+        const app = { id: 'a' + Date.now(), env: f.env || 'prd', nome: f.nome.trim(), time: f.time.trim(), swagger: url(f.swagger), health: url(f.health) };
+        const next = [...this.state.apps, app];
+        this.persist(next);
+        this.setState({ apps: next, formOpen: false, env: app.env, form: { nome: '', time: '', swagger: '', health: '', env: app.env } }, () => this.redraw());
+        this.probe(app).then(s => this.setState({ status: { ...this.state.status, [app.id]: s } }, () => this.redraw()));
+      }
+    };
+  }
+}
+
+</script>
+</body>
+</html>
