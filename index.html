@@ -237,21 +237,21 @@
 
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:900}}">
-const KEY = 'orbital-apps-v1';
 const TKEY = 'orbital-theme-v1';
+const CKEY = 'orbital-counters-v1';
+const AKEY = 'orbital-apps-v1';
+const SKEY = 'orbital-status-v1';
 const ENVS = [['dev', 'DESENVOLVIMENTO'], ['hml', 'HOMOLOGAÇÃO'], ['prd', 'PRODUÇÃO']];
-const SEED = [
-  { id: 's1', env: 'prd', nome: 'checkout-api', time: 'Pagamentos', swagger: 'https://petstore.swagger.io/', health: 'https://petstore.swagger.io/v2/swagger.json' },
-  { id: 's2', env: 'prd', nome: 'catalogo-service', time: 'Produtos', swagger: '', health: 'https://httpbin.org/status/200' },
-  { id: 's3', env: 'hml', nome: 'auth-gateway', time: 'Plataforma', swagger: 'https://petstore.swagger.io/', health: 'https://servico-inexistente-xyz.internal/health' },
-  { id: 's4', env: 'dev', nome: 'checkout-api', time: 'Pagamentos', swagger: '', health: 'https://petstore.swagger.io/v2/swagger.json' },
-  { id: 's5', env: 'dev', nome: 'catalogo-service', time: 'Produtos', swagger: 'https://petstore.swagger.io/', health: 'https://httpbin.org/status/200' },
-  { id: 's6', env: 'dev', nome: 'notificacoes-worker', time: 'Engajamento', swagger: '', health: 'https://dev-notificacoes.interno/health' },
-  { id: 's7', env: 'dev', nome: 'auth-gateway', time: 'Plataforma', swagger: 'https://petstore.swagger.io/', health: 'https://httpbin.org/status/204' },
-  { id: 's8', env: 'hml', nome: 'checkout-api', time: 'Pagamentos', swagger: 'https://petstore.swagger.io/', health: 'https://httpbin.org/status/200' },
-  { id: 's9', env: 'hml', nome: 'catalogo-service', time: 'Produtos', swagger: '', health: 'https://hml-catalogo.interno/actuator/health' },
-  { id: 's10', env: 'hml', nome: 'relatorios-api', time: 'Dados', swagger: 'https://petstore.swagger.io/', health: 'https://httpbin.org/status/200' }
-];
+const API_BASE = 'http://localhost:3001';
+const ENV_TO_API = { dev: 'development', hml: 'staging', prd: 'production' };
+const API_TO_ENV = { development: 'dev', staging: 'hml', production: 'prd' };
+
+function fromApi(doc, apiEnv) {
+  return { id: doc.id, env: API_TO_ENV[apiEnv], nome: doc.name, time: doc.team, health: doc.healthCheckUrl, swagger: doc.swaggerUrl || '' };
+}
+function toApi(app) {
+  return { name: app.nome, team: app.time, healthCheckUrl: app.health, swaggerUrl: app.swagger || '' };
+}
 
 const THEMES = {
   dark: {
@@ -291,30 +291,88 @@ const THEMES = {
 
 class Component extends DCLogic {
   state = {
-    apps: [], status: {}, formOpen: false, scanning: false, selectedId: null, pendingRemoveId: null, theme: 'dark', query: '', filter: 'all', page: 0, env: 'prd', rate: 30, rateOpen: false,
+    apps: [], status: {}, formOpen: false, scanning: false, selectedId: null, pendingRemoveId: null, theme: 'dark', query: '', filter: 'all', page: 0, env: 'prd', rate: 30, rateOpen: false, countdown: 30,
     form: { nome: '', time: '', swagger: '', health: '', env: 'prd' }
   };
 
-  componentDidMount() {
-    let apps = SEED, theme = 'dark';
+  async componentDidMount() {
+    let theme = 'dark', apps = [], status = {};
     try {
-      const raw = localStorage.getItem(KEY);
-      if (raw) apps = JSON.parse(raw).map(a => ({ ...a, time: (a.time || '').replace(/^Squad\s+/i, '') }));
       const t = localStorage.getItem(TKEY); if (t === 'light' || t === 'dark') theme = t;
       const r = parseInt(localStorage.getItem('orbital-rate-v1'), 10); if (r) this.state.rate = r;
+      const a = localStorage.getItem(AKEY); if (a) apps = JSON.parse(a);
+      const s = localStorage.getItem(SKEY); if (s) status = JSON.parse(s);
     } catch (e) {}
-    this.setState({ apps, theme }, () => { this.applyTheme(); this.checkAll(); this.waitForD3(); this.startAuto(); });
+    this.setState({ apps, status, theme }, () => { this.applyTheme(); this.waitForD3(); this.startAuto(); });
+    try {
+      const data = await fetch(`${API_BASE}/applications`).then(r => r.json());
+      const fresh = Object.entries(data).flatMap(([apiEnv, list]) => list.map(doc => fromApi(doc, apiEnv)));
+      try { localStorage.setItem(AKEY, JSON.stringify(fresh)); } catch (e) {}
+      this.setState({ apps: fresh });
+    } catch (e) {}
   }
   componentWillUnmount() { if (this.timer) this.timer.stop(); if (this.ro) this.ro.disconnect(); clearInterval(this.autoId); }
 
+  saveCounters() {
+    try {
+      const now = Date.now();
+      const data = {};
+      ['dev', 'hml', 'prd'].forEach(env => { data[env] = { val: this.counters[env], ts: now }; });
+      localStorage.setItem(CKEY, JSON.stringify(data));
+    } catch (e) {}
+  }
   startAuto() {
     clearInterval(this.autoId);
-    const s = this.state.rate || 30;
-    this.autoId = setInterval(() => this.checkAll(), s * 1000);
+    if (!this.counters) {
+      const r = this.state.rate || 30;
+      let saved = null;
+      try { saved = JSON.parse(localStorage.getItem(CKEY)); } catch (e) {}
+      const now = Date.now();
+      this.counters = {};
+      const expired = [];
+      ['dev', 'hml', 'prd'].forEach(env => {
+        if (saved?.[env]) {
+          const elapsed = Math.floor((now - saved[env].ts) / 1000);
+          const remaining = saved[env].val - elapsed;
+          if (remaining > 0) {
+            this.counters[env] = remaining;
+          } else {
+            this.counters[env] = r;
+            expired.push(env);
+          }
+        } else {
+          this.counters[env] = r;
+          expired.push(env);
+        }
+      });
+      this.setState({ countdown: this.counters[this.state.env] });
+      if (expired.length) Promise.all(expired.map(env => this.syncEnv(env)));
+    }
+    this.autoId = setInterval(() => {
+      const r = this.state.rate || 30;
+      ['dev', 'hml', 'prd'].forEach(env => {
+        this.counters[env]--;
+        if (this.counters[env] <= 0) { this.counters[env] = r; this.syncEnv(env); }
+      });
+      this.saveCounters();
+      this.setState({ countdown: this.counters[this.state.env] });
+    }, 1000);
   }
   setRate(s) {
     try { localStorage.setItem('orbital-rate-v1', String(s)); } catch (e) {}
-    this.setState({ rate: s, rateOpen: false }, () => this.startAuto());
+    this.counters = { dev: s, hml: s, prd: s };
+    this.saveCounters();
+    this.setState({ rate: s, rateOpen: false, countdown: s }, () => this.startAuto());
+  }
+  async syncEnv(env) {
+    try {
+      const results = await fetch(`${API_BASE}/applications/${ENV_TO_API[env]}/sync`, { method: 'POST' }).then(r => r.json());
+      const patch = {};
+      results.forEach(r => { patch[r.id] = r.status === 'healthy' ? 'up' : 'down'; });
+      const nextStatus = { ...this.state.status, ...patch };
+      try { localStorage.setItem(SKEY, JSON.stringify(nextStatus)); } catch (e) {}
+      this.setState({ status: nextStatus }, () => this.redraw());
+    } catch (e) {}
   }
 
   applyTheme() {
@@ -332,7 +390,7 @@ class Component extends DCLogic {
   }
   redraw() { if (window.d3 && this.orbitEl) this.drawOrbits(); }
   envApps() { return this.state.apps.filter(a => (a.env || 'prd') === this.state.env); }
-  setEnv(env) { this.setState({ env, page: 0, selectedId: null }, () => this.redraw()); }
+  setEnv(env) { this.setState({ env, page: 0, selectedId: null, countdown: this.counters?.[env] ?? this.state.rate }, () => this.redraw()); }
   select(id, fromOrbit) {
     const next = { selectedId: id };
     if (fromOrbit && id) {
@@ -351,7 +409,7 @@ class Component extends DCLogic {
     this.setState(next, () => { if (this.paintSelection) this.paintSelection(); else this.redraw(); });
   }
 
-  persist(apps) { try { localStorage.setItem(KEY, JSON.stringify(apps)); } catch (e) {} }
+
 
   drawStars() {
     const el = this.starsEl; if (!el || el.dataset.done) return;
@@ -490,21 +548,13 @@ class Component extends DCLogic {
     };
   }
 
-  async probe(app) {
-    const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 7000);
-    try { await fetch(app.health, { mode: 'no-cors', cache: 'no-store', signal: ctrl.signal }); clearTimeout(t); return 'up'; }
-    catch (e) { clearTimeout(t); return 'down'; }
-  }
-
   checkAll = async () => {
     if (this.state.scanning) return;
-    const apps = this.state.apps;
-    this.setState({ scanning: true, status: {} }, () => this.redraw());
-    const results = await Promise.all(apps.map(a => this.probe(a)));
-    const status = {};
-    apps.forEach((a, i) => { status[a.id] = results[i]; });
-    this.setState({ status, scanning: false }, () => this.redraw());
+    const env = this.state.env;
+    this.setState({ scanning: true }, () => this.redraw());
+    await this.syncEnv(env);
+    if (this.counters) { this.counters[env] = this.state.rate || 30; this.saveCounters(); }
+    this.setState({ scanning: false, countdown: this.counters?.[env] ?? this.state.rate }, () => this.redraw());
   };
 
   toggleTheme = () => {
@@ -593,7 +643,7 @@ class Component extends DCLogic {
       fDownStyle: chip(filter === 'down'),
       scanLabel: this.state.scanning ? 'Sincronizando…' : 'Sincronizar',
       checkAll: this.checkAll,
-      rateLabel: `${this.state.rate}s`,
+      rateLabel: `${this.state.countdown ?? this.state.rate}s`,
       rateOpen: this.state.rateOpen,
       toggleRate: () => this.setState({ rateOpen: !this.state.rateOpen }),
       rate15: () => this.setRate(15),
@@ -619,10 +669,12 @@ class Component extends DCLogic {
       confirmOpen: !!pending,
       confirmNome: pending ? pending.nome : '',
       cancelRemove: () => this.setState({ pendingRemoveId: null }),
-      confirmRemove: () => {
+      confirmRemove: async () => {
         const id = this.state.pendingRemoveId;
+        const app = this.state.apps.find(x => x.id === id);
+        try { await fetch(`${API_BASE}/applications/${ENV_TO_API[app.env]}/${id}`, { method: 'DELETE' }); } catch (e) {}
         const next = this.state.apps.filter(x => x.id !== id);
-        this.persist(next);
+        try { localStorage.setItem(AKEY, JSON.stringify(next)); } catch (e) {}
         this.setState({ apps: next, pendingRemoveId: null, selectedId: selectedId === id ? null : selectedId }, () => this.redraw());
       },
       hasSelection: !!sel,
@@ -642,16 +694,25 @@ class Component extends DCLogic {
       stop: e => e.stopPropagation(),
       fNome: form.nome, fTime: form.time, fSwagger: form.swagger, fHealth: form.health,
       onNome: setF('nome'), onTime: setF('time'), onSwagger: setF('swagger'), onHealth: setF('health'),
-      submit: e => {
+      submit: async e => {
         e.preventDefault();
         const f = this.state.form;
         if (!f.nome.trim() || !f.time.trim() || !f.health.trim()) return;
         const url = v => { v = v.trim(); return v && !/^https?:\/\//i.test(v) ? 'https://' + v : v; };
-        const app = { id: 'a' + Date.now(), env: f.env || 'prd', nome: f.nome.trim(), time: f.time.trim(), swagger: url(f.swagger), health: url(f.health) };
-        const next = [...this.state.apps, app];
-        this.persist(next);
-        this.setState({ apps: next, formOpen: false, env: app.env, form: { nome: '', time: '', swagger: '', health: '', env: app.env } }, () => this.redraw());
-        this.probe(app).then(s => this.setState({ status: { ...this.state.status, [app.id]: s } }, () => this.redraw()));
+        const localApp = { nome: f.nome.trim(), time: f.time.trim(), swagger: url(f.swagger), health: url(f.health) };
+        const apiEnv = ENV_TO_API[f.env || 'prd'];
+        let app;
+        try {
+          const created = await fetch(`${API_BASE}/applications/${apiEnv}`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(toApi(localApp))
+          }).then(r => r.json());
+          app = fromApi(created, apiEnv);
+        } catch (e) { return; }
+        const nextApps = [...this.state.apps, app];
+        try { localStorage.setItem(AKEY, JSON.stringify(nextApps)); } catch (e) {}
+        this.setState({ apps: nextApps, formOpen: false, env: app.env, form: { nome: '', time: '', swagger: '', health: '', env: app.env } }, () => this.redraw());
+        this.syncEnv(app.env);
       }
     };
   }
