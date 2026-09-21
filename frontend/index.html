@@ -501,7 +501,14 @@ class Component extends DCLogic {
     f.append('feGaussianBlur').attr('stdDeviation', 6).attr('result', 'b');
     const m = f.append('feMerge'); m.append('feMergeNode').attr('in', 'b'); m.append('feMergeNode').attr('in', 'SourceGraphic');
 
-    const nodes = this.envApps().map((a, i) => {
+    const _q = (this.state.query || '').trim().toLowerCase();
+    const _f = this.state.filter || 'all';
+    const _st = this.state.status;
+    const nodes = this.envApps().filter(a => {
+      if (_f !== 'all' && _st[a.id] !== _f) return false;
+      if (!_q) return true;
+      return (a.nome + ' ' + a.time).toLowerCase().includes(_q);
+    }).map((a, i) => {
       const ring = i % 4;
       const rMax = Math.min(W / 2 - 46, (H / 2 - 34) / 0.42);
       const r = rMax * (0.34 + ring * 0.22);
@@ -635,10 +642,10 @@ class Component extends DCLogic {
         : 'Nenhuma aplicação corresponde ao filtro.',
       shownLabel: visible.length === apps.length ? '' : `${visible.length} DE ${apps.length}`,
       query: this.state.query || '',
-      onQuery: e => this.setState({ query: e.target.value, page: 0 }),
-      filterAll: () => this.setState({ filter: 'all', page: 0 }),
-      filterUp: () => this.setState({ filter: 'up', page: 0 }),
-      filterDown: () => this.setState({ filter: 'down', page: 0 }),
+      onQuery: e => this.setState({ query: e.target.value, page: 0 }, () => this.redraw()),
+      filterAll: () => this.setState({ filter: 'all', page: 0 }, () => this.redraw()),
+      filterUp: () => this.setState({ filter: 'up', page: 0 }, () => this.redraw()),
+      filterDown: () => this.setState({ filter: 'down', page: 0 }, () => this.redraw()),
       fAllStyle: chip(filter === 'all'),
       fUpStyle: chip(filter === 'up'),
       fDownStyle: chip(filter === 'down'),
