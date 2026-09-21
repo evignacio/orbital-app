@@ -1,36 +1,8 @@
-services:
-  mongo:
-    image: mongo:7
-    volumes:
-      - mongo_data:/data/db
-      - ./mongo-seed.js:/docker-entrypoint-initdb.d/mongo-seed.js:ro
-      - ./mongo-init.sh:/docker-entrypoint-initdb.d/01-init.sh:ro
-    restart: unless-stopped
-
-  redis:
-    image: redis:7-alpine
-    restart: unless-stopped
-
-  api:
-    build: ./api
-    ports:
-      - "3001:3001"
-    environment:
-      MONGO_URL: mongodb://mongo:27017
-      MONGO_DB: orbital
-      REDIS_URL: redis://redis:6379
-      SYNC_CACHE_TTL: "13"
-    depends_on:
-      - mongo
-      - redis
-    restart: unless-stopped
-
-  frontend:
-    build:
-      context: ./frontend
-    ports:
-      - "80:80"
-    restart: unless-stopped
-
-volumes:
-  mongo_data:
+# Use um dos modos abaixo:
+#
+#   Local (mongo + redis incluídos):
+#     docker compose -f docker-compose.local.yml up -d --build
+#
+#   Produção (mongo + redis externos via .env.prod):
+#     cp .env.prod.example .env.prod  # preencha as variáveis
+#     docker compose -f docker-compose.prod.yml up -d --build

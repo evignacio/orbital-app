@@ -46,26 +46,55 @@ O health check é disparado pelo frontend em intervalos configuráveis. Para evi
 
 - 🐳 [Docker](https://docs.docker.com/get-docker/) com Docker Compose
 
-### Subindo a stack completa
+---
+
+### 🖥️ Modo local
+
+Sobe todos os serviços em containers — ideal para desenvolvimento e testes.
 
 ```bash
-docker compose up -d --build
+docker compose -f docker-compose.local.yml up -d --build
 ```
 
-Acesse o painel em **http://localhost**.
+| Serviço      | URL                        | Descrição               |
+|--------------|----------------------------|-------------------------|
+| 🌐 Frontend  | http://localhost           | Painel Orbital (nginx)  |
+| ⚙️ API       | http://localhost:3001      | REST API                |
+| 🍃 MongoDB   | mongodb://localhost:27017  | Banco de dados          |
+| 🔴 Redis     | localhost:6379             | Cache de health check   |
 
-O banco de dados é populado automaticamente com dados de exemplo na primeira inicialização. Nas reinicializações seguintes os dados persistem no volume `mongo_data`.
+> O banco é populado automaticamente com dados de exemplo na primeira inicialização. Nas reinicializações seguintes os dados persistem no volume `mongo_data`.
 
-### Serviços
+---
 
-| Serviço   | URL                       | Descrição                    |
-|-----------|---------------------------|------------------------------|
-| 🌐 Frontend  | http://localhost         | Painel Orbital (nginx)       |
-| ⚙️ API       | http://localhost:3001    | REST API                     |
-| 🍃 MongoDB   | mongodb://localhost:27017 | Banco de dados              |
-| 🔴 Redis     | localhost:6379            | Cache de health check        |
+### 🏭 Modo produção
 
-### 🔧 Desenvolvimento local (sem Docker)
+Sobe apenas frontend e API em containers. MongoDB e Redis são serviços externos já existentes (nuvem, on-premise, etc.).
+
+```bash
+cp .env.prod.example .env.prod   # preencha com os dados dos serviços externos
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+| Serviço      | URL                   | Descrição              |
+|--------------|-----------------------|------------------------|
+| 🌐 Frontend  | http://localhost      | Painel Orbital (nginx) |
+| ⚙️ API       | http://localhost:3001 | REST API               |
+
+As credenciais dos serviços externos são lidas do arquivo `.env.prod`:
+
+| Variável         | Descrição                               |
+|------------------|-----------------------------------------|
+| `MONGO_URL`      | URL de conexão com MongoDB externo      |
+| `MONGO_USER`     | Usuário do MongoDB (opcional)           |
+| `MONGO_PASS`     | Senha do MongoDB (opcional)             |
+| `MONGO_DB`       | Nome do banco de dados                  |
+| `REDIS_URL`      | URL de conexão com Redis externo        |
+| `SYNC_CACHE_TTL` | TTL do cache de health check (segundos) |
+
+---
+
+### 🔧 Desenvolvimento sem Docker
 
 **API:**
 
