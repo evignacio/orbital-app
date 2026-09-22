@@ -94,12 +94,17 @@ MongoDB is the source of truth. `localStorage` holds a local cache plus user pre
 - `orbital-theme-v1` — `'dark'` | `'light'`
 - `orbital-rate-v1` — health-check interval in seconds
 - `orbital-notify-v1` / `orbital-sound-v1` — `'1'` | `'0'`, down-alert toggles
+- `orbital-lastok-v1` — timestamp (ms) of the last successful `/sync`, shown while the API is unreachable
 
 Every read and write is wrapped in an inline `try { … } catch (e) {}` — follow that pattern.
 
 ### Down alerts
 
 When an application transitions to `down`, the app fires a browser notification (`{nome} saiu de Órbita`, with team and environment in the body) and a WebAudio beep — both **only** when the tab is out of focus (`document.hidden || !document.hasFocus()`). A counter stays in the page title while any application is down. `this.downSeen` dedupes, so a single fall notifies once, and simultaneous falls across environments are buffered to produce one beep.
+
+### API unreachable — "tempestade"
+
+Every API read goes through `apiFetch()` (10s timeout, throws on `!r.ok`). When the initial `GET /applications` or any `/sync` fails, `markApiDown()` sets `apiDown`: a storm covers the sky (`drawStorm()` — dark clouds, rain, lightning), the orbit core turns into a storm cloud, planets and card badges go `--stale` grey (`ÚLTIMO: …`), and a banner shows the time of the last successful check. Status values are kept as last known, never cleared. The next successful sync clears it. Losing the API also notifies/beeps once when the tab is out of focus.
 
 ### Design system — Nocturne (`frontend/_ds/nocturne-*/`)
 

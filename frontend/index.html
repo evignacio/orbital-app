@@ -33,7 +33,7 @@
     #listCol { position: static !important; max-height: none !important; }
   }
   @media (max-width: 900px) {
-    #topBar { position: static !important; justify-content: flex-end; padding: 0 0 12px 0; }
+    #topBar { position: relative !important; top: auto !important; right: auto !important; justify-content: flex-end; padding: 0 0 12px 0; }
     #headerRow { align-items: flex-start !important; }
     #statsRow { flex-wrap: wrap; }
   }
@@ -43,13 +43,19 @@
     #envTabs { display: flex !important; flex-wrap: wrap; }
   }
   @keyframes drift { from { transform: translateX(-24vw) } to { transform: translateX(124vw) } }
+  /* Tempestade: a API está inacessível. */
+  @keyframes rain { from { transform: translateY(-40px) } to { transform: translateY(110vh) } }
+  @keyframes lightning { 0%,42%,44.5%,46%,92%,94.5%,96%,100% { opacity:0 } 43% { opacity:.9 } 45% { opacity:.45 } 93% { opacity:1 } 95% { opacity:.6 } }
+  @keyframes bolt { 0%,92.4%,94.5%,97%,100% { opacity:0 } 92.6%,94% { opacity:1 } 95.5% { opacity:.7 } }
+  @keyframes flicker { 0%,88%,100% { opacity:1 } 90% { opacity:.25 } 92% { opacity:1 } 94% { opacity:.45 } }
 </style>
 </helmet>
 <div ref="{{ rootRef }}" style="position:relative; min-height:100vh; background:var(--bg); font-family:'Inter', system-ui, sans-serif; color:var(--ink); overflow:hidden; transition:background .4s ease, color .3s ease">
 
-  <div ref="{{ starsRef }}" style="position:absolute; inset:0; pointer-events:none; opacity:var(--star-opacity); transition:opacity .4s ease"></div>
-  <div ref="{{ cloudsRef }}" style="position:absolute; inset:0; pointer-events:none; opacity:var(--cloud-opacity); transition:opacity .5s ease"></div>
-  <div style="position:absolute; top:-180px; left:50%; width:900px; height:420px; transform:translateX(-50%); background:radial-gradient(closest-side, var(--halo), transparent 70%); pointer-events:none"></div>
+  <div ref="{{ starsRef }}" style="position:absolute; inset:0; pointer-events:none; opacity:calc(var(--star-opacity) * var(--calm, 1)); transition:opacity 1.2s ease"></div>
+  <div ref="{{ cloudsRef }}" style="position:absolute; inset:0; pointer-events:none; opacity:calc(var(--cloud-opacity) * var(--calm, 1)); transition:opacity 1.2s ease"></div>
+  <div style="position:absolute; top:-180px; left:50%; width:900px; height:420px; transform:translateX(-50%); background:radial-gradient(closest-side, var(--halo), transparent 70%); pointer-events:none; opacity:var(--calm, 1); transition:opacity 1.2s ease"></div>
+  <div ref="{{ stormRef }}" style="position:absolute; inset:0; pointer-events:none; overflow:hidden; opacity:var(--storm-on, 0); transition:opacity 1.2s ease"></div>
 
   <template id="__bundler_thumbnail" data-bg-color="#161826">
     <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
@@ -123,7 +129,7 @@
         <h1 id="pageTitle" style="margin:0; font-size:clamp(28px, 3.2vw, 48px); font-weight:500; letter-spacing:-.02em; line-height:1.02">Órbita de Aplicações</h1>
         <p style="margin:10px 0 0; max-width:52ch; color:var(--muted); font-size:15px; line-height:1.5; text-wrap:pretty">Cada planeta é uma aplicação em órbita. O brilho indica se o health check respondeu na última varredura.</p>
       </div>
-      <div id="statsRow" style="display:flex; gap:10px; align-items:center">
+      <div id="statsRow" title="{{ statsTitle }}" style="{{ statsStyle }}">
         <div style="display:flex; align-items:baseline; gap:8px; padding:8px 14px; border:1px solid var(--up-line); border-radius:var(--radius-md); background:var(--up-fill)">
           <span style="font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.18em; color:var(--up)">NO AR</span>
           <span style="font-size:20px; font-weight:500; line-height:1">{{ upCount }}</span>
@@ -135,12 +141,23 @@
       </div>
     </header>
 
+    <sc-if value="{{ apiDown }}" hint-placeholder-val="{{ false }}">
+      <div role="alert" style="display:flex; flex-wrap:wrap; align-items:center; gap:14px; margin:-8px 0 22px; padding:12px 16px; border:1px solid var(--storm-line); border-radius:var(--radius-md); background:var(--storm-fill); box-shadow:var(--elev-md); animation:floatUp .3s ease">
+        <svg width="28" height="28" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true" style="flex:none; color:var(--storm); animation:flicker 4s linear infinite"><path d="M156,168H132.53l-14.4,24H144a8,8,0,0,1,6.86,12.12l-24,40a8,8,0,0,1-13.72-8.24L129.87,208H104a8,8,0,0,1-6.86-12.12L113.87,168h-37C48.12,168,24.2,145.07,24,116.36A52.09,52.09,0,0,1,61.35,66.1a4,4,0,0,1,5,4.78A92.48,92.48,0,0,0,64,87.39,8.14,8.14,0,0,0,71.41,96l.6,0a8.18,8.18,0,0,0,8.08-7.72A76,76,0,1,1,156,168Z"></path></svg>
+        <div style="flex:1; min-width:220px">
+          <div style="font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.22em; color:var(--storm)">TEMPESTADE · API INACESSÍVEL</div>
+          <div style="margin-top:5px; font-size:13.5px; line-height:1.45; color:var(--ink); text-wrap:pretty">{{ stormMsg }}</div>
+        </div>
+        <button onClick="{{ checkAll }}" style="font-family:'JetBrains Mono',monospace; font-size:11.5px; letter-spacing:.1em; padding:7px 13px; border-radius:var(--radius-sm); border:1px solid var(--storm-line); background:transparent; color:var(--storm); cursor:pointer; white-space:nowrap" style-hover="background:var(--storm-fill); border-color:var(--storm)">{{ retryLabel }}</button>
+      </div>
+    </sc-if>
+
     <div id="shell" style="display:grid; grid-template-columns:minmax(0,1.5fr) minmax(300px,.8fr); gap:clamp(16px, 2vw, 34px); align-items:start">
 
       <div style="display:flex; flex-direction:column; gap:14px; min-width:0">
       <section id="orbitPanel" style="position:relative; display:flex; border:1px solid var(--line); border-radius:var(--radius-md); background:var(--panel); overflow:hidden; height:509px; transition:background .4s ease">
         <div ref="{{ orbitRef }}" style="flex:1; min-height:0; display:flex"></div>
-        <div style="position:absolute; left:18px; bottom:14px; font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.16em; color:var(--faint)">CLIQUE EM UM PLANETA PARA DETALHES</div>
+        <div style="{{ orbitHintStyle }}">{{ orbitHint }}</div>
       </section>
       </div>
 
@@ -272,6 +289,10 @@ const AKEY = 'orbital-apps-v1';
 const SKEY = 'orbital-status-v1';
 const NKEY = 'orbital-notify-v1';
 const SNDKEY = 'orbital-sound-v1';
+const LKEY = 'orbital-lastok-v1';
+const API_TIMEOUT = 10000;
+const CLOUD_BOLT_PATH = 'M156,168H132.53l-14.4,24H144a8,8,0,0,1,6.86,12.12l-24,40a8,8,0,0,1-13.72-8.24L129.87,208H104a8,8,0,0,1-6.86-12.12L113.87,168h-37C48.12,168,24.2,145.07,24,116.36A52.09,52.09,0,0,1,61.35,66.1a4,4,0,0,1,5,4.78A92.48,92.48,0,0,0,64,87.39,8.14,8.14,0,0,0,71.41,96l.6,0a8.18,8.18,0,0,0,8.08-7.72A76,76,0,1,1,156,168Z';
+const BOLT_PATH = 'M213.85,125.46l-112,120a8,8,0,0,1-13.69-7l14.66-73.33L45.19,143.49a8,8,0,0,1-3-13l112-120a8,8,0,0,1,13.69,7L153.18,90.9l57.63,21.61a8,8,0,0,1,3,12.95Z';
 const BASE_TITLE = 'Orbital - App';
 const ENVS = [['dev', 'DESENVOLVIMENTO'], ['hml', 'HOMOLOGAÇÃO'], ['prd', 'PRODUÇÃO']];
 // Relativo: o nginx que serve esta página encaminha /api/ para o container da
@@ -279,6 +300,41 @@ const ENVS = [['dev', 'DESENVOLVIMENTO'], ['hml', 'HOMOLOGAÇÃO'], ['prd', 'PRO
 const API_BASE = '/api';
 const ENV_TO_API = { dev: 'development', hml: 'staging', prd: 'production' };
 const API_TO_ENV = { development: 'dev', staging: 'hml', production: 'prd' };
+
+// Qualquer falha (rede, timeout, 5xx do nginx sem a API) vira exceção: é o
+// que acende a tempestade.
+async function apiFetch(path, opts = {}) {
+  const signal = window.AbortSignal && AbortSignal.timeout ? AbortSignal.timeout(API_TIMEOUT) : undefined;
+  const r = await fetch(`${API_BASE}${path}`, { ...opts, signal });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+function cloudSvg(scale, fill, shade) {
+  return `<svg width="${260 * scale}" height="${104 * scale}" viewBox="0 0 260 104" fill="none">
+    <g style="fill:${fill}">
+      <ellipse cx="82" cy="66" rx="74" ry="30"/>
+      <ellipse cx="104" cy="44" rx="46" ry="34"/>
+      <ellipse cx="152" cy="56" rx="52" ry="28"/>
+      <ellipse cx="192" cy="68" rx="46" ry="22"/>
+    </g>
+    <g style="fill:${shade}" opacity=".55">
+      <ellipse cx="70" cy="80" rx="58" ry="12"/>
+      <ellipse cx="170" cy="80" rx="48" ry="10"/>
+    </g>
+  </svg>`;
+}
+function clockLabel(ts) {
+  const d = new Date(ts);
+  const sameDay = d.toDateString() === new Date().toDateString();
+  return sameDay ? d.toLocaleTimeString('pt-BR') : d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+}
+function agoLabel(ts) {
+  const min = Math.floor((Date.now() - ts) / 60000);
+  if (min < 1) return 'há menos de 1 min';
+  if (min < 60) return `há ${min} min`;
+  const h = Math.floor(min / 60);
+  return h < 24 ? `há ${h} h` : `há ${Math.floor(h / 24)} d`;
+}
 
 function fromApi(doc, apiEnv) {
   return { id: doc.id, env: API_TO_ENV[apiEnv], nome: doc.name, time: doc.team, health: doc.healthCheckUrl, swagger: doc.swaggerUrl || '' };
@@ -305,7 +361,12 @@ const THEMES = {
     '--fab-solid': 'var(--color-accent)', '--fab-ink': 'var(--color-bg)',
     '--fab-glow': '0 0 0 1px color-mix(in srgb, var(--color-accent) 45%, transparent), 0 0 12px color-mix(in srgb, var(--color-accent) 40%, transparent), 0 0 26px color-mix(in srgb, var(--color-accent) 18%, transparent)',
     '--elev-md': 'var(--shadow-md)', '--elev-lg': 'var(--shadow-lg)',
-    '--star-opacity': '1', '--cloud-opacity': '0'
+    '--star-opacity': '1', '--cloud-opacity': '0',
+    '--storm': '#f0c064', '--storm-line': 'rgba(240,192,100,.4)', '--storm-fill': 'rgba(240,192,100,.09)',
+    '--storm-sky': 'linear-gradient(180deg, rgba(8,9,16,.88) 0%, rgba(18,19,30,.7) 50%, rgba(22,24,38,.5) 100%)',
+    '--storm-cloud': '#2a2c3e', '--storm-cloud-shade': '#12131c', '--storm-clouds-opacity': '0',
+    '--storm-rain': 'rgba(180,190,230,.45)', '--storm-flash': 'rgba(215,220,255,.2)',
+    '--stale': '#7a7a92'
   },
   light: {
     '--bg': 'linear-gradient(180deg, #bcdcf5 0%, #d6e9f8 40%, #eef4fb 78%, #f6f9fd 100%)',
@@ -319,14 +380,26 @@ const THEMES = {
     '--down': '#c0384a', '--down-line': 'rgba(192,56,74,.3)', '--down-fill': 'rgba(192,56,74,.07)',
     '--fab-bg': 'rgba(61,116,184,.14)', '--fab-solid': '#3d74b8', '--fab-ink': '#f6fbff', '--fab-glow': '0 0 0 1px rgba(61,116,184,.35), 0 0 12px rgba(61,116,184,.3), 0 0 24px rgba(61,116,184,.14)',
     '--elev-md': '0 8px 24px rgba(40,70,105,.16)', '--elev-lg': '0 30px 70px rgba(40,70,105,.24)',
-    '--star-opacity': '0', '--cloud-opacity': '1'
+    '--star-opacity': '0', '--cloud-opacity': '1',
+    '--storm': '#9a5f00', '--storm-line': 'rgba(154,95,0,.38)', '--storm-fill': 'rgba(255,214,140,.32)',
+    '--storm-sky': 'linear-gradient(180deg, rgba(112,124,142,.9) 0%, rgba(160,169,183,.84) 40%, rgba(204,209,217,.8) 100%)',
+    '--storm-cloud': '#6c7788', '--storm-cloud-shade': '#4a5463', '--storm-clouds-opacity': '1',
+    '--storm-rain': 'rgba(30,45,70,.4)', '--storm-flash': 'rgba(255,255,255,.55)',
+    '--stale': '#8494a8'
   }
+};
+
+// Sob o céu fechado do tema claro, os tons de apoio perdem contraste:
+// escurecem enquanto a tempestade durar e voltam aos valores de THEMES depois.
+const STORM_OVERRIDES = {
+  dark: {},
+  light: { '--muted': '#25364b', '--faint': '#3a4d66', '--accent': '#1d4a86', '--accent-soft': '#173d70', '--up': '#0f6b41', '--down': '#9b2233' }
 };
 
 class Component extends DCLogic {
   state = {
     apps: [], status: {}, formOpen: false, scanning: false, selectedId: null, pendingRemoveId: null, theme: 'dark', query: '', filter: 'all', page: 0, env: 'prd', rate: 30, rateOpen: false, countdown: 30, timeDropOpen: false,
-    notify: false, sound: false, notifyOpen: false, notifyBlocked: false,
+    notify: false, sound: false, notifyOpen: false, notifyBlocked: false, apiDown: false, lastOk: null,
     form: { nome: '', time: '', swagger: '', health: '', env: 'prd' }
   };
 
@@ -339,6 +412,7 @@ class Component extends DCLogic {
       const s = localStorage.getItem(SKEY); if (s) status = JSON.parse(s);
       if (localStorage.getItem(SNDKEY) === '1') this.state.sound = true;
       if (localStorage.getItem(NKEY) === '1' && this.canNotify()) this.state.notify = true;
+      const l = parseInt(localStorage.getItem(LKEY), 10); if (l) this.state.lastOk = l;
     } catch (e) {}
     this.downSeen = new Set(Object.keys(status).filter(id => status[id] === 'down'));
     this.onReturn = () => { if (!this.isAway()) this.dismissAlerts(); };
@@ -346,17 +420,18 @@ class Component extends DCLogic {
     window.addEventListener('focus', this.onReturn);
     this.setState({ apps, status, theme }, () => { this.applyTheme(); this.waitForD3(); this.startAuto(); this.updateTitle(); });
     try {
-      const data = await fetch(`${API_BASE}/applications`).then(r => r.json());
+      const data = await apiFetch('/applications');
       const fresh = Object.entries(data).flatMap(([apiEnv, list]) => list.map(doc => fromApi(doc, apiEnv)));
       try { localStorage.setItem(AKEY, JSON.stringify(fresh)); } catch (e) {}
       this.setState({ apps: fresh }, () => this.updateTitle());
-    } catch (e) {}
+    } catch (e) { this.markApiDown(); }
   }
   componentWillUnmount() {
     if (this.timer) this.timer.stop();
     if (this.ro) this.ro.disconnect();
     clearInterval(this.autoId);
     clearTimeout(this.alertTid);
+    clearTimeout(this.skyTid);
     if (this.onReturn) {
       document.removeEventListener('visibilitychange', this.onReturn);
       window.removeEventListener('focus', this.onReturn);
@@ -423,7 +498,9 @@ class Component extends DCLogic {
   }
   async syncEnv(env) {
     try {
-      const results = await fetch(`${API_BASE}/applications/${ENV_TO_API[env]}/sync`, { method: 'POST' }).then(r => r.json());
+      let results;
+      try { results = await apiFetch(`/applications/${ENV_TO_API[env]}/sync`, { method: 'POST' }); }
+      catch (e) { this.markApiDown(); return; }
       const patch = {};
       const fell = [];
       results.forEach(r => {
@@ -433,10 +510,42 @@ class Component extends DCLogic {
         if (!this.downSeen.has(r.id)) { this.downSeen.add(r.id); fell.push({ id: r.id, name: r.name }); }
       });
       const nextStatus = { ...this.state.status, ...patch };
+      const lastOk = Date.now();
       try { localStorage.setItem(SKEY, JSON.stringify(nextStatus)); } catch (e) {}
-      this.setState({ status: nextStatus }, () => { this.redraw(); this.updateTitle(); });
+      try { localStorage.setItem(LKEY, String(lastOk)); } catch (e) {}
+      const cleared = this.state.apiDown;
+      this.setState({ status: nextStatus, apiDown: false, lastOk }, () => {
+        if (cleared) this.applySky();
+        this.redraw(); this.updateTitle();
+      });
       if (fell.length) this.queueAlert(fell);
     } catch (e) {}
+  }
+
+  // Os status na tela ficam como "último conhecido"; só o céu muda.
+  markApiDown() {
+    if (this.state.apiDown) return;
+    this.setState({ apiDown: true }, () => { this.applySky(); this.redraw(); this.updateTitle(); });
+    this.alertApiDown();
+  }
+  alertApiDown() {
+    if (!this.isAway()) return;
+    if (this.state.sound) this.beep();
+    if (this.state.notify && this.canNotify()) {
+      this.showNotif('Tempestade: Orbital perdeu contato com a API', 'Os status do painel ficam desatualizados até a conexão voltar.', 'orbital-api');
+    }
+  }
+  applySky() {
+    const el = this.rootEl; if (!el) return;
+    const storm = !!this.state.apiDown;
+    el.style.setProperty('--calm', storm ? '.15' : '1');
+    el.style.setProperty('--storm-on', storm ? '1' : '0');
+    const theme = this.state.theme;
+    Object.keys(STORM_OVERRIDES[theme]).forEach(k => el.style.setProperty(k, storm ? STORM_OVERRIDES[theme][k] : THEMES[theme][k]));
+    // Pausa só depois do fade, senão a chuva congela enquanto o céu abre.
+    clearTimeout(this.skyTid);
+    if (storm) { el.style.setProperty('--storm-play', 'running'); this.drawStorm(); }
+    else this.skyTid = setTimeout(() => el.style.setProperty('--storm-play', 'paused'), 1300);
   }
 
   canNotify() { return 'Notification' in window && Notification.permission === 'granted'; }
@@ -444,6 +553,7 @@ class Component extends DCLogic {
 
   updateTitle() {
     const { apps, status } = this.state;
+    if (this.state.apiDown) { document.title = `⛈ API inacessível · ${BASE_TITLE}`; return; }
     const n = apps.filter(a => status[a.id] === 'down').length;
     document.title = n ? `(${n}) ⚠ ${BASE_TITLE}` : BASE_TITLE;
   }
@@ -532,10 +642,11 @@ class Component extends DCLogic {
     document.body.style.background = this.state.theme === 'light'
       ? '#bcdcf5'
       : getComputedStyle(el).getPropertyValue('--color-bg').trim() || '#161826';
+    this.applySky();
   }
 
   waitForD3() {
-    if (window.d3) { this.drawStars(); this.drawClouds(); this.drawOrbits(); return; }
+    if (window.d3) { this.drawStars(); this.drawClouds(); this.drawStorm(); this.drawOrbits(); return; }
     setTimeout(() => this.waitForD3(), 120);
   }
   redraw() { if (window.d3 && this.orbitEl) this.drawOrbits(); }
@@ -591,24 +702,66 @@ class Component extends DCLogic {
       .style('opacity', d => d.op)
       .style('transform-origin', 'left center')
       .style('animation', d => `drift ${d.dur}s linear ${d.delay}s infinite`)
-      .html(d => {
-        const s = d.scale;
-        return `<svg width="${260 * s}" height="${104 * s}" viewBox="0 0 260 104" fill="none">
-          <g fill="#ffffff">
-            <ellipse cx="82" cy="66" rx="74" ry="30"/>
-            <ellipse cx="104" cy="44" rx="46" ry="34"/>
-            <ellipse cx="152" cy="56" rx="52" ry="28"/>
-            <ellipse cx="192" cy="68" rx="46" ry="22"/>
-          </g>
-          <g fill="#cfe2f4" opacity=".55">
-            <ellipse cx="70" cy="80" rx="58" ry="12"/>
-            <ellipse cx="170" cy="80" rx="48" ry="10"/>
-          </g>
-        </svg>`;
-      });
+      .html(d => cloudSvg(d.scale, '#ffffff', '#cfe2f4'));
   }
 
-  drawCore(g, defs, light) {
+  drawStorm() {
+    const el = this.stormEl; if (!el || el.dataset.done || !window.d3 || !this.state.apiDown) return;
+    el.dataset.done = '1';
+    const d3 = window.d3;
+    const root = d3.select(el);
+    const fixed = sel => sel.style('position', 'fixed').style('inset', '0');
+    const play = sel => sel.style('animation-play-state', 'var(--storm-play, paused)');
+    root.append('div').style('position', 'absolute').style('inset', '0').style('background', 'var(--storm-sky)');
+    // Mesmas nuvens do céu claro, só que carregadas e amontoadas no alto.
+    const specs = [
+      { top: -6, scale: 2.2, dur: 120, delay: -30, op: .95 },
+      { top: 2, scale: 1.7, dur: 150, delay: -95, op: .9 },
+      { top: -3, scale: 1.9, dur: 135, delay: -70, op: .85 },
+      { top: 12, scale: 1.3, dur: 180, delay: -10, op: .7 },
+      { top: 26, scale: 1, dur: 210, delay: -150, op: .45 }
+    ];
+    // No escuro não há nuvens: o céu só escurece, chove e relampeja.
+    play(root.append('div').style('opacity', 'var(--storm-clouds-opacity)').selectAll('div').data(specs).join('div')
+      .style('position', 'absolute')
+      .style('top', d => d.top + '%')
+      .style('left', '0')
+      .style('opacity', d => d.op)
+      .style('animation', d => `drift ${d.dur}s linear ${d.delay}s infinite`)
+      .html(d => cloudSvg(d.scale, 'var(--storm-cloud)', 'var(--storm-cloud-shade)')));
+    if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const drops = d3.range(140).map(() => ({ x: Math.random() * 100, len: 14 + Math.random() * 18, dur: .55 + Math.random() * .5, delay: -Math.random() * 2, op: .35 + Math.random() * .65 }));
+    play(fixed(root.append('div')).style('transform', 'skewX(-10deg)')
+      .selectAll('div').data(drops).join('div')
+      .style('position', 'absolute').style('top', '0').style('left', d => d.x + '%')
+      .style('width', '1px').style('height', d => d.len + 'px').style('opacity', d => d.op)
+      .style('background', 'linear-gradient(transparent, var(--storm-rain))')
+      .style('animation', d => `rain ${d.dur}s linear ${d.delay}s infinite`));
+    play(fixed(root.append('div')).style('background', 'var(--storm-flash)').style('opacity', '0')
+      .style('animation', 'lightning 7s linear infinite'));
+    // O segundo raio cai no primeiro clarão do ciclo (43%), o outro no segundo (93%).
+    const bolts = [{ left: 17, top: 4, size: 64, rot: 8, delay: 0 }, { left: 72, top: 7, size: 46, rot: -6, delay: -3.5 }];
+    play(root.append('div').selectAll('div').data(bolts).join('div')
+      .style('position', 'fixed').style('left', d => d.left + '%').style('top', d => d.top + '%')
+      .style('color', 'var(--storm)').style('opacity', '0')
+      .style('transform', d => `rotate(${d.rot}deg)`)
+      .style('filter', 'drop-shadow(0 0 14px var(--storm))')
+      .style('animation', d => `bolt 7s linear ${d.delay}s infinite`)
+      .html(d => `<svg width="${d.size}" height="${d.size}" viewBox="0 0 256 256" fill="currentColor"><path d="${BOLT_PATH}"/></svg>`));
+  }
+
+  drawCore(g, defs, light, storm) {
+    if (storm) {
+      // A central vira o ícone de tempestade: sem sinal dos planetas.
+      g.append('circle').attr('r', 34).style('fill', 'var(--storm-fill)');
+      g.append('circle').attr('r', 26).style('fill', 'none').style('stroke', 'var(--storm-line)').attr('stroke-dasharray', '2 4');
+      g.append('path').attr('d', CLOUD_BOLT_PATH).attr('transform', 'translate(-17,-19) scale(.133)')
+        .style('fill', 'var(--storm)').style('filter', 'drop-shadow(0 0 6px var(--storm-line))')
+        .style('animation', 'flicker 4s linear infinite');
+      g.append('text').attr('y', 50).attr('text-anchor', 'middle').style('fill', 'var(--storm)')
+        .style('font', "500 10px 'JetBrains Mono', monospace").style('letter-spacing', '.2em').text('SEM SINAL');
+      return 'NUVEM';
+    }
     if (light) {
       const grad = defs.append('radialGradient').attr('id', 'coreSun');
       grad.append('stop').attr('offset', '0%').attr('stop-color', '#fff3d6');
@@ -668,7 +821,8 @@ class Component extends DCLogic {
       .attr('rx', d => d).attr('ry', d => d * 0.42).attr('fill', 'none')
       .attr('stroke', light ? 'rgba(22,60,100,.22)' : 'rgba(233,233,237,.14)').attr('stroke-dasharray', '3 7');
 
-    this.drawCore(g, defs, light);
+    const storm = this.state.apiDown;
+    this.drawCore(g, defs, light, storm);
 
     const up = light ? '#1c8a58' : '#6fd39b', down = light ? '#c0384a' : '#e8808c', idle = light ? '#7d94ad' : '#6e6e86';
     const color = s => s === 'up' ? up : s === 'down' ? down : idle;
@@ -678,11 +832,16 @@ class Component extends DCLogic {
       .attr('class', 'planet').style('cursor', 'pointer')
       .on('click', (e, d) => this.select(d.id, true));
 
-    node.append('circle').attr('r', d => d.size + 7).attr('fill', d => color(st[d.id])).attr('opacity', light ? .14 : .18);
+    // Sem contato, a cor seria do último check: fica cinza, apagada e tracejada.
+    if (storm) node.style('opacity', .55);
+    node.append('circle').attr('r', d => d.size + 7).attr('fill', d => color(st[d.id])).attr('opacity', storm ? .08 : light ? .14 : .18)
+      .style('fill', storm ? 'var(--stale)' : null);
     node.append('circle').attr('r', d => d.size).attr('fill', d => color(st[d.id]))
+      .style('fill', storm ? 'var(--stale)' : null)
       .attr('stroke', d => this.state.selectedId === d.id ? (light ? '#255291' : '#ffffff') : (light ? 'rgba(22,38,58,.2)' : 'rgba(255,255,255,.35)'))
       .attr('stroke-width', d => this.state.selectedId === d.id ? 2.5 : 1)
-      .attr('filter', light ? null : 'url(#oglow)');
+      .attr('stroke-dasharray', storm ? '2 3' : null)
+      .attr('filter', light || storm ? null : 'url(#oglow)');
     node.append('circle').attr('r', d => d.size * .45).attr('cx', d => -d.size * .3).attr('cy', d => -d.size * .3)
       .attr('fill', light ? 'rgba(255,255,255,.5)' : 'rgba(255,255,255,.35)');
     node.append('text').attr('y', d => d.size + 18).attr('text-anchor', 'middle')
@@ -751,7 +910,9 @@ class Component extends DCLogic {
     const apps = this.envApps();
     const light = theme === 'light';
     const label = s => s === 'up' ? 'NO AR' : s === 'down' ? 'FORA DO AR' : 'VERIFICANDO';
-    const col = s => s === 'up' ? (light ? '#1c8a58' : '#6fd39b') : s === 'down' ? (light ? '#c0384a' : '#e8808c') : (light ? '#7d94ad' : '#6e6e86');
+    const apiDown = this.state.apiDown;
+    const lastOk = this.state.lastOk;
+    const col = s => apiDown ? 'var(--stale)' : s === 'up' ? (light ? '#1c8a58' : '#6fd39b') : s === 'down' ? (light ? '#c0384a' : '#e8808c') : (light ? '#7d94ad' : '#6e6e86');
     const dot = s => `width:11px; height:11px; border-radius:50%; flex:none; background:${col(s)}; box-shadow:0 0 ${light ? 6 : 12}px ${col(s)}`;
     const sel = apps.find(a => a.id === selectedId);
     const pending = apps.find(a => a.id === this.state.pendingRemoveId);
@@ -780,6 +941,18 @@ class Component extends DCLogic {
       rootRef: el => { this.rootEl = el; if (el) this.applyTheme(); },
       starsRef: el => { this.starsEl = el; },
       cloudsRef: el => { this.cloudsEl = el; if (el && window.d3) this.drawClouds(); },
+      stormRef: el => { this.stormEl = el; if (el) this.drawStorm(); },
+      apiDown,
+      stormMsg: lastOk
+        ? `Os status abaixo são da última checagem, às ${clockLabel(lastOk)} (${agoLabel(lastOk)}). Tentando reconectar a cada ciclo.`
+        : 'Nenhuma checagem foi concluída ainda. Tentando reconectar a cada ciclo.',
+      retryLabel: this.state.scanning ? 'Tentando…' : 'Tentar agora',
+      statsTitle: apiDown ? 'Dados desatualizados' : undefined,
+      statsStyle: `display:flex; gap:10px; align-items:center; transition:opacity .6s ease; opacity:${apiDown ? .45 : 1}`,
+      orbitHint: apiDown
+        ? (lastOk ? `SEM CONTATO COM A CENTRAL · DADOS DE ${new Date(lastOk).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : 'SEM CONTATO COM A CENTRAL')
+        : 'CLIQUE EM UM PLANETA PARA DETALHES',
+      orbitHintStyle: `position:absolute; left:18px; bottom:14px; font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.16em; color:${apiDown ? 'var(--storm)' : 'var(--faint)'}`,
       orbitRef: el => {
         this.orbitEl = el;
         if (el && !this.ro && window.ResizeObserver) {
@@ -851,11 +1024,11 @@ class Component extends DCLogic {
       notifyBlocked: this.state.notifyBlocked,
       apps: paged.map(a => ({
         ...a,
-        statusLabel: label(status[a.id]),
+        statusLabel: apiDown && status[a.id] ? `ÚLTIMO: ${label(status[a.id])}` : label(status[a.id]),
         envLabel: ((ENVS.find(e => e[0] === (a.env || 'prd')) || [])[1] || 'PRODUÇÃO').slice(0, 3),
         envBadgeStyle: `font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.14em; padding:4px 8px; border-radius:var(--radius-sm); color:var(--muted); border:1px solid var(--line); white-space:nowrap`,
         dotStyle: dot(status[a.id]),
-        badgeStyle: `font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.14em; padding:4px 8px; border-radius:var(--radius-sm); color:${col(status[a.id])}; background:${col(status[a.id])}1f; white-space:nowrap`,
+        badgeStyle: `font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.14em; padding:4px 8px; border-radius:var(--radius-sm); color:${col(status[a.id])}; background:${apiDown ? 'color-mix(in srgb, var(--stale) 14%, transparent)' : col(status[a.id]) + '1f'}; white-space:nowrap`,
         cardStyle: `position:relative; padding:14px 16px; border-radius:var(--radius-md); cursor:pointer; border:1px solid ${selectedId === a.id ? selBorder : 'var(--line)'}; background:${selectedId === a.id ? selBg : 'var(--surface)'}`,
         swagger: a.swagger || undefined,
         swaggerStyle: `display:inline-flex; align-items:center; gap:6px; padding:5px 11px; border-radius:var(--radius-sm); text-decoration:none; letter-spacing:.1em; font-size:11px; border:1px solid ${a.swagger ? 'var(--accent)' : 'var(--line)'}; color:${a.swagger ? 'var(--accent-soft)' : 'var(--faint)'}; ${a.swagger ? '' : 'opacity:.45; pointer-events:none;'}`,
