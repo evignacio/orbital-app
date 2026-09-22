@@ -274,7 +274,9 @@ const NKEY = 'orbital-notify-v1';
 const SNDKEY = 'orbital-sound-v1';
 const BASE_TITLE = 'Orbital - App';
 const ENVS = [['dev', 'DESENVOLVIMENTO'], ['hml', 'HOMOLOGAÇÃO'], ['prd', 'PRODUÇÃO']];
-const API_BASE = 'http://localhost:3001';
+// Relativo: o nginx que serve esta página encaminha /api/ para o container da
+// API, então funciona em qualquer host e sem CORS.
+const API_BASE = '/api';
 const ENV_TO_API = { dev: 'development', hml: 'staging', prd: 'production' };
 const API_TO_ENV = { development: 'dev', staging: 'hml', production: 'prd' };
 
