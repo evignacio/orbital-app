@@ -4,45 +4,111 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Running the app
 
-Open `index.html` directly in a browser — no build step or server required. The app runs entirely client-side.
+The app is **not** standalone — the frontend reads from a REST API, so opening `frontend/index.html` over `file://` fails on CORS. Bring up the whole stack instead:
 
-`support.js` is generated from `dc-runtime/src/*.ts` and must not be edited by hand. To rebuild it: `cd dc-runtime && bun run build`.
+```bash
+docker compose -f docker-compose.local.yml up -d --build
+```
+
+Then open `http://localhost` (nginx, port 80). The API is on `http://localhost:3001`.
+
+- `docker-compose.local.yml` — full local stack: mongo + redis + api + frontend
+- `docker-compose.prod.yml` — api + frontend only; mongo and redis come from `.env.prod`
+- `docker-compose.yml` — same services as local, without the api environment block
+
+To see a frontend change, rebuild that one service — it only copies static files into nginx, so it is fast:
+
+```bash
+docker compose -f docker-compose.local.yml up -d --build frontend
+```
+
+`frontend/support.js` is a generated dc-runtime bundle and must not be edited by hand. Its TypeScript source is **not** in this repository, so there is no build step here to regenerate it. `frontend/Orbital.dc.html` is an empty scaffold, not the running page.
 
 ## Architecture
 
-**Orbital** is an application health-monitoring dashboard. Applications appear as planets in a D3.js orbital visualization; planet brightness reflects the most recent health check result. The UI is in Brazilian Portuguese.
+**Orbital** is an application health-monitoring dashboard. Applications appear as planets in a D3.js orbital visualization, colored green (`up`), red (`down`) or grey (not yet checked). The UI is in Brazilian Portuguese.
+
+```
+frontend (nginx :80)  ──HTTP──▶  api (Express :3001)  ──▶  MongoDB
+                                         └──▶ Redis (cache de /sync)
+```
+
+The browser never probes health check URLs itself. It calls `POST /applications/:env/sync`, and the API fetches each `healthCheckUrl` server-side (5s timeout) and returns `{ id, name, status }` per app, where `status` is `healthy` or `unhealthy`.
+
+### API (`api/`)
+
+Express, no framework beyond it. Routes live in `api/src/routes/applications.js`:
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/applications` | all apps, grouped by environment |
+| GET | `/applications/:env` | apps of one environment |
+| POST | `/applications/:env/sync` | run health checks, return statuses |
+| POST | `/applications/:env` | create an app |
+| DELETE | `/applications/:env/:id` | remove an app |
+
+There is **no update endpoint** — changing an existing app means editing Mongo directly.
+
+`/sync` results are cached in Redis for `SYNC_CACHE_TTL` seconds (13 in local compose), so a health check URL change takes up to that long to show. `api/src/cache.js` degrades gracefully: if Redis is unreachable the check just runs uncached. CORS in `api/src/index.js` reflects any origin.
+
+### Environments
+
+The UI uses three short codes that map onto API/Mongo names — both directions live in `ENV_TO_API` / `API_TO_ENV` in `index.html`:
+
+| UI | API path & Mongo collection |
+|---|---|
+| `dev` | `development` → `applications_development` |
+| `hml` | `staging` → `applications_staging` |
+| `prd` | `production` → `applications_production` |
+
+The health-check ticker syncs **all three** environments every cycle, regardless of which tab is on screen.
+
+### Seed data
+
+`mongo-seed.js` seeds 10 sample applications across the three collections. It runs only on first boot of an empty `mongo_data` volume (it is mounted into `docker-entrypoint-initdb.d`), so re-seeding means dropping that volume.
+
+### Frontend (`frontend/index.html`)
 
 The project uses the **dc-runtime** system — a lightweight React-based template engine bundled into `support.js`. All application markup and logic lives in `index.html` inside an `<x-dc>` element.
 
-### dc-runtime template conventions
+#### dc-runtime template conventions
 
-- `{{ expression }}` — interpolates a state value or method reference in the template
-- `<sc-if value="{{ condition }}">` — conditional rendering
+- `{{ expression }}` — interpolates a value from `renderVals()` into the template
+- `<sc-if value="{{ condition }}">` — conditional rendering; there is no else branch, use two `sc-if`s
 - `<sc-for list="{{ list }}" as="item">` — list rendering
-- `ref="{{ refName }}"` — exposes a DOM element as `this.refNameEl` on the component class
+- `ref="{{ refName }}"` — the bound value is a callback that receives the DOM element (`rootRef: el => { this.rootEl = el; }`)
+- Events bind **camelCase**: `onClick`, `onChange`, `onSubmit`, `onFocus`, `onBlur`, `onMouseDown`. Arguments cannot be passed in markup — bind per item in JS instead.
 - `style-hover="..."` / `style-focus="..."` — pseudo-state inline styles
 - `<helmet>` — injects content into `<head>`
 - `<script type="text/x-dc" data-dc-script>` — component logic; the class must extend `DCLogic`
 
-Component state lives in `this.state = {}` and updates via `this.setState(nextState, callback?)`.
+State lives in `this.state = {}` and updates via `this.setState(nextState, callback?)`. Everything the template can reach is returned from a single flat object in `renderVals()`. Lifecycle hooks: `componentDidMount`, `componentDidUpdate`, `componentWillUnmount`.
 
 ### Data persistence
 
-State is saved to `localStorage`:
-- `orbital-apps-v1` — application registry
+MongoDB is the source of truth. `localStorage` holds a local cache plus user preferences:
+
+- `orbital-apps-v1` — cache of the last `GET /applications`
+- `orbital-status-v1` — last known `{ [appId]: 'up' | 'down' }`
+- `orbital-counters-v1` — per-environment countdown to the next sync
 - `orbital-theme-v1` — `'dark'` | `'light'`
 - `orbital-rate-v1` — health-check interval in seconds
+- `orbital-notify-v1` / `orbital-sound-v1` — `'1'` | `'0'`, down-alert toggles
 
-Seed data (10 sample apps) loads only when `localStorage` is empty.
+Every read and write is wrapped in an inline `try { … } catch (e) {}` — follow that pattern.
 
-### Design system — Nocturne (`_ds/nocturne-*/`)
+### Down alerts
+
+When an application transitions to `down`, the app fires a browser notification (`{nome} saiu de Órbita`, with team and environment in the body) and a WebAudio beep — both **only** when the tab is out of focus (`document.hidden || !document.hasFocus()`). A counter stays in the page title while any application is down. `this.downSeen` dedupes, so a single fall notifies once, and simultaneous falls across environments are buffered to produce one beep.
+
+### Design system — Nocturne (`frontend/_ds/nocturne-*/`)
 
 - `styles.css` is the only stylesheet; always link it and use its CSS variables — never hard-code hex values, font names, or raw px values the tokens already carry.
-- `_ds_bundle.js` activates the design system's React components.
 - `_ds_manifest.json` and `readme.md` document available components and tokens.
-- Color tokens follow OKLCH tonal ramps (`--color-neutral-100`…`900`, `--color-accent-*`). On the dark ground use steps 700–900 for fills and 100–300 for text on those fills.
-- Component classes: `.btn`, `.tag`, `.field`, `.card`, `.nav`, `.table`, `.dialog`, `.lighten` (image blend wrapper).
-- Icons: Phosphor (https://phosphoricons.com).
+- Color tokens follow OKLCH tonal ramps (`--color-neutral-100`…`900`, `--color-accent-*`).
+- **This page uses no CSS classes at all** — there is not a single `class=` attribute in `index.html`. Styling is 100% inline `style` attributes reading custom properties. The design system supplies tokens only; the `.btn` / `.card` / `.dialog` component classes are not used here. Match that, rather than introducing classes.
+- App-level aliases (`--ink`, `--muted`, `--line`, `--surface`, `--dialog`, `--accent`, `--up`, `--down`, …) are defined in the `THEMES` object in `index.html` and applied imperatively by `applyTheme()`. **A new variable must be added to both the `dark` and `light` maps.**
+- Icons: Phosphor (https://phosphoricons.com), pasted inline as `<svg viewBox="0 0 256 256" fill="currentColor">`. Copy real path data; do not hand-write it.
 - Fonts: Inter (body/headings) + JetBrains Mono (monospaced labels).
 
 ### External dependencies (CDN)
