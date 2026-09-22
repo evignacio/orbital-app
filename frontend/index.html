@@ -76,12 +76,31 @@
       <svg width="15" height="15" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24Zm0 192a88 88 0 1 1 88-88 88.1 88.1 0 0 1-88 88Zm48-88a8 8 0 0 1-8 8h-40a8 8 0 0 1-8-8V72a8 8 0 0 1 16 0v48h32a8 8 0 0 1 8 8Z"></path></svg>
       <span style="font-family:'JetBrains Mono',monospace; font-size:12px; letter-spacing:.1em">{{ rateLabel }}</span>
     </button>
+    <button onClick="{{ toggleNotifyMenu }}" title="Alertas de queda" style="{{ bellStyle }}" style-hover="color:var(--accent-soft)">
+      <svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M221.8,175.94C216.25,166.38,208,139.33,208,104a80,80,0,1,0-160,0c0,35.34-8.26,62.38-13.81,71.94A16,16,0,0,0,48,200H88.81a40,40,0,0,0,78.38,0H208a16,16,0,0,0,13.8-24.06ZM128,216a24,24,0,0,1-22.62-16h45.24A24,24,0,0,1,128,216ZM48,184c7.7-13.24,16-43.92,16-80a64,64,0,1,1,128,0c0,36.05,8.28,66.73,16,80Z"></path></svg>
+    </button>
     </div>
     <sc-if value="{{ rateOpen }}" hint-placeholder-val="{{ false }}">
       <div style="display:flex; flex-direction:column; gap:2px; padding:4px; border:1px solid var(--line); border-radius:var(--radius-md); background:var(--dialog); box-shadow:var(--elev-md); animation:floatUp .16s ease">
         <button onClick="{{ rate15 }}" style="{{ rate15Style }}">15s</button>
         <button onClick="{{ rate30 }}" style="{{ rate30Style }}">30s</button>
         <button onClick="{{ rate60 }}" style="{{ rate60Style }}">60s</button>
+      </div>
+    </sc-if>
+    <sc-if value="{{ notifyOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex; flex-direction:column; gap:11px; padding:13px 15px; border:1px solid var(--line); border-radius:var(--radius-md); background:var(--dialog); box-shadow:var(--elev-md); animation:floatUp .16s ease">
+        <button onClick="{{ toggleNotify }}" role="switch" aria-checked="{{ notifyOn }}" style="display:flex; align-items:center; justify-content:space-between; gap:20px; padding:0; border:none; background:transparent; cursor:pointer">
+          <span style="font-family:'JetBrains Mono',monospace; font-size:11.5px; letter-spacing:.1em; color:var(--muted)">NOTIFICAÇÕES</span>
+          <span style="{{ notifyTrackStyle }}"><span style="{{ notifyKnobStyle }}"></span></span>
+        </button>
+        <button onClick="{{ toggleSound }}" role="switch" aria-checked="{{ soundOn }}" style="display:flex; align-items:center; justify-content:space-between; gap:20px; padding:0; border:none; background:transparent; cursor:pointer">
+          <span style="font-family:'JetBrains Mono',monospace; font-size:11.5px; letter-spacing:.1em; color:var(--muted)">SOM</span>
+          <span style="{{ soundTrackStyle }}"><span style="{{ soundKnobStyle }}"></span></span>
+        </button>
+        <sc-if value="{{ notifyBlocked }}" hint-placeholder-val="{{ false }}">
+          <span style="max-width:200px; font-size:11px; line-height:1.45; color:var(--down)">Permissão bloqueada no navegador. Libere nas configurações do site.</span>
+        </sc-if>
+        <span style="max-width:200px; font-size:10.5px; line-height:1.45; color:var(--faint); text-align:left">Avisa quando uma aplicação sai de órbita.</span>
       </div>
     </sc-if>
   </div>
@@ -191,10 +210,16 @@
             <span style="font-size:12.5px; color:var(--muted)">Nome da aplicação <span style="color:var(--down)">*</span></span>
             <input value="{{ fNome }}" onChange="{{ onNome }}" required="{{ true }}" placeholder="checkout-api" style="padding:11px 13px; border-radius:var(--radius-md); border:1px solid var(--line); background:var(--field); color:var(--ink); font-size:14px; outline:none" style-focus="border-color:var(--accent)">
           </label>
-          <label style="display:flex; flex-direction:column; gap:6px">
+          <label style="display:flex; flex-direction:column; gap:6px; position:relative">
             <span style="font-size:12.5px; color:var(--muted)">Time responsável <span style="color:var(--down)">*</span></span>
-            <input value="{{ fTime }}" onChange="{{ onTime }}" required="{{ true }}" placeholder="Pagamentos" list="orbital-team-list" style="padding:11px 13px; border-radius:var(--radius-md); border:1px solid var(--line); background:var(--field); color:var(--ink); font-size:14px; outline:none" style-focus="border-color:var(--accent)">
-            <datalist id="orbital-team-list" ref="{{ teamDatalistRef }}"></datalist>
+            <input value="{{ fTime }}" onChange="{{ onTime }}" onFocus="{{ onTimeFocus }}" onBlur="{{ onTimeBlur }}" required="{{ true }}" placeholder="Pagamentos" autocomplete="off" style="padding:11px 13px; border-radius:var(--radius-md); border:1px solid var(--line); background:var(--field); color:var(--ink); font-size:14px; outline:none" style-focus="border-color:var(--accent)">
+            <sc-if value="{{ timeDropOpen }}" hint-placeholder-val="{{ false }}">
+              <div style="position:absolute; top:calc(100% + 2px); left:0; right:0; z-index:200; border:1px solid var(--accent); border-radius:var(--radius-md); background:var(--dialog); box-shadow:var(--elev-md); max-height:180px; overflow-y:auto">
+                <sc-for list="{{ timeSuggestions }}" as="ts">
+                  <button type="button" onMouseDown="{{ ts.select }}" style="display:block; width:100%; text-align:left; padding:9px 13px; border:none; border-bottom:1px solid var(--line); background:transparent; color:var(--ink); font-size:14px; cursor:pointer; font-family:inherit" style-hover="background:var(--accent-tint); color:var(--accent-soft)">{{ ts.name }}</button>
+                </sc-for>
+              </div>
+            </sc-if>
           </label>
           <label style="display:flex; flex-direction:column; gap:6px">
             <span style="font-size:12.5px; color:var(--muted)">Ambiente <span style="color:var(--down)">*</span></span>
@@ -243,6 +268,9 @@ const TKEY = 'orbital-theme-v1';
 const CKEY = 'orbital-counters-v1';
 const AKEY = 'orbital-apps-v1';
 const SKEY = 'orbital-status-v1';
+const NKEY = 'orbital-notify-v1';
+const SNDKEY = 'orbital-sound-v1';
+const BASE_TITLE = 'Orbital - App';
 const ENVS = [['dev', 'DESENVOLVIMENTO'], ['hml', 'HOMOLOGAÇÃO'], ['prd', 'PRODUÇÃO']];
 const API_BASE = 'http://localhost:3001';
 const ENV_TO_API = { dev: 'development', hml: 'staging', prd: 'production' };
@@ -293,7 +321,8 @@ const THEMES = {
 
 class Component extends DCLogic {
   state = {
-    apps: [], status: {}, formOpen: false, scanning: false, selectedId: null, pendingRemoveId: null, theme: 'dark', query: '', filter: 'all', page: 0, env: 'prd', rate: 30, rateOpen: false, countdown: 30,
+    apps: [], status: {}, formOpen: false, scanning: false, selectedId: null, pendingRemoveId: null, theme: 'dark', query: '', filter: 'all', page: 0, env: 'prd', rate: 30, rateOpen: false, countdown: 30, timeDropOpen: false,
+    notify: false, sound: false, notifyOpen: false, notifyBlocked: false,
     form: { nome: '', time: '', swagger: '', health: '', env: 'prd' }
   };
 
@@ -304,16 +333,19 @@ class Component extends DCLogic {
       const r = parseInt(localStorage.getItem('orbital-rate-v1'), 10); if (r) this.state.rate = r;
       const a = localStorage.getItem(AKEY); if (a) apps = JSON.parse(a);
       const s = localStorage.getItem(SKEY); if (s) status = JSON.parse(s);
+      if (localStorage.getItem(SNDKEY) === '1') this.state.sound = true;
+      if (localStorage.getItem(NKEY) === '1' && this.canNotify()) this.state.notify = true;
     } catch (e) {}
-    this.setState({ apps, status, theme }, () => { this.applyTheme(); this.waitForD3(); this.startAuto(); });
+    this.downSeen = new Set(Object.keys(status).filter(id => status[id] === 'down'));
+    this.setState({ apps, status, theme }, () => { this.applyTheme(); this.waitForD3(); this.startAuto(); this.updateTitle(); });
     try {
       const data = await fetch(`${API_BASE}/applications`).then(r => r.json());
       const fresh = Object.entries(data).flatMap(([apiEnv, list]) => list.map(doc => fromApi(doc, apiEnv)));
       try { localStorage.setItem(AKEY, JSON.stringify(fresh)); } catch (e) {}
-      this.setState({ apps: fresh });
+      this.setState({ apps: fresh }, () => this.updateTitle());
     } catch (e) {}
   }
-  componentWillUnmount() { if (this.timer) this.timer.stop(); if (this.ro) this.ro.disconnect(); clearInterval(this.autoId); }
+  componentWillUnmount() { if (this.timer) this.timer.stop(); if (this.ro) this.ro.disconnect(); clearInterval(this.autoId); clearTimeout(this.alertTid); }
 
   saveCounters() {
     try {
@@ -370,10 +402,80 @@ class Component extends DCLogic {
     try {
       const results = await fetch(`${API_BASE}/applications/${ENV_TO_API[env]}/sync`, { method: 'POST' }).then(r => r.json());
       const patch = {};
-      results.forEach(r => { patch[r.id] = r.status === 'healthy' ? 'up' : 'down'; });
+      const fell = [];
+      results.forEach(r => {
+        const next = r.status === 'healthy' ? 'up' : 'down';
+        patch[r.id] = next;
+        if (next !== 'down') { this.downSeen.delete(r.id); return; }
+        if (!this.downSeen.has(r.id)) { this.downSeen.add(r.id); fell.push({ id: r.id, name: r.name }); }
+      });
       const nextStatus = { ...this.state.status, ...patch };
       try { localStorage.setItem(SKEY, JSON.stringify(nextStatus)); } catch (e) {}
-      this.setState({ status: nextStatus }, () => this.redraw());
+      this.setState({ status: nextStatus }, () => { this.redraw(); this.updateTitle(); });
+      if (fell.length) this.queueAlert(fell);
+    } catch (e) {}
+  }
+
+  canNotify() { return 'Notification' in window && Notification.permission === 'granted'; }
+  isAway() { return document.hidden || !document.hasFocus(); }
+
+  updateTitle() {
+    const { apps, status } = this.state;
+    const n = apps.filter(a => status[a.id] === 'down').length;
+    document.title = n ? `(${n}) ⚠ ${BASE_TITLE}` : BASE_TITLE;
+  }
+
+  // Os 3 ambientes sincronizam em paralelo: agrupa o lote para sair um bipe só.
+  queueAlert(hits) {
+    this.alertBuf = (this.alertBuf || []).concat(hits);
+    clearTimeout(this.alertTid);
+    this.alertTid = setTimeout(() => this.flushAlert(), 400);
+  }
+  flushAlert() {
+    const hits = this.alertBuf || [];
+    this.alertBuf = [];
+    if (!hits.length || !this.isAway()) return;
+    if (this.state.sound) this.beep();
+    if (this.state.notify && this.canNotify()) hits.forEach(h => this.notifyDown(h));
+  }
+  notifyDown(hit) {
+    const app = this.state.apps.find(a => a.id === hit.id);
+    const nome = app ? app.nome : hit.name;
+    if (!nome) return;
+    const envLabel = app ? ((ENVS.find(e => e[0] === (app.env || 'prd')) || [])[1] || '') : '';
+    const body = [app && app.time && `Time: ${app.time}`, envLabel && `Ambiente: ${envLabel}`].filter(Boolean).join('\n');
+    try {
+      const n = new Notification(`${nome} saiu de órbita`, { body, tag: `orbital-down-${hit.id}` });
+      n.onclick = () => { window.focus(); n.close(); };
+    } catch (e) {}
+  }
+
+  ensureAudio() {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    if (!this.actx) { try { this.actx = new AC(); } catch (e) { return null; } }
+    if (this.actx.state === 'suspended') this.actx.resume();
+    return this.actx;
+  }
+  beep() {
+    const ctx = this.ensureAudio();
+    if (!ctx) return;
+    try {
+      const t0 = ctx.currentTime;
+      [880, 620].forEach((freq, i) => {
+        const at = t0 + i * 0.18;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.0001, at);
+        gain.gain.exponentialRampToValueAtTime(0.18, at + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.16);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(at);
+        osc.stop(at + 0.18);
+      });
     } catch (e) {}
   }
 
@@ -572,6 +674,27 @@ class Component extends DCLogic {
     this.setState({ theme }, () => { this.applyTheme(); this.redraw(); });
   };
 
+  toggleNotify = async () => {
+    if (this.state.notify) {
+      try { localStorage.setItem(NKEY, '0'); } catch (e) {}
+      this.setState({ notify: false });
+      return;
+    }
+    if (!('Notification' in window)) { this.setState({ notifyBlocked: true }); return; }
+    let perm = Notification.permission;
+    if (perm === 'default') perm = await Notification.requestPermission();
+    if (perm !== 'granted') { this.setState({ notify: false, notifyBlocked: true }); return; }
+    try { localStorage.setItem(NKEY, '1'); } catch (e) {}
+    this.setState({ notify: true, notifyBlocked: false });
+  };
+
+  toggleSound = () => {
+    const sound = !this.state.sound;
+    try { localStorage.setItem(SNDKEY, sound ? '1' : '0'); } catch (e) {}
+    if (sound) this.beep();
+    this.setState({ sound });
+  };
+
   renderVals() {
     const { status, form, selectedId, theme, env } = this.state;
     const apps = this.envApps();
@@ -594,6 +717,8 @@ class Component extends DCLogic {
     const paged = visible.slice(page * PER, page * PER + PER);
     const envTab = active => `font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.14em; padding:7px 12px; border-radius:var(--radius-sm); cursor:pointer; border:1px solid ${active ? 'var(--accent)' : 'transparent'}; background:${active ? 'var(--accent-tint)' : 'transparent'}; color:${active ? 'var(--accent-soft)' : 'var(--muted)'}`;
     const rateOpt = active => `font-family:'JetBrains Mono',monospace; font-size:11.5px; letter-spacing:.1em; text-align:right; padding:6px 12px; border-radius:var(--radius-sm); cursor:pointer; border:none; background:${active ? 'var(--accent-tint)' : 'transparent'}; color:${active ? 'var(--accent-soft)' : 'var(--muted)'}`;
+    const swTrack = on => `position:relative; width:38px; height:21px; border-radius:11px; flex:none; transition:background .25s ease, border-color .25s ease; border:1px solid ${on ? 'var(--accent)' : 'var(--line)'}; background:${on ? 'var(--accent-tint)' : 'transparent'}`;
+    const swKnob = on => `position:absolute; top:2px; left:2px; width:15px; height:15px; border-radius:50%; transition:transform .25s cubic-bezier(.3,.8,.3,1), background .25s ease; background:${on ? 'var(--accent)' : 'var(--faint)'}; transform:translateX(${on ? '17px' : '0'})`;
     const navBtn = enabled => `width:26px; height:24px; display:flex; align-items:center; justify-content:center; border-radius:var(--radius-sm); font-size:15px; line-height:1; border:1px solid var(--line); background:transparent; color:${enabled ? 'var(--accent-soft)' : 'var(--faint)'}; opacity:${enabled ? 1 : .4}; cursor:${enabled ? 'pointer' : 'default'}`;
     const chip = active => `font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:.14em; padding:6px 11px; border-radius:var(--radius-sm); cursor:pointer; border:1px solid ${active ? 'var(--accent)' : 'var(--line)'}; background:${active ? 'var(--accent-tint)' : 'transparent'}; color:${active ? 'var(--accent-soft)' : 'var(--muted)'}`;
     const setF = k => e => this.setState({ form: { ...this.state.form, [k]: e.target.value } });
@@ -626,8 +751,8 @@ class Component extends DCLogic {
       formEnvPrdStyle: envTab(form.env === 'prd'),
       isLight: light,
       themeLabel: light ? 'LIGHT' : 'DARK',
-      trackStyle: `position:relative; width:38px; height:21px; border-radius:11px; flex:none; transition:background .25s ease, border-color .25s ease; border:1px solid ${light ? 'var(--accent)' : 'var(--line)'}; background:${light ? 'var(--accent-tint)' : 'transparent'}`,
-      knobStyle: `position:absolute; top:2px; left:2px; width:15px; height:15px; border-radius:50%; transition:transform .25s cubic-bezier(.3,.8,.3,1), background .25s ease; background:${light ? 'var(--accent)' : 'var(--faint)'}; transform:translateX(${light ? '17px' : '0'})`,
+      trackStyle: swTrack(light),
+      knobStyle: swKnob(light),
       toggleTheme: this.toggleTheme,
       upCount: apps.filter(a => status[a.id] === 'up').length,
       downCount: apps.filter(a => status[a.id] === 'down').length,
@@ -654,13 +779,25 @@ class Component extends DCLogic {
       checkAll: this.checkAll,
       rateLabel: `${this.state.countdown ?? this.state.rate}s`,
       rateOpen: this.state.rateOpen,
-      toggleRate: () => this.setState({ rateOpen: !this.state.rateOpen }),
+      toggleRate: () => this.setState({ rateOpen: !this.state.rateOpen, notifyOpen: false }),
       rate15: () => this.setRate(15),
       rate30: () => this.setRate(30),
       rate60: () => this.setRate(60),
       rate15Style: rateOpt(this.state.rate === 15),
       rate30Style: rateOpt(this.state.rate === 30),
       rate60Style: rateOpt(this.state.rate === 60),
+      notifyOpen: this.state.notifyOpen,
+      toggleNotifyMenu: () => this.setState({ notifyOpen: !this.state.notifyOpen, rateOpen: false }),
+      bellStyle: `display:flex; align-items:center; padding:4px 6px; border:none; background:transparent; cursor:pointer; color:${this.state.notify || this.state.sound ? 'var(--accent-soft)' : 'var(--muted)'}`,
+      notifyOn: this.state.notify,
+      notifyTrackStyle: swTrack(this.state.notify),
+      notifyKnobStyle: swKnob(this.state.notify),
+      toggleNotify: this.toggleNotify,
+      soundOn: this.state.sound,
+      soundTrackStyle: swTrack(this.state.sound),
+      soundKnobStyle: swKnob(this.state.sound),
+      toggleSound: this.toggleSound,
+      notifyBlocked: this.state.notifyBlocked,
       apps: paged.map(a => ({
         ...a,
         statusLabel: label(status[a.id]),
@@ -683,8 +820,9 @@ class Component extends DCLogic {
         const app = this.state.apps.find(x => x.id === id);
         try { await fetch(`${API_BASE}/applications/${ENV_TO_API[app.env]}/${id}`, { method: 'DELETE' }); } catch (e) {}
         const next = this.state.apps.filter(x => x.id !== id);
+        this.downSeen.delete(id);
         try { localStorage.setItem(AKEY, JSON.stringify(next)); } catch (e) {}
-        this.setState({ apps: next, pendingRemoveId: null, selectedId: selectedId === id ? null : selectedId }, () => this.redraw());
+        this.setState({ apps: next, pendingRemoveId: null, selectedId: selectedId === id ? null : selectedId }, () => { this.redraw(); this.updateTitle(); });
       },
       hasSelection: !!sel,
       selNome: sel ? sel.nome : '',
@@ -698,16 +836,25 @@ class Component extends DCLogic {
         : 'font-size:13px; padding:8px 12px; border-radius:var(--radius-md); border:1px solid var(--line); color:var(--faint); opacity:.5; pointer-events:none; text-decoration:none; white-space:nowrap',
       clearSelection: () => this.select(null),
       formOpen: this.state.formOpen,
-      teamDatalistRef: el => {
-        if (!el) return;
-        const teams = [...new Set(this.state.apps.map(a => a.time).filter(Boolean))].sort();
-        el.innerHTML = teams.map(t => `<option value="${t.replace(/"/g, '&quot;')}"></option>`).join('');
-      },
+      ...(() => {
+        const tq = (form.time || '').trim().toLowerCase();
+        const allTeams = [...new Set(this.state.apps.map(a => a.time).filter(Boolean))].sort();
+        const timeSuggestions = (tq ? allTeams.filter(t => t.toLowerCase().includes(tq)) : allTeams)
+          .filter(t => t.toLowerCase() !== tq)
+          .map(name => ({ name, select: () => this.setState({ form: { ...this.state.form, time: name }, timeDropOpen: false }) }));
+        return {
+          timeSuggestions,
+          timeDropOpen: this.state.timeDropOpen && timeSuggestions.length > 0,
+          onTime: e => this.setState({ form: { ...this.state.form, time: e.target.value }, timeDropOpen: true }),
+          onTimeFocus: () => this.setState({ timeDropOpen: true }),
+          onTimeBlur: () => setTimeout(() => this.setState({ timeDropOpen: false }), 150),
+        };
+      })(),
       openForm: () => this.setState({ formOpen: true }),
       closeForm: () => this.setState({ formOpen: false }),
       stop: e => e.stopPropagation(),
       fNome: form.nome, fTime: form.time, fSwagger: form.swagger, fHealth: form.health,
-      onNome: setF('nome'), onTime: setF('time'), onSwagger: setF('swagger'), onHealth: setF('health'),
+      onNome: setF('nome'), onSwagger: setF('swagger'), onHealth: setF('health'),
       submit: async e => {
         e.preventDefault();
         const f = this.state.form;
