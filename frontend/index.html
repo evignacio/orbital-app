@@ -65,44 +65,46 @@
     </svg>
   </template>
 
-  <div id="topBar" style="position:absolute; top:14px; right:20px; z-index:20; display:flex; flex-direction:column; align-items:flex-end; gap:6px">
-    <div style="display:flex; align-items:center; gap:10px">
+  <div id="topBar" style="position:absolute; top:14px; right:20px; z-index:20; display:flex; align-items:center; gap:10px">
     <button onClick="{{ toggleTheme }}" title="Alternar tema" role="switch" aria-checked="{{ isLight }}" style="display:flex; align-items:center; gap:8px; padding:4px 6px; border:none; background:transparent; color:var(--ink); cursor:pointer">
       <span style="{{ trackStyle }}"><span style="{{ knobStyle }}"></span></span>
       <span style="font-family:'JetBrains Mono',monospace; font-size:12px; letter-spacing:.1em; color:var(--muted)">{{ themeLabel }}</span>
     </button>
     <button onClick="{{ checkAll }}" style="font-family:'JetBrains Mono',monospace; font-size:12px; letter-spacing:.1em; padding:4px 10px; border-radius:var(--radius-sm); border:1px solid var(--line); background:transparent; color:var(--muted); cursor:pointer" style-hover="border-color:var(--accent); color:var(--accent-soft)">{{ scanLabel }}</button>
-    <button onClick="{{ toggleRate }}" title="Periodicidade do health check" style="display:flex; align-items:center; gap:7px; padding:4px 6px; border:none; background:transparent; color:var(--muted); cursor:pointer" style-hover="color:var(--accent-soft)">
-      <svg width="15" height="15" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24Zm0 192a88 88 0 1 1 88-88 88.1 88.1 0 0 1-88 88Zm48-88a8 8 0 0 1-8 8h-40a8 8 0 0 1-8-8V72a8 8 0 0 1 16 0v48h32a8 8 0 0 1 8 8Z"></path></svg>
-      <span style="font-family:'JetBrains Mono',monospace; font-size:12px; letter-spacing:.1em">{{ rateLabel }}</span>
-    </button>
-    <button onClick="{{ toggleNotifyMenu }}" title="Alertas de queda" style="{{ bellStyle }}" style-hover="color:var(--accent-soft)">
-      <svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M221.8,175.94C216.25,166.38,208,139.33,208,104a80,80,0,1,0-160,0c0,35.34-8.26,62.38-13.81,71.94A16,16,0,0,0,48,200H88.81a40,40,0,0,0,78.38,0H208a16,16,0,0,0,13.8-24.06ZM128,216a24,24,0,0,1-22.62-16h45.24A24,24,0,0,1,128,216ZM48,184c7.7-13.24,16-43.92,16-80a64,64,0,1,1,128,0c0,36.05,8.28,66.73,16,80Z"></path></svg>
-    </button>
+    <div style="position:relative">
+      <button onClick="{{ toggleRate }}" title="Periodicidade do health check" style="display:flex; align-items:center; gap:7px; padding:4px 6px; border:none; background:transparent; color:var(--muted); cursor:pointer" style-hover="color:var(--accent-soft)">
+        <svg width="15" height="15" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24Zm0 192a88 88 0 1 1 88-88 88.1 88.1 0 0 1-88 88Zm48-88a8 8 0 0 1-8 8h-40a8 8 0 0 1-8-8V72a8 8 0 0 1 16 0v48h32a8 8 0 0 1 8 8Z"></path></svg>
+        <span style="font-family:'JetBrains Mono',monospace; font-size:12px; letter-spacing:.1em">{{ rateLabel }}</span>
+      </button>
+      <sc-if value="{{ rateOpen }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute; top:calc(100% + 6px); right:0; z-index:21; display:flex; flex-direction:column; gap:2px; padding:4px; border:1px solid var(--line); border-radius:var(--radius-md); background:var(--dialog); box-shadow:var(--elev-md); animation:floatUp .16s ease">
+          <button onClick="{{ rate15 }}" style="{{ rate15Style }}">15s</button>
+          <button onClick="{{ rate30 }}" style="{{ rate30Style }}">30s</button>
+          <button onClick="{{ rate60 }}" style="{{ rate60Style }}">60s</button>
+        </div>
+      </sc-if>
     </div>
-    <sc-if value="{{ rateOpen }}" hint-placeholder-val="{{ false }}">
-      <div style="display:flex; flex-direction:column; gap:2px; padding:4px; border:1px solid var(--line); border-radius:var(--radius-md); background:var(--dialog); box-shadow:var(--elev-md); animation:floatUp .16s ease">
-        <button onClick="{{ rate15 }}" style="{{ rate15Style }}">15s</button>
-        <button onClick="{{ rate30 }}" style="{{ rate30Style }}">30s</button>
-        <button onClick="{{ rate60 }}" style="{{ rate60Style }}">60s</button>
-      </div>
-    </sc-if>
-    <sc-if value="{{ notifyOpen }}" hint-placeholder-val="{{ false }}">
-      <div style="display:flex; flex-direction:column; gap:11px; padding:13px 15px; border:1px solid var(--line); border-radius:var(--radius-md); background:var(--dialog); box-shadow:var(--elev-md); animation:floatUp .16s ease">
-        <button onClick="{{ toggleNotify }}" role="switch" aria-checked="{{ notifyOn }}" style="display:flex; align-items:center; justify-content:space-between; gap:20px; padding:0; border:none; background:transparent; cursor:pointer">
-          <span style="font-family:'JetBrains Mono',monospace; font-size:11.5px; letter-spacing:.1em; color:var(--muted)">NOTIFICAÇÕES</span>
-          <span style="{{ notifyTrackStyle }}"><span style="{{ notifyKnobStyle }}"></span></span>
-        </button>
-        <button onClick="{{ toggleSound }}" role="switch" aria-checked="{{ soundOn }}" style="display:flex; align-items:center; justify-content:space-between; gap:20px; padding:0; border:none; background:transparent; cursor:pointer">
-          <span style="font-family:'JetBrains Mono',monospace; font-size:11.5px; letter-spacing:.1em; color:var(--muted)">SOM</span>
-          <span style="{{ soundTrackStyle }}"><span style="{{ soundKnobStyle }}"></span></span>
-        </button>
-        <sc-if value="{{ notifyBlocked }}" hint-placeholder-val="{{ false }}">
-          <span style="max-width:200px; font-size:11px; line-height:1.45; color:var(--down)">Permissão bloqueada no navegador. Libere nas configurações do site.</span>
-        </sc-if>
-        <span style="max-width:200px; font-size:10.5px; line-height:1.45; color:var(--faint); text-align:left">Avisa quando uma aplicação sai de órbita.</span>
-      </div>
-    </sc-if>
+    <div style="position:relative">
+      <button onClick="{{ toggleNotifyMenu }}" title="Alertas de queda" style="{{ bellStyle }}" style-hover="color:var(--accent-soft)">
+        <svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M221.8,175.94C216.25,166.38,208,139.33,208,104a80,80,0,1,0-160,0c0,35.34-8.26,62.38-13.81,71.94A16,16,0,0,0,48,200H88.81a40,40,0,0,0,78.38,0H208a16,16,0,0,0,13.8-24.06ZM128,216a24,24,0,0,1-22.62-16h45.24A24,24,0,0,1,128,216ZM48,184c7.7-13.24,16-43.92,16-80a64,64,0,1,1,128,0c0,36.05,8.28,66.73,16,80Z"></path></svg>
+      </button>
+      <sc-if value="{{ notifyOpen }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute; top:calc(100% + 6px); right:0; z-index:21; display:flex; flex-direction:column; gap:11px; padding:13px 15px; border:1px solid var(--line); border-radius:var(--radius-md); background:var(--dialog); box-shadow:var(--elev-md); animation:floatUp .16s ease">
+          <button onClick="{{ toggleNotify }}" role="switch" aria-checked="{{ notifyOn }}" style="display:flex; align-items:center; justify-content:space-between; gap:20px; padding:0; border:none; background:transparent; cursor:pointer">
+            <span style="font-family:'JetBrains Mono',monospace; font-size:11.5px; letter-spacing:.1em; color:var(--muted)">NOTIFICAÇÕES</span>
+            <span style="{{ notifyTrackStyle }}"><span style="{{ notifyKnobStyle }}"></span></span>
+          </button>
+          <button onClick="{{ toggleSound }}" role="switch" aria-checked="{{ soundOn }}" style="display:flex; align-items:center; justify-content:space-between; gap:20px; padding:0; border:none; background:transparent; cursor:pointer">
+            <span style="font-family:'JetBrains Mono',monospace; font-size:11.5px; letter-spacing:.1em; color:var(--muted)">SOM</span>
+            <span style="{{ soundTrackStyle }}"><span style="{{ soundKnobStyle }}"></span></span>
+          </button>
+          <sc-if value="{{ notifyBlocked }}" hint-placeholder-val="{{ false }}">
+            <span style="max-width:200px; font-size:11px; line-height:1.45; color:var(--down)">Permissão bloqueada no navegador. Libere nas configurações do site.</span>
+          </sc-if>
+          <span style="max-width:200px; font-size:10.5px; line-height:1.45; color:var(--faint); text-align:left">Avisa quando uma aplicação sai de órbita.</span>
+        </div>
+      </sc-if>
+    </div>
   </div>
 
   <div id="page" style="position:relative; max-width:min(1800px, 96vw); margin:0 auto; padding:34px clamp(80px, 8vw, 140px) 110px clamp(20px, 3vw, 40px)">
@@ -337,6 +339,9 @@ class Component extends DCLogic {
       if (localStorage.getItem(NKEY) === '1' && this.canNotify()) this.state.notify = true;
     } catch (e) {}
     this.downSeen = new Set(Object.keys(status).filter(id => status[id] === 'down'));
+    this.onReturn = () => { if (!this.isAway()) this.dismissAlerts(); };
+    document.addEventListener('visibilitychange', this.onReturn);
+    window.addEventListener('focus', this.onReturn);
     this.setState({ apps, status, theme }, () => { this.applyTheme(); this.waitForD3(); this.startAuto(); this.updateTitle(); });
     try {
       const data = await fetch(`${API_BASE}/applications`).then(r => r.json());
@@ -345,7 +350,16 @@ class Component extends DCLogic {
       this.setState({ apps: fresh }, () => this.updateTitle());
     } catch (e) {}
   }
-  componentWillUnmount() { if (this.timer) this.timer.stop(); if (this.ro) this.ro.disconnect(); clearInterval(this.autoId); clearTimeout(this.alertTid); }
+  componentWillUnmount() {
+    if (this.timer) this.timer.stop();
+    if (this.ro) this.ro.disconnect();
+    clearInterval(this.autoId);
+    clearTimeout(this.alertTid);
+    if (this.onReturn) {
+      document.removeEventListener('visibilitychange', this.onReturn);
+      window.removeEventListener('focus', this.onReturn);
+    }
+  }
 
   saveCounters() {
     try {
@@ -382,10 +396,17 @@ class Component extends DCLogic {
       this.setState({ countdown: this.counters[this.state.env] });
       if (expired.length) Promise.all(expired.map(env => this.syncEnv(env)));
     }
+    this.lastTick = Date.now();
     this.autoId = setInterval(() => {
+      // Desconta tempo de relógio, não 1 por tick: o Chrome estrangula
+      // setInterval a ~1/min em aba em background, e é justamente aí que o
+      // alerta precisa respeitar o intervalo configurado.
+      const now = Date.now();
+      const elapsed = Math.max(1, Math.round((now - this.lastTick) / 1000));
+      this.lastTick = now;
       const r = this.state.rate || 30;
       ['dev', 'hml', 'prd'].forEach(env => {
-        this.counters[env]--;
+        this.counters[env] -= elapsed;
         if (this.counters[env] <= 0) { this.counters[env] = r; this.syncEnv(env); }
       });
       this.saveCounters();
@@ -436,7 +457,15 @@ class Component extends DCLogic {
     this.alertBuf = [];
     if (!hits.length || !this.isAway()) return;
     if (this.state.sound) this.beep();
-    if (this.state.notify && this.canNotify()) hits.forEach(h => this.notifyDown(h));
+    if (!this.state.notify) return;
+    if (!this.canNotify()) {
+      // Permissão revogada com a página aberta: desliga o switch em vez de
+      // falhar calado, senão o som toca e a notificação nunca aparece.
+      try { localStorage.setItem(NKEY, '0'); } catch (e) {}
+      this.setState({ notify: false, notifyBlocked: true });
+      return;
+    }
+    hits.forEach(h => this.notifyDown(h));
   }
   notifyDown(hit) {
     const app = this.state.apps.find(a => a.id === hit.id);
@@ -444,10 +473,25 @@ class Component extends DCLogic {
     if (!nome) return;
     const envLabel = app ? ((ENVS.find(e => e[0] === (app.env || 'prd')) || [])[1] || '') : '';
     const body = [app && app.time && `Time: ${app.time}`, envLabel && `Ambiente: ${envLabel}`].filter(Boolean).join('\n');
+    // renotify: sem ele, uma notificação de mesma tag substitui a anterior em
+    // silêncio — nenhum banner na segunda queda do mesmo app.
+    this.showNotif(`${nome} saiu de órbita`, body, `orbital-down-${hit.id}`);
+  }
+  showNotif(title, body, tag) {
     try {
-      const n = new Notification(`${nome} saiu de órbita`, { body, tag: `orbital-down-${hit.id}` });
+      const n = new Notification(title, { body, tag, renotify: true });
       n.onclick = () => { window.focus(); n.close(); };
-    } catch (e) {}
+      (this.openNotifs = this.openNotifs || []).push(n);
+      return n;
+    } catch (e) { return null; }
+  }
+  // Ao voltar, o SO entrega empilhado tudo que retinha com a tela bloqueada.
+  // O dashboard já mostra o estado, então o banner antigo só atrapalha.
+  dismissAlerts() {
+    this.alertBuf = [];
+    clearTimeout(this.alertTid);
+    (this.openNotifs || []).forEach(n => { try { n.close(); } catch (e) {} });
+    this.openNotifs = [];
   }
 
   ensureAudio() {
@@ -685,7 +729,12 @@ class Component extends DCLogic {
     if (perm === 'default') perm = await Notification.requestPermission();
     if (perm !== 'granted') { this.setState({ notify: false, notifyBlocked: true }); return; }
     try { localStorage.setItem(NKEY, '1'); } catch (e) {}
-    this.setState({ notify: true, notifyBlocked: false });
+    // Espelha o bipe de prévia do switch de som: se nada aparecer aqui, o
+    // bloqueio é do sistema operacional, não da permissão do site.
+    this.setState({ notify: true, notifyBlocked: false }, () => {
+      const n = this.showNotif('Alertas ativados', 'É assim que o Orbital avisa quando uma aplicação sai de órbita.', 'orbital-test');
+      if (n) setTimeout(() => { try { n.close(); } catch (e) {} }, 6000);
+    });
   };
 
   toggleSound = () => {
