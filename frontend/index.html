@@ -16,7 +16,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-selection@3.0.0"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-timer@3.0.1"></script>
 <style>
   html, body { margin:0; padding:0; background:#161826; }
   * { box-sizing: border-box; }
@@ -81,7 +82,7 @@
     <div style="position:relative">
       <button onClick="{{ toggleRate }}" title="Periodicidade do health check" style="display:flex; align-items:center; gap:7px; padding:4px 6px; border:none; background:transparent; color:var(--muted); cursor:pointer" style-hover="color:var(--accent-soft)">
         <svg width="15" height="15" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24Zm0 192a88 88 0 1 1 88-88 88.1 88.1 0 0 1-88 88Zm48-88a8 8 0 0 1-8 8h-40a8 8 0 0 1-8-8V72a8 8 0 0 1 16 0v48h32a8 8 0 0 1 8 8Z"></path></svg>
-        <span style="font-family:'JetBrains Mono',monospace; font-size:12px; letter-spacing:.1em">{{ rateLabel }}</span>
+        <span ref="{{ countdownRef }}" style="font-family:'JetBrains Mono',monospace; font-size:12px; letter-spacing:.1em"></span>
       </button>
       <sc-if value="{{ rateOpen }}" hint-placeholder-val="{{ false }}">
         <div style="position:absolute; top:calc(100% + 6px); right:0; z-index:21; display:flex; flex-direction:column; gap:2px; padding:4px; border:1px solid var(--line); border-radius:var(--radius-md); background:var(--dialog); box-shadow:var(--elev-md); animation:floatUp .16s ease">
@@ -310,6 +311,8 @@ async function apiFetch(path, opts = {}) {
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   return r.json();
 }
+// Só d3-selection + d3-timer são carregados; os dois preenchem window.d3.
+function d3Ready() { return !!(window.d3 && window.d3.select && window.d3.timer); }
 function cloudSvg(scale, fill, shade) {
   return `<svg width="${260 * scale}" height="${104 * scale}" viewBox="0 0 260 104" fill="none">
     <g style="fill:${fill}">
@@ -362,7 +365,7 @@ const THEMES = {
     '--fab-solid': 'var(--color-accent)', '--fab-ink': 'var(--color-bg)',
     '--fab-glow': '0 0 0 1px color-mix(in srgb, var(--color-accent) 45%, transparent), 0 0 12px color-mix(in srgb, var(--color-accent) 40%, transparent), 0 0 26px color-mix(in srgb, var(--color-accent) 18%, transparent)',
     '--elev-md': 'var(--shadow-md)', '--elev-lg': 'var(--shadow-lg)',
-    '--star-opacity': '1', '--cloud-opacity': '0',
+    '--star-opacity': '1', '--cloud-opacity': '0', '--stars-play': 'running', '--clouds-play': 'paused',
     '--storm': '#f0c064', '--storm-line': 'rgba(240,192,100,.4)', '--storm-fill': 'rgba(240,192,100,.09)',
     '--storm-sky': 'linear-gradient(180deg, rgba(8,9,16,.88) 0%, rgba(18,19,30,.7) 50%, rgba(22,24,38,.5) 100%)',
     '--storm-cloud': '#2a2c3e', '--storm-cloud-shade': '#12131c', '--storm-clouds-opacity': '0',
@@ -382,7 +385,7 @@ const THEMES = {
     '--down': '#c0384a', '--down-line': 'rgba(192,56,74,.3)', '--down-fill': 'rgba(192,56,74,.07)',
     '--fab-bg': 'rgba(61,116,184,.14)', '--fab-solid': '#3d74b8', '--fab-ink': '#f6fbff', '--fab-glow': '0 0 0 1px rgba(61,116,184,.35), 0 0 12px rgba(61,116,184,.3), 0 0 24px rgba(61,116,184,.14)',
     '--elev-md': '0 8px 24px rgba(40,70,105,.16)', '--elev-lg': '0 30px 70px rgba(40,70,105,.24)',
-    '--star-opacity': '0', '--cloud-opacity': '1',
+    '--star-opacity': '0', '--cloud-opacity': '1', '--stars-play': 'paused', '--clouds-play': 'running',
     '--storm': '#9a5f00', '--storm-line': 'rgba(154,95,0,.38)', '--storm-fill': 'rgba(255,214,140,.32)',
     '--storm-sky': 'linear-gradient(180deg, rgba(112,124,142,.9) 0%, rgba(160,169,183,.84) 40%, rgba(204,209,217,.8) 100%)',
     '--storm-cloud': '#6c7788', '--storm-cloud-shade': '#4a5463', '--storm-clouds-opacity': '1',
@@ -401,7 +404,7 @@ const STORM_OVERRIDES = {
 
 class Component extends DCLogic {
   state = {
-    apps: [], status: {}, formOpen: false, scanning: false, selectedId: null, pendingRemoveId: null, theme: 'dark', query: '', filter: 'all', page: 0, env: 'prd', rate: 30, rateOpen: false, countdown: 30, timeDropOpen: false,
+    apps: [], status: {}, formOpen: false, scanning: false, selectedId: null, pendingRemoveId: null, theme: 'dark', query: '', filter: 'all', page: 0, env: 'prd', rate: 30, rateOpen: false, timeDropOpen: false,
     notify: false, sound: false, notifyOpen: false, notifyBlocked: false, apiDown: false, lastOk: null,
     form: { nome: '', time: '', swagger: '', health: '', env: 'prd' }
   };
@@ -473,7 +476,7 @@ class Component extends DCLogic {
           expired.push(env);
         }
       });
-      this.setState({ countdown: this.counters[this.state.env] });
+      this.paintCountdown();
       if (expired.length) Promise.all(expired.map(env => this.syncEnv(env)));
     }
     this.lastTick = Date.now();
@@ -485,19 +488,29 @@ class Component extends DCLogic {
       const elapsed = Math.max(1, Math.round((now - this.lastTick) / 1000));
       this.lastTick = now;
       const r = this.state.rate || 30;
+      let reset = false;
       ['dev', 'hml', 'prd'].forEach(env => {
         this.counters[env] -= elapsed;
-        if (this.counters[env] <= 0) { this.counters[env] = r; this.syncEnv(env); }
+        if (this.counters[env] <= 0) { this.counters[env] = r; reset = true; this.syncEnv(env); }
       });
-      this.saveCounters();
-      this.setState({ countdown: this.counters[this.state.env] });
+      // O restore desconta o tempo desde o ts gravado, então o decremento
+      // linear não precisa ir para o localStorage: só os reinícios.
+      if (reset) this.saveCounters();
+      this.paintCountdown();
     }, 1000);
+  }
+  // Escreve direto no DOM: um setState por segundo re-renderizaria a árvore
+  // inteira só para trocar este texto. O span não tem filhos no template, então
+  // o React nunca sobrescreve o que é posto aqui.
+  paintCountdown() {
+    const el = this.countdownEl; if (!el) return;
+    el.textContent = `${this.counters?.[this.state.env] ?? this.state.rate}s`;
   }
   setRate(s) {
     try { localStorage.setItem('orbital-rate-v1', String(s)); } catch (e) {}
     this.counters = { dev: s, hml: s, prd: s };
     this.saveCounters();
-    this.setState({ rate: s, rateOpen: false, countdown: s }, () => this.startAuto());
+    this.setState({ rate: s, rateOpen: false }, () => { this.paintCountdown(); this.startAuto(); });
   }
   async syncEnv(env) {
     try {
@@ -518,8 +531,11 @@ class Component extends DCLogic {
       try { localStorage.setItem(LKEY, String(lastOk)); } catch (e) {}
       const cleared = this.state.apiDown;
       this.setState({ status: nextStatus, apiDown: false, lastOk }, () => {
-        if (cleared) this.applySky();
-        this.redraw(); this.updateTitle();
+        // O céu abrindo muda o núcleo: esqueleto novo. Fora disso, só o
+        // ambiente na tela toca a órbita — os outros dois não têm o que redesenhar.
+        if (cleared) { this.applySky(); this.redraw(); }
+        else if (env === this.state.env) this.updatePlanets();
+        this.updateTitle();
       });
       if (fell.length) this.queueAlert(fell);
     } catch (e) {}
@@ -649,12 +665,12 @@ class Component extends DCLogic {
   }
 
   waitForD3() {
-    if (window.d3) { this.drawStars(); this.drawClouds(); this.drawStorm(); this.drawOrbits(); return; }
+    if (d3Ready()) { this.drawStars(); this.drawClouds(); this.drawStorm(); this.drawOrbits(); return; }
     setTimeout(() => this.waitForD3(), 120);
   }
-  redraw() { if (window.d3 && this.orbitEl) this.drawOrbits(); }
+  redraw() { if (d3Ready() && this.orbitEl) this.drawOrbits(); }
   envApps() { return this.state.apps.filter(a => (a.env || 'prd') === this.state.env); }
-  setEnv(env) { this.setState({ env, page: 0, selectedId: null, countdown: this.counters?.[env] ?? this.state.rate }, () => this.redraw()); }
+  setEnv(env) { this.setState({ env, page: 0, selectedId: null }, () => { this.paintCountdown(); this.redraw(); }); }
   select(id, fromOrbit) {
     const next = { selectedId: id };
     if (fromOrbit && id) {
@@ -670,7 +686,7 @@ class Component extends DCLogic {
       if (i >= 0) next.page = Math.floor(i / 3);
       else { next.query = ''; next.filter = 'all'; next.page = Math.floor(this.envApps().findIndex(a => a.id === id) / 3); }
     }
-    this.setState(next, () => { if (this.paintSelection) this.paintSelection(); else this.redraw(); });
+    this.setState(next, () => this.updatePlanets());
   }
 
 
@@ -680,11 +696,13 @@ class Component extends DCLogic {
     el.dataset.done = '1';
     const d3 = window.d3;
     const svg = d3.select(el).append('svg').attr('width', '100%').attr('height', '100%').style('display', 'block');
-    const data = d3.range(160).map(() => ({ x: Math.random() * 100, y: Math.random() * 100, r: Math.random() * 1.5 + .4, d: Math.random() * 6 }));
+    const data = Array.from({ length: 160 }, () => ({ x: Math.random() * 100, y: Math.random() * 100, r: Math.random() * 1.5 + .4, d: Math.random() * 6 }));
     svg.selectAll('circle').data(data).join('circle')
       .attr('cx', d => d.x + '%').attr('cy', d => d.y + '%').attr('r', d => d.r)
       .attr('fill', d => d.r > 1.4 ? '#cfc9f2' : '#e9e9ed')
-      .style('animation', d => `twinkle ${3 + d.d}s ease-in-out ${d.d}s infinite`);
+      .style('animation', d => `twinkle ${3 + d.d}s ease-in-out ${d.d}s infinite`)
+      // Invisíveis no tema claro: pausadas para não gastar quadro à toa.
+      .style('animation-play-state', 'var(--stars-play, running)');
   }
 
   drawClouds() {
@@ -705,11 +723,12 @@ class Component extends DCLogic {
       .style('opacity', d => d.op)
       .style('transform-origin', 'left center')
       .style('animation', d => `drift ${d.dur}s linear ${d.delay}s infinite`)
+      .style('animation-play-state', 'var(--clouds-play, running)')
       .html(d => cloudSvg(d.scale, '#ffffff', '#cfe2f4'));
   }
 
   drawStorm() {
-    const el = this.stormEl; if (!el || el.dataset.done || !window.d3 || !this.state.apiDown) return;
+    const el = this.stormEl; if (!el || el.dataset.done || !d3Ready() || !this.state.apiDown) return;
     el.dataset.done = '1';
     const d3 = window.d3;
     const root = d3.select(el);
@@ -733,7 +752,7 @@ class Component extends DCLogic {
       .style('animation', d => `drift ${d.dur}s linear ${d.delay}s infinite`)
       .html(d => cloudSvg(d.scale, 'var(--storm-cloud)', 'var(--storm-cloud-shade)')));
     if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    const drops = d3.range(140).map(() => ({ x: Math.random() * 100, len: 14 + Math.random() * 18, dur: .55 + Math.random() * .5, delay: -Math.random() * 2, op: .35 + Math.random() * .65 }));
+    const drops = Array.from({ length: 140 }, () => ({ x: Math.random() * 100, len: 14 + Math.random() * 18, dur: .55 + Math.random() * .5, delay: -Math.random() * 2, op: .35 + Math.random() * .65 }));
     play(fixed(root.append('div')).style('transform', 'skewX(-10deg)')
       .selectAll('div').data(drops).join('div')
       .style('position', 'absolute').style('top', '0').style('left', d => d.x + '%')
@@ -787,7 +806,7 @@ class Component extends DCLogic {
       grad.append('stop').attr('offset', '0%').attr('stop-color', '#fff3d6');
       grad.append('stop').attr('offset', '100%').attr('stop-color', '#f0a83c');
       g.append('circle').attr('r', 34).attr('fill', 'rgba(240,168,60,.14)');
-      g.append('g').selectAll('line').data(window.d3.range(12)).join('line')
+      g.append('g').selectAll('line').data(Array.from({ length: 12 }, (_, i) => i)).join('line')
         .attr('x1', d => Math.cos(d * Math.PI / 6) * 21).attr('y1', d => Math.sin(d * Math.PI / 6) * 21)
         .attr('x2', d => Math.cos(d * Math.PI / 6) * 28).attr('y2', d => Math.sin(d * Math.PI / 6) * 28)
         .attr('stroke', '#e8a53c').attr('stroke-width', 1.6).attr('stroke-linecap', 'round').attr('opacity', .7);
@@ -806,10 +825,13 @@ class Component extends DCLogic {
     return 'LUA';
   }
 
+  // Esqueleto da órbita: só é refeito quando muda o que ele desenha (tema,
+  // tempestade, ambiente, tamanho). Sync, busca e filtro passam por updatePlanets.
   drawOrbits() {
     const el = this.orbitEl; if (!el) return;
     const d3 = window.d3;
     const light = this.state.theme === 'light';
+    const storm = this.state.apiDown;
     const W = Math.max(320, el.clientWidth || 860), H = Math.max(280, el.clientHeight || 560);
     d3.select(el).selectAll('svg').remove();
     const svg = d3.select(el).append('svg')
@@ -823,74 +845,101 @@ class Component extends DCLogic {
     f.append('feGaussianBlur').attr('stdDeviation', 6).attr('result', 'b');
     const m = f.append('feMerge'); m.append('feMergeNode').attr('in', 'b'); m.append('feMergeNode').attr('in', 'SourceGraphic');
 
+    const up = light ? '#1c8a58' : '#6fd39b', down = light ? '#c0384a' : '#e8808c', idle = light ? '#7d94ad' : '#6e6e86';
+    // Brilho dos planetas pré-desenhado: um feGaussianBlur em algo que se move
+    // é refeito a cada quadro. O #oglow fica só no núcleo, que é estático.
+    [['up', up], ['down', down], ['idle', idle]].forEach(([k, c]) => {
+      const gr = defs.append('radialGradient').attr('id', `glow-${k}`);
+      gr.append('stop').attr('offset', '35%').attr('stop-color', c).attr('stop-opacity', .55);
+      gr.append('stop').attr('offset', '100%').attr('stop-color', c).attr('stop-opacity', 0);
+    });
+
+    const ringsG = g.append('g');
+    this.drawCore(g, defs, light, storm);
+    const planetsG = g.append('g');
+    this.orbit = { W, H, light, storm, ringsG, planetsG, color: s => s === 'up' ? up : s === 'down' ? down : idle };
+    this.planetSel = null;
+    this.updatePlanets();
+
+    if (!this.t0) this.t0 = Date.now();
+    if (!this.timer) this.timer = d3.timer(() => {
+      if (!this.planetSel) return;
+      const t = (Date.now() - this.t0) / 1000;
+      this.planetSel.attr('transform', d => {
+        const a = d.phase + t * d.speed;
+        return `translate(${Math.cos(a) * d.r},${Math.sin(a) * d.ry})`;
+      });
+    });
+  }
+
+  // Data join: só entram e saem os planetas que mudaram; os demais só são repintados.
+  updatePlanets() {
+    const o = this.orbit; if (!o) return;
+    const { W, H, light } = o;
     const _q = (this.state.query || '').trim().toLowerCase();
     const _f = this.state.filter || 'all';
     const _st = this.state.status;
+    const rMax = Math.min(W / 2 - 46, (H / 2 - 34) / 0.42);
     const nodes = this.envApps().filter(a => {
       if (_f !== 'all' && _st[a.id] !== _f) return false;
       if (!_q) return true;
       return (a.nome + ' ' + a.time).toLowerCase().includes(_q);
     }).map((a, i) => {
       const ring = i % 4;
-      const rMax = Math.min(W / 2 - 46, (H / 2 - 34) / 0.42);
       const r = rMax * (0.34 + ring * 0.22);
       return { ...a, r, ry: r * 0.42, phase: (i * 2.399) % (Math.PI * 2), speed: 0.32 / (1 + ring * 0.55), size: 9.5 + (ring === 0 ? 2.5 : 0) };
     });
 
-    g.selectAll('ellipse.ring').data([...new Set(nodes.map(n => n.r))]).join('ellipse')
+    o.ringsG.selectAll('ellipse').data([...new Set(nodes.map(n => n.r))]).join('ellipse')
       .attr('rx', d => d).attr('ry', d => d * 0.42).attr('fill', 'none')
       .attr('stroke', light ? 'rgba(22,60,100,.22)' : 'rgba(233,233,237,.14)').attr('stroke-dasharray', '3 7');
 
-    const storm = this.state.apiDown;
-    this.drawCore(g, defs, light, storm);
-
-    const up = light ? '#1c8a58' : '#6fd39b', down = light ? '#c0384a' : '#e8808c', idle = light ? '#7d94ad' : '#6e6e86';
-    const color = s => s === 'up' ? up : s === 'down' ? down : idle;
-    const st = this.state.status;
-
-    const node = g.selectAll('g.planet').data(nodes, d => d.id).join('g')
-      .attr('class', 'planet').style('cursor', 'pointer')
-      .on('click', (e, d) => this.select(d.id, true));
-
-    // Sem contato, a cor seria do último check: fica cinza, apagada e tracejada.
-    if (storm) node.style('opacity', .55);
-    node.append('circle').attr('r', d => d.size + 7).attr('fill', d => color(st[d.id])).attr('opacity', storm ? .08 : light ? .14 : .18)
-      .style('fill', storm ? 'var(--stale)' : null);
-    node.append('circle').attr('r', d => d.size).attr('fill', d => color(st[d.id]))
-      .style('fill', storm ? 'var(--stale)' : null)
-      .attr('stroke', d => this.state.selectedId === d.id ? (light ? '#255291' : '#ffffff') : (light ? 'rgba(22,38,58,.2)' : 'rgba(255,255,255,.35)'))
-      .attr('stroke-width', d => this.state.selectedId === d.id ? 2.5 : 1)
-      .attr('stroke-dasharray', storm ? '2 3' : null)
-      .attr('filter', light || storm ? null : 'url(#oglow)');
-    node.append('circle').attr('r', d => d.size * .45).attr('cx', d => -d.size * .3).attr('cy', d => -d.size * .3)
-      .attr('fill', light ? 'rgba(255,255,255,.5)' : 'rgba(255,255,255,.35)');
-    node.append('text').attr('y', d => d.size + 18).attr('text-anchor', 'middle')
-      .attr('fill', light ? '#1c3550' : '#c9c6e0').style('font', "500 12px 'Inter', sans-serif").text(d => d.nome);
-
-    if (!this.t0) this.t0 = Date.now();
-    if (this.timer) this.timer.stop();
-    this.timer = d3.timer(() => {
-      const t = (Date.now() - this.t0) / 1000;
-      node.attr('transform', d => {
-        const a = d.phase + t * d.speed;
-        return `translate(${Math.cos(a) * d.r},${Math.sin(a) * d.ry})`;
-      });
+    this.planetSel = o.planetsG.selectAll('g.planet').data(nodes, d => d.id).join(enter => {
+      const node = enter.append('g').attr('class', 'planet').style('cursor', 'pointer')
+        .on('click', (e, d) => this.select(d.id, true));
+      node.append('circle').attr('class', 'halo');
+      node.append('circle').attr('class', 'body');
+      node.append('circle').attr('class', 'shine');
+      node.append('text').attr('class', 'label').attr('text-anchor', 'middle').style('font', "500 12px 'Inter', sans-serif");
+      return node;
     });
-    this.planetSel = node;
-    this.paintSelection = () => {
-      node.select('circle:nth-child(2)')
-        .attr('stroke', d => this.state.selectedId === d.id ? (light ? '#255291' : '#ffffff') : (light ? 'rgba(22,38,58,.2)' : 'rgba(255,255,255,.35)'))
-        .attr('stroke-width', d => this.state.selectedId === d.id ? 2.5 : 1);
-    };
+    this.paintPlanets();
+  }
+
+  // O select() de cada filho propaga o dado atualizado do planeta pelo join.
+  paintPlanets() {
+    const o = this.orbit, node = this.planetSel; if (!o || !node) return;
+    const { light, storm, color } = o;
+    const st = this.state.status;
+    const selId = this.state.selectedId;
+    const glow = !light && !storm;
+    // Sem contato, a cor seria do último check: fica cinza, apagada e tracejada.
+    node.style('opacity', storm ? .55 : null);
+    node.select('circle.halo')
+      .attr('r', d => d.size + (glow ? 14 : 7))
+      .attr('fill', d => glow ? `url(#glow-${st[d.id] === 'up' || st[d.id] === 'down' ? st[d.id] : 'idle'})` : color(st[d.id]))
+      .attr('opacity', glow ? 1 : storm ? .08 : .14)
+      .style('fill', storm ? 'var(--stale)' : null);
+    node.select('circle.body')
+      .attr('r', d => d.size).attr('fill', d => color(st[d.id]))
+      .style('fill', storm ? 'var(--stale)' : null)
+      .attr('stroke', d => selId === d.id ? (light ? '#255291' : '#ffffff') : (light ? 'rgba(22,38,58,.2)' : 'rgba(255,255,255,.35)'))
+      .attr('stroke-width', d => selId === d.id ? 2.5 : 1)
+      .attr('stroke-dasharray', storm ? '2 3' : null);
+    node.select('circle.shine')
+      .attr('r', d => d.size * .45).attr('cx', d => -d.size * .3).attr('cy', d => -d.size * .3)
+      .attr('fill', light ? 'rgba(255,255,255,.5)' : 'rgba(255,255,255,.35)');
+    node.select('text.label')
+      .attr('y', d => d.size + 18).attr('fill', light ? '#1c3550' : '#c9c6e0').text(d => d.nome);
   }
 
   checkAll = async () => {
     if (this.state.scanning) return;
     const env = this.state.env;
-    this.setState({ scanning: true }, () => this.redraw());
+    this.setState({ scanning: true });
     await this.syncEnv(env);
     if (this.counters) { this.counters[env] = this.state.rate || 30; this.saveCounters(); }
-    this.setState({ scanning: false, countdown: this.counters?.[env] ?? this.state.rate }, () => this.redraw());
+    this.setState({ scanning: false }, () => this.paintCountdown());
   };
 
   toggleTheme = () => {
@@ -960,7 +1009,7 @@ class Component extends DCLogic {
     return {
       rootRef: el => { this.rootEl = el; if (el) this.applyTheme(); },
       starsRef: el => { this.starsEl = el; },
-      cloudsRef: el => { this.cloudsEl = el; if (el && window.d3) this.drawClouds(); },
+      cloudsRef: el => { this.cloudsEl = el; if (el && d3Ready()) this.drawClouds(); },
       stormRef: el => { this.stormEl = el; if (el) this.drawStorm(); },
       apiDown,
       stormMsg: lastOk
@@ -976,7 +1025,12 @@ class Component extends DCLogic {
       orbitRef: el => {
         this.orbitEl = el;
         if (el && !this.ro && window.ResizeObserver) {
-          this.ro = new ResizeObserver(() => this.redraw());
+          this.ro = new ResizeObserver(() => {
+            const size = `${el.clientWidth}x${el.clientHeight}`;
+            if (size === this.orbitSize) return;
+            this.orbitSize = size;
+            this.redraw();
+          });
           this.ro.observe(el);
         }
       },
@@ -1012,16 +1066,16 @@ class Component extends DCLogic {
         : 'Nenhuma aplicação corresponde ao filtro.',
       shownLabel: visible.length === apps.length ? '' : `${visible.length} DE ${apps.length}`,
       query: this.state.query || '',
-      onQuery: e => this.setState({ query: e.target.value, page: 0 }, () => this.redraw()),
-      filterAll: () => this.setState({ filter: 'all', page: 0 }, () => this.redraw()),
-      filterUp: () => this.setState({ filter: 'up', page: 0 }, () => this.redraw()),
-      filterDown: () => this.setState({ filter: 'down', page: 0 }, () => this.redraw()),
+      onQuery: e => this.setState({ query: e.target.value, page: 0 }, () => this.updatePlanets()),
+      filterAll: () => this.setState({ filter: 'all', page: 0 }, () => this.updatePlanets()),
+      filterUp: () => this.setState({ filter: 'up', page: 0 }, () => this.updatePlanets()),
+      filterDown: () => this.setState({ filter: 'down', page: 0 }, () => this.updatePlanets()),
       fAllStyle: chip(filter === 'all'),
       fUpStyle: chip(filter === 'up'),
       fDownStyle: chip(filter === 'down'),
       scanLabel: this.state.scanning ? 'Sincronizando…' : 'Sincronizar',
       checkAll: this.checkAll,
-      rateLabel: `${this.state.countdown ?? this.state.rate}s`,
+      countdownRef: el => { this.countdownEl = el; this.paintCountdown(); },
       rateOpen: this.state.rateOpen,
       toggleRate: () => this.setState({ rateOpen: !this.state.rateOpen, notifyOpen: false }),
       rate15: () => this.setRate(15),
@@ -1066,7 +1120,7 @@ class Component extends DCLogic {
         const next = this.state.apps.filter(x => x.id !== id);
         this.downSeen.delete(id);
         try { localStorage.setItem(AKEY, JSON.stringify(next)); } catch (e) {}
-        this.setState({ apps: next, pendingRemoveId: null, selectedId: selectedId === id ? null : selectedId }, () => { this.redraw(); this.updateTitle(); });
+        this.setState({ apps: next, pendingRemoveId: null, selectedId: selectedId === id ? null : selectedId }, () => { this.updatePlanets(); this.updateTitle(); });
       },
       hasSelection: !!sel,
       selNome: sel ? sel.nome : '',
@@ -1116,7 +1170,10 @@ class Component extends DCLogic {
         } catch (e) { return; }
         const nextApps = [...this.state.apps, app];
         try { localStorage.setItem(AKEY, JSON.stringify(nextApps)); } catch (e) {}
-        this.setState({ apps: nextApps, formOpen: false, env: app.env, form: { nome: '', time: '', swagger: '', health: '', env: app.env } }, () => this.redraw());
+        const envChanged = app.env !== this.state.env;
+        this.setState({ apps: nextApps, formOpen: false, env: app.env, form: { nome: '', time: '', swagger: '', health: '', env: app.env } }, () => {
+          if (envChanged) { this.paintCountdown(); this.redraw(); } else this.updatePlanets();
+        });
         this.syncEnv(app.env);
       }
     };
