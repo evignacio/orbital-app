@@ -47,6 +47,7 @@
   @keyframes rain { from { transform: translateY(-40px) } to { transform: translateY(110vh) } }
   @keyframes lightning { 0%,42%,44.5%,46%,92%,94.5%,96%,100% { opacity:0 } 43% { opacity:.9 } 45% { opacity:.45 } 93% { opacity:1 } 95% { opacity:.6 } }
   @keyframes bolt { 0%,92.4%,94.5%,97%,100% { opacity:0 } 92.6%,94% { opacity:1 } 95.5% { opacity:.7 } }
+  @keyframes comet { 0% { transform: translateX(-25vw); opacity:0 } 2% { opacity:1 } 15% { opacity:1 } 19%,100% { transform: translateX(125vw); opacity:0 } }
   @keyframes flicker { 0%,88%,100% { opacity:1 } 90% { opacity:.25 } 92% { opacity:1 } 94% { opacity:.45 } }
 </style>
 </helmet>
@@ -365,6 +366,7 @@ const THEMES = {
     '--storm': '#f0c064', '--storm-line': 'rgba(240,192,100,.4)', '--storm-fill': 'rgba(240,192,100,.09)',
     '--storm-sky': 'linear-gradient(180deg, rgba(8,9,16,.88) 0%, rgba(18,19,30,.7) 50%, rgba(22,24,38,.5) 100%)',
     '--storm-cloud': '#2a2c3e', '--storm-cloud-shade': '#12131c', '--storm-clouds-opacity': '0',
+    '--storm-comets-opacity': '1', '--comet-head': '#f6f4ff', '--comet-tail': 'rgba(183,174,232,.75)',
     '--storm-rain': 'rgba(180,190,230,.45)', '--storm-flash': 'rgba(215,220,255,.2)',
     '--stale': '#7a7a92'
   },
@@ -384,6 +386,7 @@ const THEMES = {
     '--storm': '#9a5f00', '--storm-line': 'rgba(154,95,0,.38)', '--storm-fill': 'rgba(255,214,140,.32)',
     '--storm-sky': 'linear-gradient(180deg, rgba(112,124,142,.9) 0%, rgba(160,169,183,.84) 40%, rgba(204,209,217,.8) 100%)',
     '--storm-cloud': '#6c7788', '--storm-cloud-shade': '#4a5463', '--storm-clouds-opacity': '1',
+    '--storm-comets-opacity': '0', '--comet-head': '#ffffff', '--comet-tail': 'rgba(255,255,255,.7)',
     '--storm-rain': 'rgba(30,45,70,.4)', '--storm-flash': 'rgba(255,255,255,.55)',
     '--stale': '#8494a8'
   }
@@ -737,6 +740,23 @@ class Component extends DCLogic {
       .style('width', '1px').style('height', d => d.len + 'px').style('opacity', d => d.op)
       .style('background', 'linear-gradient(transparent, var(--storm-rain))')
       .style('animation', d => `rain ${d.dur}s linear ${d.delay}s infinite`));
+    // Tempestade espacial: cometas cruzam o céu escuro de tempos em tempos.
+    // Cada um anda só no começo do ciclo (0–19%) e some no resto.
+    const comets = [
+      { top: 8, rot: 14, len: 170, dur: 11, delay: -1 },
+      { top: 22, rot: 162, len: 120, dur: 14, delay: -6 },
+      { top: 4, rot: 26, len: 220, dur: 17, delay: -11 },
+      { top: 38, rot: 9, len: 100, dur: 13, delay: -3.5 }
+    ];
+    play(fixed(root.append('div')).style('overflow', 'hidden').style('opacity', 'var(--storm-comets-opacity)')
+      .selectAll('div').data(comets).join('div')
+      .style('position', 'absolute').style('left', '0').style('top', d => d.top + '%').style('width', '100vw')
+      .style('transform', d => `rotate(${d.rot}deg)`).style('transform-origin', '50% 50%')
+      .append('div')
+      .style('display', 'flex').style('align-items', 'center').style('width', 'max-content').style('opacity', '0')
+      .style('animation', d => `comet ${d.dur}s linear ${d.delay}s infinite`)
+      .html(d => `<div style="width:${d.len}px; height:2px; border-radius:2px; background:linear-gradient(90deg, transparent, var(--comet-tail))"></div>`
+        + `<div style="width:5px; height:5px; margin-left:-2px; border-radius:50%; background:var(--comet-head); box-shadow:0 0 8px 2px var(--comet-tail), 0 0 18px 4px var(--comet-tail)"></div>`));
     play(fixed(root.append('div')).style('background', 'var(--storm-flash)').style('opacity', '0')
       .style('animation', 'lightning 7s linear infinite'));
     // O segundo raio cai no primeiro clarão do ciclo (43%), o outro no segundo (93%).

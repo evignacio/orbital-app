@@ -104,7 +104,7 @@ When an application transitions to `down`, the app fires a browser notification 
 
 ### API unreachable — "tempestade"
 
-Every API read goes through `apiFetch()` (10s timeout, throws on `!r.ok`). When the initial `GET /applications` or any `/sync` fails, `markApiDown()` sets `apiDown`: a storm covers the sky (`drawStorm()` — dark clouds, rain, lightning), the orbit core turns into a storm cloud, planets and card badges go `--stale` grey (`ÚLTIMO: …`), and a banner shows the time of the last successful check. Status values are kept as last known, never cleared. The next successful sync clears it. Losing the API also notifies/beeps once when the tab is out of focus.
+Every API read goes through `apiFetch()` (10s timeout, throws on `!r.ok`). When the initial `GET /applications` or any `/sync` fails, `markApiDown()` sets `apiDown`: a storm covers the sky (`drawStorm()` — rain and lightning in both themes; comets only in dark, dark clouds only in light, toggled by `--storm-comets-opacity` / `--storm-clouds-opacity`), the orbit core turns into a storm cloud, planets and card badges go `--stale` grey (`ÚLTIMO: …`), and a banner shows the time of the last successful check. Status values are kept as last known, never cleared. The next successful sync clears it. Losing the API also notifies/beeps once when the tab is out of focus.
 
 ### Design system — Nocturne (`frontend/_ds/nocturne-*/`)
 
