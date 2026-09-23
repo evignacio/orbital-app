@@ -1,7 +1,7 @@
 const { Router } = require("express");
 const { ObjectId } = require("mongodb");
 const { connect } = require("../db");
-const { withCache } = require("../cache");
+const { withCache, invalidate } = require("../cache");
 
 const SYNC_TTL = parseInt(process.env.SYNC_CACHE_TTL || "3");
 
@@ -96,6 +96,7 @@ router.post("/:env", async (req, res) => {
     const db = await connect();
     const doc = { name, team, healthCheckUrl, swaggerUrl };
     const { insertedId } = await db.collection(toCollection(env)).insertOne(doc);
+    await invalidate(`sync:${env}`);
     res.status(201).json({ id: insertedId.toString(), ...doc });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -119,6 +120,7 @@ router.delete("/:env/:id", async (req, res) => {
     const db = await connect();
     const { deletedCount } = await db.collection(toCollection(env)).deleteOne({ _id: objectId });
     if (deletedCount === 0) return res.status(404).json({ error: "Application not found" });
+    await invalidate(`sync:${env}`);
     res.status(204).end();
   } catch (err) {
     res.status(500).json({ error: err.message });

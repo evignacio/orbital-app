@@ -26,4 +26,10 @@ async function withCache(key, ttlSeconds, fn) {
   }
 }
 
-module.exports = { withCache };
+async function invalidate(key) {
+  try {
+    await getClient().del(key);
+  } catch {}
+}
+
+module.exports = { withCache, invalidate };
