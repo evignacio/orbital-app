@@ -25,6 +25,7 @@ function serialize(doc) {
 // Every route with :env validates it here first.
 router.param("env", (req, res, next, env) => {
   if (!ENVIRONMENTS.includes(env)) {
+    req.log.warn("unknown environment", { env });
     return res
       .status(404)
       .json({ error: `Environment "${env}" not found. Valid values: ${ENVIRONMENTS.join(", ")}` });
@@ -44,6 +45,7 @@ router.get("/", async (req, res) => {
     );
     res.json(result);
   } catch (err) {
+    req.log.error("list applications failed", { err });
     res.status(500).json({ error: err.message });
   }
 });
@@ -55,25 +57,34 @@ router.get("/:env", async (req, res) => {
     const docs = await db.collection(toCollection(env)).find().toArray();
     res.json(docs.map(serialize));
   } catch (err) {
+    req.log.error("list applications failed", { env, err });
     res.status(500).json({ error: err.message });
   }
 });
 
 // A 2xx slower than DEGRADED_LATENCY_MS is "degraded"; any error wins over
-// slowness. Latency is measured up to the response headers.
-async function checkHealth(app) {
+// slowness. Latency is measured up to the response headers. Unhealthy and
+// degraded apps log a warn: the problem is the monitored app, not this API.
+async function checkHealth(app, log) {
   const started = performance.now();
+  const ctx = { app: app.name, id: app.id, url: app.healthCheckUrl };
   try {
     const response = await fetch(app.healthCheckUrl, { signal: AbortSignal.timeout(HEALTH_CHECK_TIMEOUT_MS) });
     const latencyMs = Math.round(performance.now() - started);
     // The body is never read; cancel it so the connection is released now.
     response.body?.cancel().catch(() => {});
-    if (!response.ok) return { id: app.id, name: app.name, status: "unhealthy", latencyMs };
+    if (!response.ok) {
+      log.warn("health check unhealthy", { ...ctx, httpStatus: response.status, latencyMs });
+      return { id: app.id, name: app.name, status: "unhealthy", latencyMs };
+    }
     if (latencyMs > DEGRADED_LATENCY_MS) {
+      log.warn("health check degraded", { ...ctx, latencyMs, limitMs: DEGRADED_LATENCY_MS });
       return { id: app.id, name: app.name, status: "degraded", latencyMs, limitMs: DEGRADED_LATENCY_MS };
     }
     return { id: app.id, name: app.name, status: "healthy", latencyMs };
-  } catch {
+  } catch (err) {
+    const reason = err.name === "TimeoutError" ? "timeout" : err.cause?.code || err.message;
+    log.warn("health check unhealthy", { ...ctx, reason, timeoutMs: HEALTH_CHECK_TIMEOUT_MS });
     return { id: app.id, name: app.name, status: "unhealthy", latencyMs: null };
   }
 }
@@ -98,14 +109,31 @@ router.post("/:env/sync", async (req, res) => {
   try {
     // ?fresh=1 (the "Sincronizar" button) skips the cached result.
     const fresh = req.query.fresh === "1";
+    // Runs only on a cache miss (or ?fresh=1), so this logs at most once per
+    // TTL per environment, however many browsers are polling.
     const results = await withCache(`sync:${env}`, SYNC_TTL, async () => {
+      const started = performance.now();
       const db = await connect();
       const docs = await db.collection(toCollection(env)).find().toArray();
       const apps = docs.map(serialize);
-      return await mapLimit(apps, CHECK_CONCURRENCY, checkHealth);
+      if (apps.length === 0) req.log.warn("no applications to check", { env });
+      const log = req.log.child({ env });
+      const checked = await mapLimit(apps, CHECK_CONCURRENCY, app => checkHealth(app, log));
+      const count = status => checked.filter(r => r.status === status).length;
+      req.log.info("sync completed", {
+        env,
+        fresh,
+        apps: checked.length,
+        healthy: count("healthy"),
+        degraded: count("degraded"),
+        unhealthy: count("unhealthy"),
+        durationMs: Math.round(performance.now() - started),
+      });
+      return checked;
     }, { fresh });
     res.json(results);
   } catch (err) {
+    req.log.error("sync failed", { env, err });
     res.status(500).json({ error: err.message });
   }
 });
@@ -114,6 +142,8 @@ router.post("/:env", async (req, res) => {
   const { env } = req.params;
   const { name, team, healthCheckUrl, swaggerUrl = "" } = req.body;
   if (!name || !team || !healthCheckUrl) {
+    const missing = ["name", "team", "healthCheckUrl"].filter(field => !req.body[field]);
+    req.log.warn("create application rejected: missing required fields", { env, missing });
     return res.status(400).json({ error: "Fields required: name, team, healthCheckUrl" });
   }
 
@@ -122,8 +152,10 @@ router.post("/:env", async (req, res) => {
     const doc = { name, team, healthCheckUrl, swaggerUrl };
     const { insertedId } = await db.collection(toCollection(env)).insertOne(doc);
     await invalidate(`sync:${env}`);
+    req.log.info("application created", { env, id: insertedId.toString(), name, team, healthCheckUrl });
     res.status(201).json({ id: insertedId.toString(), ...doc });
   } catch (err) {
+    req.log.error("create application failed", { env, name, err });
     res.status(500).json({ error: err.message });
   }
 });
@@ -134,15 +166,21 @@ router.delete("/:env/:id", async (req, res) => {
   try {
     objectId = new ObjectId(id);
   } catch {
+    req.log.warn("delete application rejected: invalid id", { env, id });
     return res.status(400).json({ error: "Invalid id format" });
   }
   try {
     const db = await connect();
     const { deletedCount } = await db.collection(toCollection(env)).deleteOne({ _id: objectId });
-    if (deletedCount === 0) return res.status(404).json({ error: "Application not found" });
+    if (deletedCount === 0) {
+      req.log.warn("delete application: not found", { env, id });
+      return res.status(404).json({ error: "Application not found" });
+    }
     await invalidate(`sync:${env}`);
+    req.log.info("application deleted", { env, id });
     res.status(204).end();
   } catch (err) {
+    req.log.error("delete application failed", { env, id, err });
     res.status(500).json({ error: err.message });
   }
 });

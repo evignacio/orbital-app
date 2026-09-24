@@ -3,7 +3,7 @@ services:
     build: ./api
     ports:
       - "3001:3001"
-    env_file: .env.prod
+    env_file: ./api/.env.prod
     restart: unless-stopped
 
   frontend:

@@ -72,7 +72,7 @@ docker compose -f docker-compose.local.yml up -d --build
 Sobe apenas frontend e API em containers. MongoDB e Redis são serviços externos já existentes (nuvem, on-premise, etc.).
 
 ```bash
-cp .env.prod.example .env.prod   # preencha com os dados dos serviços externos
+cp api/.env.prod.example api/.env.prod   # preencha com os dados dos serviços externos
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 
@@ -81,7 +81,7 @@ docker compose -f docker-compose.prod.yml up -d --build
 | 🌐 Frontend  | http://localhost      | Painel Orbital (nginx) |
 | ⚙️ API       | http://localhost:3001 | REST API               |
 
-As credenciais dos serviços externos são lidas do arquivo `.env.prod`:
+As credenciais dos serviços externos são lidas do arquivo `api/.env.prod`:
 
 | Variável         | Descrição                               |
 |------------------|-----------------------------------------|
@@ -128,7 +128,7 @@ docker compose -f docker-compose.local.yml up -d --build frontend
 | `REDIS_URL`       | `redis://localhost:6379`      | URL de conexão com Redis                |
 | `SYNC_CACHE_TTL`  | `13`                          | TTL do cache de health check (segundos) |
 | `HEALTH_CHECK_CONCURRENCY` | `10`                 | Máximo de health checks simultâneos por sync |
-| `DEGRADED_LATENCY_MS` | `1000`                    | Tempo de resposta (ms) acima do qual a aplicação fica degradada |
+| `DEGRADED_LATENCY_MS` | `3000`                    | Tempo de resposta (ms) acima do qual a aplicação fica degradada |
 | `HEALTH_CHECK_TIMEOUT_MS` | `5000`                  | Tempo máximo (ms) de cada health check antes de marcar a aplicação como fora do ar |
 
 ### 📡 Endpoints da API

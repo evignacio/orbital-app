@@ -33,7 +33,7 @@ const config = Object.freeze({
   syncCacheTtl: int("SYNC_CACHE_TTL", 13, 0),
   healthCheckConcurrency: int("HEALTH_CHECK_CONCURRENCY", 10, 1),
   healthCheckTimeoutMs: int("HEALTH_CHECK_TIMEOUT_MS", 5000, 1),
-  degradedLatencyMs: int("DEGRADED_LATENCY_MS", 1000, 1),
+  degradedLatencyMs: int("DEGRADED_LATENCY_MS", 3000, 1),
 });
 
 module.exports = config;

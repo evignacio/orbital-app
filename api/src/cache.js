@@ -1,9 +1,14 @@
 const Redis = require("ioredis");
 const config = require("./config");
+const log = require("./logger");
 
 const READY_TIMEOUT_MS = 1000;
 
 let client;
+
+// false while Redis is unreachable. Connection errors are logged only on the
+// transition, not on every reconnect attempt or every bypassed command.
+let available = true;
 
 function getClient() {
   if (!client) {
@@ -13,7 +18,15 @@ function getClient() {
       // shared Redis does not collide with other systems.
       keyPrefix: "orbital:",
     });
-    client.on("error", () => {});
+    client.on("ready", () => {
+      available = true;
+      log.info("redis connected", { url: log.redactUrl(config.redisUrl) });
+    });
+    client.on("error", err => {
+      if (!available) return;
+      available = false;
+      log.warn("redis unavailable, sync cache bypassed", { url: log.redactUrl(config.redisUrl), err });
+    });
   }
   return client;
 }
@@ -47,13 +60,19 @@ const inFlight = new Map();
 // (possibly outdated) result to Redis nor accepts new callers.
 const generation = new Map();
 
+// While Redis is known to be down, the transition was already logged.
+function cacheFailed(op, key, err) {
+  if (available) log.warn("cache operation failed", { op, key, err });
+}
+
 // Cache errors never reach the caller: a read failure is a miss, a write
 // failure is ignored. Only fn() itself can reject.
 async function readCache(key) {
   try {
     const cached = await (await ready()).get(key);
     return cached ? JSON.parse(cached) : undefined;
-  } catch {
+  } catch (err) {
+    cacheFailed("read", key, err);
     return undefined;
   }
 }
@@ -61,7 +80,9 @@ async function readCache(key) {
 async function writeCache(key, ttlSeconds, value) {
   try {
     await (await ready()).set(key, JSON.stringify(value), "EX", ttlSeconds);
-  } catch {}
+  } catch (err) {
+    cacheFailed("write", key, err);
+  }
 }
 
 // ttlSeconds <= 0 disables the Redis cache (single-flight still applies).
@@ -79,7 +100,7 @@ async function withCache(key, ttlSeconds, fn, { fresh = false } = {}) {
   const run = (async () => {
     try {
       const result = await fn();
-      if (caching && generation.get(key) === gen) await writeCache(key, ttlSeconds, result);
+      if (caching && (generation.get(key) || 0) === gen) await writeCache(key, ttlSeconds, result);
       return result;
     } finally {
       if (inFlight.get(key) === run) inFlight.delete(key);
@@ -94,7 +115,9 @@ async function invalidate(key) {
   inFlight.delete(key);
   try {
     await (await ready()).del(key);
-  } catch {}
+  } catch (err) {
+    cacheFailed("invalidate", key, err);
+  }
 }
 
 module.exports = { withCache, invalidate };

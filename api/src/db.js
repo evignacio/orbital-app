@@ -1,5 +1,6 @@
 const { MongoClient } = require("mongodb");
 const config = require("./config");
+const log = require("./logger");
 
 let client;
 
@@ -24,12 +25,25 @@ function dbName() {
   return "orbital";
 }
 
+// Concurrent first calls share one connection attempt. A failed attempt is
+// dropped, so the next call retries instead of reusing a broken client.
 async function connect() {
   if (!client) {
-    client = new MongoClient(buildUrl(), { authSource: "admin" });
-    await client.connect();
+    client = (async () => {
+      const mongo = new MongoClient(buildUrl(), { authSource: "admin" });
+      try {
+        await mongo.connect();
+      } catch (err) {
+        client = undefined;
+        mongo.close().catch(() => {});
+        log.error("mongo connection failed", { url: log.redactUrl(config.mongoUrl), err });
+        throw err;
+      }
+      log.info("mongo connected", { url: log.redactUrl(config.mongoUrl), db: dbName() });
+      return mongo;
+    })();
   }
-  return client.db(dbName());
+  return (await client).db(dbName());
 }
 
 module.exports = { connect };

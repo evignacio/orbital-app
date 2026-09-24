@@ -3,6 +3,6 @@
 #   Local (mongo + redis incluídos):
 #     docker compose -f docker-compose.local.yml up -d --build
 #
-#   Produção (mongo + redis externos via .env.prod):
-#     cp .env.prod.example .env.prod  # preencha as variáveis
+#   Produção (mongo + redis externos via api/.env.prod):
+#     cp api/.env.prod.example api/.env.prod  # preencha as variáveis
 #     docker compose -f docker-compose.prod.yml up -d --build

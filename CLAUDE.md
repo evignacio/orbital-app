@@ -13,7 +13,7 @@ docker compose -f docker-compose.local.yml up -d --build
 Then open `http://localhost` (nginx, port 80). The API is on `http://localhost:3001`.
 
 - `docker-compose.local.yml` — full local stack: mongo + redis + api + frontend
-- `docker-compose.prod.yml` — api + frontend only; mongo and redis come from `.env.prod`
+- `docker-compose.prod.yml` — api + frontend only; mongo and redis come from `api/.env.prod` (template: `api/.env.prod.example`)
 - `docker-compose.yml` — same services as local, without the api environment block
 
 To see a frontend change, rebuild that one service — it only copies static files into nginx, so it is fast:
@@ -33,7 +33,7 @@ frontend (nginx :80)  ──HTTP──▶  api (Express :3001)  ──▶  Mongo
                                          └──▶ Redis (cache de /sync)
 ```
 
-The browser never probes health check URLs itself. It calls `POST /applications/:env/sync`, and the API fetches each `healthCheckUrl` server-side (`HEALTH_CHECK_TIMEOUT_MS` timeout, default 5000, at most `HEALTH_CHECK_CONCURRENCY` — default 10 — in flight via `mapLimit()`) and returns `{ id, name, status, latencyMs }` per app. `status` is `healthy`, `degraded` (a 2xx slower than `DEGRADED_LATENCY_MS`, default 1000; these also carry `limitMs`) or `unhealthy` (non-2xx, network error or timeout — an error always wins over slowness).
+The browser never probes health check URLs itself. It calls `POST /applications/:env/sync`, and the API fetches each `healthCheckUrl` server-side (`HEALTH_CHECK_TIMEOUT_MS` timeout, default 5000, at most `HEALTH_CHECK_CONCURRENCY` — default 10 — in flight via `mapLimit()`) and returns `{ id, name, status, latencyMs }` per app. `status` is `healthy`, `degraded` (a 2xx slower than `DEGRADED_LATENCY_MS`, default 3000; these also carry `limitMs`) or `unhealthy` (non-2xx, network error or timeout — an error always wins over slowness).
 
 ### API (`api/`)
 
@@ -50,6 +50,8 @@ Express, no framework beyond it. Routes live in `api/src/routes/applications.js`
 There is **no update endpoint** — changing an existing app means editing Mongo directly.
 
 `/sync` results are cached in Redis for `SYNC_CACHE_TTL` seconds (13 in local compose), so a health check URL change takes up to that long to show. `api/src/cache.js` degrades gracefully: if Redis is unreachable the check just runs uncached. CORS in `api/src/index.js` reflects any origin.
+
+Logging goes through `api/src/logger.js` (no dependency): `log.info/warn/error(msg, fields)` writes one JSON line per event (`info` → stdout, `warn`/`error` → stderr), `Error` fields are serialized with `cause` (and `stack` at `error`), and `LOG_LEVEL` (`info` default, `warn`, `error`) filters. Never use `console.*`. Inside a route use `req.log`, a child carrying the request's `reqId`; every request also gets one `request completed` line (4xx → warn, 5xx → error). Level rule: `info` for flow (boot, connections, sync summary, create/delete), `warn` for things that need attention but aren't API failures (invalid client input, unhealthy/degraded monitored apps, Redis down or cache op failed), `error` for API failures (500s, Mongo connection, uncaught). Redis errors log only on the up→down transition, and the sync summary only when checks actually run (cache miss or `?fresh=1`). Redact connection URLs with `log.redactUrl()`.
 
 ### Environments
 
