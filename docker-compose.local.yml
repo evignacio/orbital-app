@@ -1,10 +1,12 @@
 services:
   mongo:
     image: mongo:7
+    environment:
+      # The entrypoint runs the seed below against this database on first boot.
+      MONGO_INITDB_DATABASE: orbital
     volumes:
       - mongo_data:/data/db
       - ./mongo-seed.js:/docker-entrypoint-initdb.d/mongo-seed.js:ro
-      - ./mongo-init.sh:/docker-entrypoint-initdb.d/01-init.sh:ro
     restart: unless-stopped
 
   redis:

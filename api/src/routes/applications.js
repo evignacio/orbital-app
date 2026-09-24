@@ -2,10 +2,12 @@ const { Router } = require("express");
 const { ObjectId } = require("mongodb");
 const { connect } = require("../db");
 const { withCache, invalidate } = require("../cache");
+const config = require("../config");
 
-const SYNC_TTL = parseInt(process.env.SYNC_CACHE_TTL || "3");
-const CHECK_CONCURRENCY = Math.max(1, parseInt(process.env.HEALTH_CHECK_CONCURRENCY || "10") || 10);
-const DEGRADED_LATENCY_MS = Math.max(1, parseInt(process.env.DEGRADED_LATENCY_MS || "1000") || 1000);
+const SYNC_TTL = config.syncCacheTtl;
+const CHECK_CONCURRENCY = config.healthCheckConcurrency;
+const DEGRADED_LATENCY_MS = config.degradedLatencyMs;
+const HEALTH_CHECK_TIMEOUT_MS = config.healthCheckTimeoutMs;
 
 const router = Router();
 
@@ -19,6 +21,16 @@ function serialize(doc) {
   const { _id, ...rest } = doc;
   return { id: _id.toString(), ...rest };
 }
+
+// Every route with :env validates it here first.
+router.param("env", (req, res, next, env) => {
+  if (!ENVIRONMENTS.includes(env)) {
+    return res
+      .status(404)
+      .json({ error: `Environment "${env}" not found. Valid values: ${ENVIRONMENTS.join(", ")}` });
+  }
+  next();
+});
 
 router.get("/", async (req, res) => {
   try {
@@ -38,11 +50,6 @@ router.get("/", async (req, res) => {
 
 router.get("/:env", async (req, res) => {
   const { env } = req.params;
-  if (!ENVIRONMENTS.includes(env)) {
-    return res
-      .status(404)
-      .json({ error: `Environment "${env}" not found. Valid values: ${ENVIRONMENTS.join(", ")}` });
-  }
   try {
     const db = await connect();
     const docs = await db.collection(toCollection(env)).find().toArray();
@@ -57,7 +64,7 @@ router.get("/:env", async (req, res) => {
 async function checkHealth(app) {
   const started = performance.now();
   try {
-    const response = await fetch(app.healthCheckUrl, { signal: AbortSignal.timeout(5000) });
+    const response = await fetch(app.healthCheckUrl, { signal: AbortSignal.timeout(HEALTH_CHECK_TIMEOUT_MS) });
     const latencyMs = Math.round(performance.now() - started);
     // The body is never read; cancel it so the connection is released now.
     response.body?.cancel().catch(() => {});
@@ -88,18 +95,15 @@ async function mapLimit(items, limit, fn) {
 
 router.post("/:env/sync", async (req, res) => {
   const { env } = req.params;
-  if (!ENVIRONMENTS.includes(env)) {
-    return res
-      .status(404)
-      .json({ error: `Environment "${env}" not found. Valid values: ${ENVIRONMENTS.join(", ")}` });
-  }
   try {
+    // ?fresh=1 (the "Sincronizar" button) skips the cached result.
+    const fresh = req.query.fresh === "1";
     const results = await withCache(`sync:${env}`, SYNC_TTL, async () => {
       const db = await connect();
       const docs = await db.collection(toCollection(env)).find().toArray();
       const apps = docs.map(serialize);
       return await mapLimit(apps, CHECK_CONCURRENCY, checkHealth);
-    });
+    }, { fresh });
     res.json(results);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -108,12 +112,6 @@ router.post("/:env/sync", async (req, res) => {
 
 router.post("/:env", async (req, res) => {
   const { env } = req.params;
-  if (!ENVIRONMENTS.includes(env)) {
-    return res
-      .status(404)
-      .json({ error: `Environment "${env}" not found. Valid values: ${ENVIRONMENTS.join(", ")}` });
-  }
-
   const { name, team, healthCheckUrl, swaggerUrl = "" } = req.body;
   if (!name || !team || !healthCheckUrl) {
     return res.status(400).json({ error: "Fields required: name, team, healthCheckUrl" });
@@ -132,11 +130,6 @@ router.post("/:env", async (req, res) => {
 
 router.delete("/:env/:id", async (req, res) => {
   const { env, id } = req.params;
-  if (!ENVIRONMENTS.includes(env)) {
-    return res
-      .status(404)
-      .json({ error: `Environment "${env}" not found. Valid values: ${ENVIRONMENTS.join(", ")}` });
-  }
   let objectId;
   try {
     objectId = new ObjectId(id);

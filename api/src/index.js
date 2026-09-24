@@ -1,9 +1,15 @@
-require("dotenv").config();
+let config;
+try {
+  config = require("./config");
+} catch (err) {
+  console.error(`Configuration error: ${err.message}`);
+  process.exit(1);
+}
 const express = require("express");
 const applicationsRouter = require("./routes/applications");
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = config.port;
 
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", req.headers.origin || "*");

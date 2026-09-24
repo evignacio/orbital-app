@@ -22,18 +22,18 @@ To see a frontend change, rebuild that one service — it only copies static fil
 docker compose -f docker-compose.local.yml up -d --build frontend
 ```
 
-`frontend/support.js` is a generated dc-runtime bundle and must not be edited by hand. Its TypeScript source is **not** in this repository, so there is no build step here to regenerate it. `frontend/Orbital.dc.html` is an empty scaffold, not the running page.
+`frontend/support.js` is a generated dc-runtime bundle and must not be edited by hand. Its TypeScript source is **not** in this repository, so there is no build step here to regenerate it.
 
 ## Architecture
 
-**Orbital** is an application health-monitoring dashboard. Applications appear as planets in a D3.js orbital visualization, colored green (`up`), amber (`degraded`, `--warn`), red (`down`) or grey (not yet checked). The UI is in Brazilian Portuguese.
+**Orbital** is an application health-monitoring dashboard. Applications appear as planets in a D3.js orbital visualization, colored green (`healthy`, `--up`), amber (`degraded`, `--warn`), red (`unhealthy`, `--down`) or grey (not yet checked). The frontend uses the API's status names and field names (`name`, `team`, `healthCheckUrl`, `swaggerUrl`) as is; the CSS color variables keep their short names. The UI is in Brazilian Portuguese.
 
 ```
 frontend (nginx :80)  ──HTTP──▶  api (Express :3001)  ──▶  MongoDB
                                          └──▶ Redis (cache de /sync)
 ```
 
-The browser never probes health check URLs itself. It calls `POST /applications/:env/sync`, and the API fetches each `healthCheckUrl` server-side (5s timeout, at most `HEALTH_CHECK_CONCURRENCY` — default 10 — in flight via `mapLimit()`) and returns `{ id, name, status, latencyMs }` per app. `status` is `healthy`, `degraded` (a 2xx slower than `DEGRADED_LATENCY_MS`, default 1000; these also carry `limitMs`) or `unhealthy` (non-2xx, network error or timeout — an error always wins over slowness).
+The browser never probes health check URLs itself. It calls `POST /applications/:env/sync`, and the API fetches each `healthCheckUrl` server-side (`HEALTH_CHECK_TIMEOUT_MS` timeout, default 5000, at most `HEALTH_CHECK_CONCURRENCY` — default 10 — in flight via `mapLimit()`) and returns `{ id, name, status, latencyMs }` per app. `status` is `healthy`, `degraded` (a 2xx slower than `DEGRADED_LATENCY_MS`, default 1000; these also carry `limitMs`) or `unhealthy` (non-2xx, network error or timeout — an error always wins over slowness).
 
 ### API (`api/`)
 
@@ -53,7 +53,7 @@ There is **no update endpoint** — changing an existing app means editing Mongo
 
 ### Environments
 
-The UI uses three short codes that map onto API/Mongo names — both directions live in `ENV_TO_API` / `API_TO_ENV` in `index.html`:
+The UI uses three short codes that map onto API/Mongo names. The single source is the `ENVS` table in `index.html` (`{ code, api, label }`); `ENV_CODES`, the `ENV_TO_API` / `API_TO_ENV` lookups and `envLabel()` are derived from it, so a new environment is one entry there:
 
 | UI | API path & Mongo collection |
 |---|---|
@@ -65,7 +65,7 @@ The health-check ticker syncs **all three** environments every cycle, regardless
 
 ### Seed data
 
-`mongo-seed.js` seeds 10 sample applications across the three collections. It runs only on first boot of an empty `mongo_data` volume (it is mounted into `docker-entrypoint-initdb.d`), so re-seeding means dropping that volume.
+`mongo-seed.js` seeds 10 sample applications across the three collections. It runs only on first boot of an empty `mongo_data` volume (it is mounted into `docker-entrypoint-initdb.d`, and `MONGO_INITDB_DATABASE=orbital` makes the entrypoint run it against `orbital`), so re-seeding means dropping that volume.
 
 ### Frontend (`frontend/index.html`)
 
@@ -75,21 +75,21 @@ The project uses the **dc-runtime** system — a lightweight React-based templat
 
 - `{{ expression }}` — interpolates a value from `renderVals()` into the template
 - `<sc-if value="{{ condition }}">` — conditional rendering; there is no else branch, use two `sc-if`s
-- `<sc-for list="{{ list }}" as="item">` — list rendering
+- `<sc-for list="{{ list }}" as="item">` — list rendering; items can carry their own handlers and styles (`onClick="{{ item.onClick }}" style="{{ item.style }}"`), which is how the env tabs, filter chips and rate options are built
 - `ref="{{ refName }}"` — the bound value is a callback that receives the DOM element (`rootRef: el => { this.rootEl = el; }`)
 - Events bind **camelCase**: `onClick`, `onChange`, `onSubmit`, `onFocus`, `onBlur`, `onMouseDown`. Arguments cannot be passed in markup — bind per item in JS instead.
 - `style-hover="..."` / `style-focus="..."` — pseudo-state inline styles
 - `<helmet>` — injects content into `<head>`
 - `<script type="text/x-dc" data-dc-script>` — component logic; the class must extend `DCLogic`
 
-State lives in `this.state = {}` and updates via `this.setState(nextState, callback?)`. Everything the template can reach is returned from a single flat object in `renderVals()`. Lifecycle hooks: `componentDidMount`, `componentDidUpdate`, `componentWillUnmount`.
+State lives in `this.state = {}` and updates via `this.setState(nextState, callback?)`. Everything the template can reach is returned from a single flat object in `renderVals()`, which spreads smaller per-region methods (`skyVals()`, `toolbarVals()`, `headerVals()`, `listVals()`, `removeVals()`, `formVals()`, `teamVals()`); style factories that don't need `this` (`envTab`, `chip`, `swTrack`, …) live at module level. Lifecycle hooks: `componentDidMount`, `componentDidUpdate`, `componentWillUnmount`.
 
 ### Data persistence
 
 MongoDB is the source of truth. `localStorage` holds a local cache plus user preferences:
 
-- `orbital-apps-v1` — cache of the last `GET /applications`
-- `orbital-status-v1` — last known `{ [appId]: 'up' | 'degraded' | 'down' }` (the latency behind the degraded tooltip lives only in memory, `this.latency`)
+- `orbital-apps-v1` — cache of the last `GET /applications`, as `{ id, env, name, team, healthCheckUrl, swaggerUrl }` (`env` is the short code). Entries in the old `{ nome, time, health, swagger }` shape are converted on read by `migrateApp()` and rewritten in the new shape on the next save. The list is reloaded (`loadApps()`) on mount, when the storm ends, and whenever a `/sync` returns IDs that don't match the environment's list
+- `orbital-status-v1` — `{ status: { [appId]: 'healthy' | 'degraded' | 'unhealthy' }, ts }`, `ts` being the last successful `/sync` (ms). The old bare-map format is still read, as `ts = 0`, and the old values `up`/`down` are mapped to `healthy`/`unhealthy` on read by `migrateStatus()` (unknown values are dropped). If `ts` is older than `STATUS_STALE_MS` (5 min) on load, statuses show as "último conhecido" with the storm's `--stale` look until the first successful sync. IDs not in the app list are dropped. The latency behind the degraded tooltip lives only in memory, `this.latency`
 - `orbital-counters-v1` — per-environment countdown to the next sync
 - `orbital-theme-v1` — `'dark'` | `'light'`
 - `orbital-rate-v1` — health-check interval in seconds
@@ -101,7 +101,7 @@ Every read and write is wrapped in an inline `try { … } catch (e) {}` — foll
 
 ### Down alerts
 
-When an application transitions to `down`, the app fires a browser notification (`{nome} saiu de Órbita`, with team and environment in the body) and a WebAudio beep — both **only** when the tab is out of focus (`document.hidden || !document.hasFocus()`). A counter stays in the page title while any application is down. `degraded` never alerts and is not counted in the title. `this.downSeen` dedupes, so a single fall notifies once, and simultaneous falls across environments are buffered to produce one beep.
+When an application transitions to `unhealthy`, the app fires a browser notification (`{name} saiu de órbita`, with team and environment in the body) and a WebAudio beep — both **only** when the tab is out of focus (`document.hidden || !document.hasFocus()`). A counter stays in the page title while any application is `unhealthy`. `degraded` never alerts and is not counted in the title. `this.downSeen` dedupes, so a single fall notifies once, and simultaneous falls across environments are buffered to produce one beep.
 
 ### API unreachable — "tempestade"
 
@@ -117,9 +117,9 @@ A single comet crosses the sky as a rare, random event — dark theme only, inde
 - `_ds_manifest.json` and `readme.md` document available components and tokens.
 - Color tokens follow OKLCH tonal ramps (`--color-neutral-100`…`900`, `--color-accent-*`).
 - **This page uses no CSS classes at all** — there is not a single `class=` attribute in `index.html`. Styling is 100% inline `style` attributes reading custom properties. The design system supplies tokens only; the `.btn` / `.card` / `.dialog` component classes are not used here. Match that, rather than introducing classes.
-- App-level aliases (`--ink`, `--muted`, `--line`, `--surface`, `--dialog`, `--accent`, `--up`, `--down`, …) are defined in the `THEMES` object in `index.html` and applied imperatively by `applyTheme()`. **A new variable must be added to both the `dark` and `light` maps.**
+- App-level aliases (`--ink`, `--muted`, `--line`, `--surface`, `--dialog`, `--accent`, `--up`, `--down`, `--mono`, …) are defined in the `THEMES` object in `index.html` and applied imperatively by `applyTheme()`. **A new variable must be added to both the `dark` and `light` maps.**
 - Icons: Phosphor (https://phosphoricons.com), pasted inline as `<svg viewBox="0 0 256 256" fill="currentColor">`. Copy real path data; do not hand-write it.
-- Fonts: Inter (body/headings) + JetBrains Mono (monospaced labels).
+- Fonts: Inter (body/headings) + JetBrains Mono (monospaced labels), always through `font-family:var(--mono)`. The repeated mono label styles are the `MONO_CONTROL`, `MONO_SMALL`, `MONO_STAT` and `MONO_EYEBROW` constants, used in the template as `style="{{ monoEyebrow }} color:…"`.
 
 ### External dependencies (CDN)
 

@@ -93,6 +93,7 @@ As credenciais dos serviços externos são lidas do arquivo `.env.prod`:
 | `SYNC_CACHE_TTL` | TTL do cache de health check (segundos) |
 | `HEALTH_CHECK_CONCURRENCY` | Máximo de health checks simultâneos por sync |
 | `DEGRADED_LATENCY_MS` | Tempo de resposta (ms) acima do qual a aplicação fica degradada |
+| `HEALTH_CHECK_TIMEOUT_MS` | Tempo máximo (ms) de cada health check antes de marcar a aplicação como fora do ar |
 
 ---
 
@@ -128,6 +129,7 @@ docker compose -f docker-compose.local.yml up -d --build frontend
 | `SYNC_CACHE_TTL`  | `13`                          | TTL do cache de health check (segundos) |
 | `HEALTH_CHECK_CONCURRENCY` | `10`                 | Máximo de health checks simultâneos por sync |
 | `DEGRADED_LATENCY_MS` | `1000`                    | Tempo de resposta (ms) acima do qual a aplicação fica degradada |
+| `HEALTH_CHECK_TIMEOUT_MS` | `5000`                  | Tempo máximo (ms) de cada health check antes de marcar a aplicação como fora do ar |
 
 ### 📡 Endpoints da API
 
