@@ -26,14 +26,14 @@ docker compose -f docker-compose.local.yml up -d --build frontend
 
 ## Architecture
 
-**Orbital** is an application health-monitoring dashboard. Applications appear as planets in a D3.js orbital visualization, colored green (`up`), red (`down`) or grey (not yet checked). The UI is in Brazilian Portuguese.
+**Orbital** is an application health-monitoring dashboard. Applications appear as planets in a D3.js orbital visualization, colored green (`up`), amber (`degraded`, `--warn`), red (`down`) or grey (not yet checked). The UI is in Brazilian Portuguese.
 
 ```
 frontend (nginx :80)  ──HTTP──▶  api (Express :3001)  ──▶  MongoDB
                                          └──▶ Redis (cache de /sync)
 ```
 
-The browser never probes health check URLs itself. It calls `POST /applications/:env/sync`, and the API fetches each `healthCheckUrl` server-side (5s timeout) and returns `{ id, name, status }` per app, where `status` is `healthy` or `unhealthy`.
+The browser never probes health check URLs itself. It calls `POST /applications/:env/sync`, and the API fetches each `healthCheckUrl` server-side (5s timeout, at most `HEALTH_CHECK_CONCURRENCY` — default 10 — in flight via `mapLimit()`) and returns `{ id, name, status, latencyMs }` per app. `status` is `healthy`, `degraded` (a 2xx slower than `DEGRADED_LATENCY_MS`, default 1000; these also carry `limitMs`) or `unhealthy` (non-2xx, network error or timeout — an error always wins over slowness).
 
 ### API (`api/`)
 
@@ -89,22 +89,27 @@ State lives in `this.state = {}` and updates via `this.setState(nextState, callb
 MongoDB is the source of truth. `localStorage` holds a local cache plus user preferences:
 
 - `orbital-apps-v1` — cache of the last `GET /applications`
-- `orbital-status-v1` — last known `{ [appId]: 'up' | 'down' }`
+- `orbital-status-v1` — last known `{ [appId]: 'up' | 'degraded' | 'down' }` (the latency behind the degraded tooltip lives only in memory, `this.latency`)
 - `orbital-counters-v1` — per-environment countdown to the next sync
 - `orbital-theme-v1` — `'dark'` | `'light'`
 - `orbital-rate-v1` — health-check interval in seconds
 - `orbital-notify-v1` / `orbital-sound-v1` — `'1'` | `'0'`, down-alert toggles
 - `orbital-lastok-v1` — timestamp (ms) of the last successful `/sync`, shown while the API is unreachable
+- `orbital-comet-v1` — timestamps (ms) of the comets shown in the last hour
 
 Every read and write is wrapped in an inline `try { … } catch (e) {}` — follow that pattern.
 
 ### Down alerts
 
-When an application transitions to `down`, the app fires a browser notification (`{nome} saiu de Órbita`, with team and environment in the body) and a WebAudio beep — both **only** when the tab is out of focus (`document.hidden || !document.hasFocus()`). A counter stays in the page title while any application is down. `this.downSeen` dedupes, so a single fall notifies once, and simultaneous falls across environments are buffered to produce one beep.
+When an application transitions to `down`, the app fires a browser notification (`{nome} saiu de Órbita`, with team and environment in the body) and a WebAudio beep — both **only** when the tab is out of focus (`document.hidden || !document.hasFocus()`). A counter stays in the page title while any application is down. `degraded` never alerts and is not counted in the title. `this.downSeen` dedupes, so a single fall notifies once, and simultaneous falls across environments are buffered to produce one beep.
 
 ### API unreachable — "tempestade"
 
-Every API read goes through `apiFetch()` (10s timeout, throws on `!r.ok`). When the initial `GET /applications` or any `/sync` fails, `markApiDown()` sets `apiDown`: a storm covers the sky (`drawStorm()` — rain and lightning in both themes; comets only in dark, dark clouds only in light, toggled by `--storm-comets-opacity` / `--storm-clouds-opacity`), the orbit core turns into a storm cloud, planets and card badges go `--stale` grey (`ÚLTIMO: …`), and a banner shows the time of the last successful check. Status values are kept as last known, never cleared. The next successful sync clears it. Losing the API also notifies/beeps once when the tab is out of focus.
+Every API read goes through `apiFetch()` (10s timeout, throws on `!r.ok`). When the initial `GET /applications` or any `/sync` fails, `markApiDown()` sets `apiDown`: a storm covers the sky (`drawStorm()` — rain and lightning in both themes; dark clouds only in light, toggled by `--storm-clouds-opacity`), the orbit core turns into a storm cloud, planets and card badges go `--stale` grey (`ÚLTIMO: …`), and a banner shows the time of the last successful check. Status values are kept as last known, never cleared. The next successful sync clears it. Losing the API also notifies/beeps once when the tab is out of focus.
+
+### Comets
+
+A single comet crosses the sky as a rare, random event — dark theme only, independent of `apiDown`. `scheduleComet()` waits 20–60 min between attempts; `launchComet()` enforces a hard cap of `COMET_MAX` (2) per rolling hour using the timestamps in `orbital-comet-v1`, so reloading the page does not reset it. Attempts while the theme is light, the tab is away or reduced motion is on are skipped without consuming the quota. The layer's visibility is `--comet-opacity` (`1` dark / `0` light).
 
 ### Design system — Nocturne (`frontend/_ds/nocturne-*/`)
 

@@ -35,7 +35,7 @@ O health check é disparado pelo frontend em intervalos configuráveis. Para evi
 - ➕ **Cadastro de aplicações** — formulário para adicionar nome, time, ambiente, URL de health check e Swagger
 - 🗑️ **Remoção de aplicações** — exclusão com confirmação diretamente no card
 - 🔍 **Painel de detalhes** — clique em um planeta para ver informações e link do Swagger
-- 🔎 **Filtros e busca** — filtre por status (no ar / fora) e busque por nome ou time
+- 🔎 **Filtros e busca** — filtre por status (no ar / degradado / fora) e busque por nome ou time
 - 📄 **Paginação** — lista de aplicações paginada por ambiente
 - 🌗 **Tema claro/escuro** — alternância com persistência no localStorage
 - ⚡ **Cache de health check** — Redis com TTL de 13s para deduplicar chamadas de múltiplos usuários simultâneos
@@ -91,6 +91,8 @@ As credenciais dos serviços externos são lidas do arquivo `.env.prod`:
 | `MONGO_DB`       | Nome do banco de dados                  |
 | `REDIS_URL`      | URL de conexão com Redis externo        |
 | `SYNC_CACHE_TTL` | TTL do cache de health check (segundos) |
+| `HEALTH_CHECK_CONCURRENCY` | Máximo de health checks simultâneos por sync |
+| `DEGRADED_LATENCY_MS` | Tempo de resposta (ms) acima do qual a aplicação fica degradada |
 
 ---
 
@@ -107,9 +109,13 @@ npm run dev
 
 **Frontend:**
 
-Abra `frontend/index.html` diretamente no navegador — não há etapa de build.
+Não há etapa de build, mas o frontend chama a API por caminho relativo (`/api/...`), então **não funciona aberto via `file://`**. Ele precisa ser servido pelo nginx do container, que encaminha `/api/` para o serviço `api`. Para ver uma alteração, rebuilde só o frontend (é rápido, só copia os arquivos estáticos):
 
-> Certifique-se de que MongoDB e Redis estejam rodando e que `API_BASE` em `frontend/index.html` aponte para `http://localhost:3001`.
+```bash
+docker compose -f docker-compose.local.yml up -d --build frontend
+```
+
+> Certifique-se de que MongoDB e Redis estejam rodando para a API.
 
 ### ⚙️ Variáveis de ambiente da API
 
@@ -120,6 +126,8 @@ Abra `frontend/index.html` diretamente no navegador — não há etapa de build.
 | `MONGO_DB`        | `orbital`                     | Nome do banco de dados                  |
 | `REDIS_URL`       | `redis://localhost:6379`      | URL de conexão com Redis                |
 | `SYNC_CACHE_TTL`  | `13`                          | TTL do cache de health check (segundos) |
+| `HEALTH_CHECK_CONCURRENCY` | `10`                 | Máximo de health checks simultâneos por sync |
+| `DEGRADED_LATENCY_MS` | `1000`                    | Tempo de resposta (ms) acima do qual a aplicação fica degradada |
 
 ### 📡 Endpoints da API
 

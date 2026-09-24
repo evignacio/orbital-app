@@ -16,8 +16,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/d3-selection@3.0.0"></script>
-<script src="https://cdn.jsdelivr.net/npm/d3-timer@3.0.1"></script>
+<!-- SRI: caminho de arquivo explícito, porque o "arquivo padrão" do jsDelivr pode mudar e quebrar o hash. -->
+<script src="https://cdn.jsdelivr.net/npm/d3-selection@3.0.0/dist/d3-selection.min.js" integrity="sha384-fpYWL7ZUVumFD+3Y+L5o9OvTX/TBgQKoQ/UP8BzGkkMTvfU9gS8NIxSoKmFgeVLs" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-timer@3.0.1/dist/d3-timer.min.js" integrity="sha384-brChTSJXF1bpEGi+e8fNotmiEQtehLbv5EWt3njlDFlYjl/SwmXs4xofe0gvWd7E" crossorigin="anonymous"></script>
 <style>
   html, body { margin:0; padding:0; background:#161826; }
   * { box-sizing: border-box; }
@@ -48,7 +49,7 @@
   @keyframes rain { from { transform: translateY(-40px) } to { transform: translateY(110vh) } }
   @keyframes lightning { 0%,42%,44.5%,46%,92%,94.5%,96%,100% { opacity:0 } 43% { opacity:.9 } 45% { opacity:.45 } 93% { opacity:1 } 95% { opacity:.6 } }
   @keyframes bolt { 0%,92.4%,94.5%,97%,100% { opacity:0 } 92.6%,94% { opacity:1 } 95.5% { opacity:.7 } }
-  @keyframes comet { 0% { transform: translateX(-25vw); opacity:0 } 2% { opacity:1 } 15% { opacity:1 } 19%,100% { transform: translateX(125vw); opacity:0 } }
+  @keyframes comet { 0% { transform: translateX(-25vw); opacity:0 } 10%,80% { opacity:1 } 100% { transform: translateX(125vw); opacity:0 } }
   @keyframes flicker { 0%,88%,100% { opacity:1 } 90% { opacity:.25 } 92% { opacity:1 } 94% { opacity:.45 } }
 </style>
 </helmet>
@@ -58,6 +59,7 @@
   <div ref="{{ cloudsRef }}" style="position:absolute; inset:0; pointer-events:none; opacity:calc(var(--cloud-opacity) * var(--calm, 1)); transition:opacity 1.2s ease"></div>
   <div style="position:absolute; top:-180px; left:50%; width:900px; height:420px; transform:translateX(-50%); background:radial-gradient(closest-side, var(--halo), transparent 70%); pointer-events:none; opacity:var(--calm, 1); transition:opacity 1.2s ease"></div>
   <div ref="{{ stormRef }}" style="position:absolute; inset:0; pointer-events:none; overflow:hidden; opacity:var(--storm-on, 0); transition:opacity 1.2s ease"></div>
+  <div ref="{{ cometRef }}" style="position:absolute; inset:0; pointer-events:none; overflow:hidden; opacity:var(--comet-opacity, 0); transition:opacity .6s ease"></div>
 
   <template id="__bundler_thumbnail" data-bg-color="#161826">
     <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
@@ -136,6 +138,10 @@
           <span style="font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.18em; color:var(--up)">NO AR</span>
           <span style="font-size:20px; font-weight:500; line-height:1">{{ upCount }}</span>
         </div>
+        <div style="display:flex; align-items:baseline; gap:8px; padding:8px 14px; border:1px solid var(--warn-line); border-radius:var(--radius-md); background:var(--warn-fill)">
+          <span style="font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.18em; color:var(--warn)">DEGRADADO</span>
+          <span style="font-size:20px; font-weight:500; line-height:1">{{ degradedCount }}</span>
+        </div>
         <div style="display:flex; align-items:baseline; gap:8px; padding:8px 14px; border:1px solid var(--down-line); border-radius:var(--radius-md); background:var(--down-fill)">
           <span style="font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.18em; color:var(--down)">FORA</span>
           <span style="font-size:20px; font-weight:500; line-height:1">{{ downCount }}</span>
@@ -174,6 +180,7 @@
         <div style="display:flex; gap:6px; align-items:center">
           <button onClick="{{ filterAll }}" style="{{ fAllStyle }}">TODAS</button>
           <button onClick="{{ filterUp }}" style="{{ fUpStyle }}">NO AR</button>
+          <button onClick="{{ filterDegraded }}" style="{{ fDegradedStyle }}">DEGRADADO</button>
           <button onClick="{{ filterDown }}" style="{{ fDownStyle }}">FORA</button>
           <div style="margin-left:auto; display:flex; align-items:center; gap:6px">
             <button onClick="{{ prevPage }}" title="Página anterior" style="{{ prevStyle }}">‹</button>
@@ -192,7 +199,7 @@
                 <div style="font-size:16px; font-weight:500; letter-spacing:-.01em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ app.nome }}</div>
               </div>
               <div style="display:flex; align-items:center; gap:6px; flex:none">
-                <span style="{{ app.badgeStyle }}">{{ app.statusLabel }}</span>
+                <span title="{{ app.statusTitle }}" style="{{ app.badgeStyle }}">{{ app.statusLabel }}</span>
               </div>
             </div>
             <div style="font-size:12.5px; color:var(--muted); margin-top:8px; text-wrap:pretty">Time responsável: {{ app.time }}</div>
@@ -292,6 +299,10 @@ const SKEY = 'orbital-status-v1';
 const NKEY = 'orbital-notify-v1';
 const SNDKEY = 'orbital-sound-v1';
 const LKEY = 'orbital-lastok-v1';
+const COMETKEY = 'orbital-comet-v1';
+// Cometa é raro: no máximo COMET_MAX passagens em qualquer janela de 1h.
+const COMET_MAX = 2;
+const COMET_WINDOW = 3600000;
 const API_TIMEOUT = 10000;
 const CLOUD_BOLT_PATH = 'M156,168H132.53l-14.4,24H144a8,8,0,0,1,6.86,12.12l-24,40a8,8,0,0,1-13.72-8.24L129.87,208H104a8,8,0,0,1-6.86-12.12L113.87,168h-37C48.12,168,24.2,145.07,24,116.36A52.09,52.09,0,0,1,61.35,66.1a4,4,0,0,1,5,4.78A92.48,92.48,0,0,0,64,87.39,8.14,8.14,0,0,0,71.41,96l.6,0a8.18,8.18,0,0,0,8.08-7.72A76,76,0,1,1,156,168Z';
 const BOLT_PATH = 'M213.85,125.46l-112,120a8,8,0,0,1-13.69-7l14.66-73.33L45.19,143.49a8,8,0,0,1-3-13l112-120a8,8,0,0,1,13.69,7L153.18,90.9l57.63,21.61a8,8,0,0,1,3,12.95Z';
@@ -303,11 +314,14 @@ const API_BASE = '/api';
 const ENV_TO_API = { dev: 'development', hml: 'staging', prd: 'production' };
 const API_TO_ENV = { development: 'dev', staging: 'hml', production: 'prd' };
 
+// Toda chamada à API aborta após API_TIMEOUT, inclusive POST e DELETE.
+function apiSignal() {
+  return window.AbortSignal && AbortSignal.timeout ? AbortSignal.timeout(API_TIMEOUT) : undefined;
+}
 // Qualquer falha (rede, timeout, 5xx do nginx sem a API) vira exceção: é o
 // que acende a tempestade.
 async function apiFetch(path, opts = {}) {
-  const signal = window.AbortSignal && AbortSignal.timeout ? AbortSignal.timeout(API_TIMEOUT) : undefined;
-  const r = await fetch(`${API_BASE}${path}`, { ...opts, signal });
+  const r = await fetch(`${API_BASE}${path}`, { ...opts, signal: apiSignal() });
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   return r.json();
 }
@@ -361,6 +375,7 @@ const THEMES = {
     '--scrim': 'color-mix(in srgb, var(--color-bg) 75%, transparent)',
     '--up': '#6fd39b', '--up-line': 'rgba(111,211,155,.35)', '--up-fill': 'rgba(111,211,155,.08)',
     '--down': '#e8808c', '--down-line': 'rgba(232,128,140,.32)', '--down-fill': 'rgba(232,128,140,.08)',
+    '--warn': '#e6b450', '--warn-line': 'rgba(230,180,80,.34)', '--warn-fill': 'rgba(230,180,80,.08)',
     '--fab-bg': 'color-mix(in srgb, var(--color-accent) 16%, transparent)',
     '--fab-solid': 'var(--color-accent)', '--fab-ink': 'var(--color-bg)',
     '--fab-glow': '0 0 0 1px color-mix(in srgb, var(--color-accent) 45%, transparent), 0 0 12px color-mix(in srgb, var(--color-accent) 40%, transparent), 0 0 26px color-mix(in srgb, var(--color-accent) 18%, transparent)',
@@ -369,7 +384,7 @@ const THEMES = {
     '--storm': '#f0c064', '--storm-line': 'rgba(240,192,100,.4)', '--storm-fill': 'rgba(240,192,100,.09)',
     '--storm-sky': 'linear-gradient(180deg, rgba(8,9,16,.88) 0%, rgba(18,19,30,.7) 50%, rgba(22,24,38,.5) 100%)',
     '--storm-cloud': '#2a2c3e', '--storm-cloud-shade': '#12131c', '--storm-clouds-opacity': '0',
-    '--storm-comets-opacity': '1', '--comet-head': '#f6f4ff', '--comet-tail': 'rgba(183,174,232,.75)',
+    '--comet-opacity': '1', '--comet-head': '#f6f4ff', '--comet-tail': 'rgba(183,174,232,.75)',
     '--storm-rain': 'rgba(180,190,230,.45)', '--storm-flash': 'rgba(215,220,255,.2)',
     '--stale': '#7a7a92'
   },
@@ -383,13 +398,14 @@ const THEMES = {
     '--halo': 'rgba(255,205,120,.45)', '--scrim': 'rgba(40,62,88,.34)',
     '--up': '#1c8a58', '--up-line': 'rgba(28,138,88,.34)', '--up-fill': 'rgba(28,138,88,.08)',
     '--down': '#c0384a', '--down-line': 'rgba(192,56,74,.3)', '--down-fill': 'rgba(192,56,74,.07)',
+    '--warn': '#9c6400', '--warn-line': 'rgba(156,100,0,.32)', '--warn-fill': 'rgba(156,100,0,.07)',
     '--fab-bg': 'rgba(61,116,184,.14)', '--fab-solid': '#3d74b8', '--fab-ink': '#f6fbff', '--fab-glow': '0 0 0 1px rgba(61,116,184,.35), 0 0 12px rgba(61,116,184,.3), 0 0 24px rgba(61,116,184,.14)',
     '--elev-md': '0 8px 24px rgba(40,70,105,.16)', '--elev-lg': '0 30px 70px rgba(40,70,105,.24)',
     '--star-opacity': '0', '--cloud-opacity': '1', '--stars-play': 'paused', '--clouds-play': 'running',
     '--storm': '#9a5f00', '--storm-line': 'rgba(154,95,0,.38)', '--storm-fill': 'rgba(255,214,140,.32)',
     '--storm-sky': 'linear-gradient(180deg, rgba(112,124,142,.9) 0%, rgba(160,169,183,.84) 40%, rgba(204,209,217,.8) 100%)',
     '--storm-cloud': '#6c7788', '--storm-cloud-shade': '#4a5463', '--storm-clouds-opacity': '1',
-    '--storm-comets-opacity': '0', '--comet-head': '#ffffff', '--comet-tail': 'rgba(255,255,255,.7)',
+    '--comet-opacity': '0', '--comet-head': '#ffffff', '--comet-tail': 'rgba(255,255,255,.7)',
     '--storm-rain': 'rgba(30,45,70,.4)', '--storm-flash': 'rgba(255,255,255,.55)',
     '--stale': '#8494a8'
   }
@@ -399,7 +415,7 @@ const THEMES = {
 // escurecem enquanto a tempestade durar e voltam aos valores de THEMES depois.
 const STORM_OVERRIDES = {
   dark: {},
-  light: { '--muted': '#25364b', '--faint': '#3a4d66', '--accent': '#1d4a86', '--accent-soft': '#173d70', '--up': '#0f6b41', '--down': '#9b2233' }
+  light: { '--muted': '#25364b', '--faint': '#3a4d66', '--accent': '#1d4a86', '--accent-soft': '#173d70', '--up': '#0f6b41', '--down': '#9b2233', '--warn': '#7a4d00' }
 };
 
 class Component extends DCLogic {
@@ -421,10 +437,11 @@ class Component extends DCLogic {
       const l = parseInt(localStorage.getItem(LKEY), 10); if (l) this.state.lastOk = l;
     } catch (e) {}
     this.downSeen = new Set(Object.keys(status).filter(id => status[id] === 'down'));
+    this.latency = {};
     this.onReturn = () => { if (!this.isAway()) this.dismissAlerts(); };
     document.addEventListener('visibilitychange', this.onReturn);
     window.addEventListener('focus', this.onReturn);
-    this.setState({ apps, status, theme }, () => { this.applyTheme(); this.waitForD3(); this.startAuto(); this.updateTitle(); });
+    this.setState({ apps, status, theme }, () => { this.applyTheme(); this.waitForD3(); this.startAuto(); this.scheduleComet(); this.updateTitle(); });
     try {
       const data = await apiFetch('/applications');
       const fresh = Object.entries(data).flatMap(([apiEnv, list]) => list.map(doc => fromApi(doc, apiEnv)));
@@ -438,6 +455,7 @@ class Component extends DCLogic {
     clearInterval(this.autoId);
     clearTimeout(this.alertTid);
     clearTimeout(this.skyTid);
+    clearTimeout(this.cometTid);
     if (this.onReturn) {
       document.removeEventListener('visibilitychange', this.onReturn);
       window.removeEventListener('focus', this.onReturn);
@@ -520,8 +538,10 @@ class Component extends DCLogic {
       const patch = {};
       const fell = [];
       results.forEach(r => {
-        const next = r.status === 'healthy' ? 'up' : 'down';
+        const next = r.status === 'healthy' ? 'up' : r.status === 'degraded' ? 'degraded' : 'down';
         patch[r.id] = next;
+        // Só alimenta o tooltip do badge; não vai para o localStorage.
+        this.latency[r.id] = { ms: r.latencyMs, limit: r.limitMs };
         if (next !== 'down') { this.downSeen.delete(r.id); return; }
         if (!this.downSeen.has(r.id)) { this.downSeen.add(r.id); fell.push({ id: r.id, name: r.name }); }
       });
@@ -759,23 +779,6 @@ class Component extends DCLogic {
       .style('width', '1px').style('height', d => d.len + 'px').style('opacity', d => d.op)
       .style('background', 'linear-gradient(transparent, var(--storm-rain))')
       .style('animation', d => `rain ${d.dur}s linear ${d.delay}s infinite`));
-    // Tempestade espacial: cometas cruzam o céu escuro de tempos em tempos.
-    // Cada um anda só no começo do ciclo (0–19%) e some no resto.
-    const comets = [
-      { top: 8, rot: 14, len: 170, dur: 11, delay: -1 },
-      { top: 22, rot: 162, len: 120, dur: 14, delay: -6 },
-      { top: 4, rot: 26, len: 220, dur: 17, delay: -11 },
-      { top: 38, rot: 9, len: 100, dur: 13, delay: -3.5 }
-    ];
-    play(fixed(root.append('div')).style('overflow', 'hidden').style('opacity', 'var(--storm-comets-opacity)')
-      .selectAll('div').data(comets).join('div')
-      .style('position', 'absolute').style('left', '0').style('top', d => d.top + '%').style('width', '100vw')
-      .style('transform', d => `rotate(${d.rot}deg)`).style('transform-origin', '50% 50%')
-      .append('div')
-      .style('display', 'flex').style('align-items', 'center').style('width', 'max-content').style('opacity', '0')
-      .style('animation', d => `comet ${d.dur}s linear ${d.delay}s infinite`)
-      .html(d => `<div style="width:${d.len}px; height:2px; border-radius:2px; background:linear-gradient(90deg, transparent, var(--comet-tail))"></div>`
-        + `<div style="width:5px; height:5px; margin-left:-2px; border-radius:50%; background:var(--comet-head); box-shadow:0 0 8px 2px var(--comet-tail), 0 0 18px 4px var(--comet-tail)"></div>`));
     play(fixed(root.append('div')).style('background', 'var(--storm-flash)').style('opacity', '0')
       .style('animation', 'lightning 7s linear infinite'));
     // O segundo raio cai no primeiro clarão do ciclo (43%), o outro no segundo (93%).
@@ -787,6 +790,48 @@ class Component extends DCLogic {
       .style('filter', 'drop-shadow(0 0 14px var(--storm))')
       .style('animation', d => `bolt 7s linear ${d.delay}s infinite`)
       .html(d => `<svg width="${d.size}" height="${d.size}" viewBox="0 0 256 256" fill="currentColor"><path d="${BOLT_PATH}"/></svg>`));
+  }
+
+  // Cometa: evento raro do céu escuro, com a API no ar ou não. Sai a cada
+  // 20–60 min, e o log no localStorage segura o teto de COMET_MAX por hora
+  // mesmo que a página seja recarregada.
+  scheduleComet(ms) {
+    clearTimeout(this.cometTid);
+    const wait = ms ?? (20 + Math.random() * 40) * 60000;
+    this.cometTid = setTimeout(() => this.launchComet(), wait);
+  }
+  launchComet() {
+    const now = Date.now();
+    let log = [];
+    try { log = (JSON.parse(localStorage.getItem(COMETKEY)) || []).filter(t => now - t < COMET_WINDOW); } catch (e) {}
+    if (log.length >= COMET_MAX) {
+      // Só volta a tentar depois que o mais antigo sai da janela.
+      this.scheduleComet(Math.min(...log) + COMET_WINDOW - now + Math.random() * 10 * 60000);
+      return;
+    }
+    const el = this.cometEl;
+    const reduced = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    // Sem plateia (aba escondida, tema claro) não gasta a cota: tenta de novo depois.
+    if (!el || !d3Ready() || reduced || this.state.theme !== 'dark' || this.isAway()) { this.scheduleComet(); return; }
+    const flip = Math.random() < .5;
+    const d = {
+      top: 4 + Math.random() * 36,
+      rot: flip ? 152 + Math.random() * 20 : 8 + Math.random() * 20,
+      len: 100 + Math.random() * 120,
+      dur: 2.4 + Math.random() * 1.2
+    };
+    const lane = window.d3.select(el).append('div')
+      .style('position', 'absolute').style('left', '0').style('top', d.top + '%').style('width', '100vw')
+      .style('transform', `rotate(${d.rot}deg)`).style('transform-origin', '50% 50%');
+    lane.append('div')
+      .style('display', 'flex').style('align-items', 'center').style('width', 'max-content').style('opacity', '0')
+      .style('animation', `comet ${d.dur}s linear 1 forwards`)
+      .on('animationend', () => lane.remove())
+      .html(`<div style="width:${d.len}px; height:2px; border-radius:2px; background:linear-gradient(90deg, transparent, var(--comet-tail))"></div>`
+        + `<div style="width:5px; height:5px; margin-left:-2px; border-radius:50%; background:var(--comet-head); box-shadow:0 0 8px 2px var(--comet-tail), 0 0 18px 4px var(--comet-tail)"></div>`);
+    log.push(now);
+    try { localStorage.setItem(COMETKEY, JSON.stringify(log)); } catch (e) {}
+    this.scheduleComet();
   }
 
   drawCore(g, defs, light, storm) {
@@ -846,9 +891,10 @@ class Component extends DCLogic {
     const m = f.append('feMerge'); m.append('feMergeNode').attr('in', 'b'); m.append('feMergeNode').attr('in', 'SourceGraphic');
 
     const up = light ? '#1c8a58' : '#6fd39b', down = light ? '#c0384a' : '#e8808c', idle = light ? '#7d94ad' : '#6e6e86';
+    const degraded = THEMES[light ? 'light' : 'dark']['--warn'];
     // Brilho dos planetas pré-desenhado: um feGaussianBlur em algo que se move
     // é refeito a cada quadro. O #oglow fica só no núcleo, que é estático.
-    [['up', up], ['down', down], ['idle', idle]].forEach(([k, c]) => {
+    [['up', up], ['down', down], ['degraded', degraded], ['idle', idle]].forEach(([k, c]) => {
       const gr = defs.append('radialGradient').attr('id', `glow-${k}`);
       gr.append('stop').attr('offset', '35%').attr('stop-color', c).attr('stop-opacity', .55);
       gr.append('stop').attr('offset', '100%').attr('stop-color', c).attr('stop-opacity', 0);
@@ -857,7 +903,7 @@ class Component extends DCLogic {
     const ringsG = g.append('g');
     this.drawCore(g, defs, light, storm);
     const planetsG = g.append('g');
-    this.orbit = { W, H, light, storm, ringsG, planetsG, color: s => s === 'up' ? up : s === 'down' ? down : idle };
+    this.orbit = { W, H, light, storm, ringsG, planetsG, color: s => s === 'up' ? up : s === 'down' ? down : s === 'degraded' ? degraded : idle };
     this.planetSel = null;
     this.updatePlanets();
 
@@ -917,7 +963,7 @@ class Component extends DCLogic {
     node.style('opacity', storm ? .55 : null);
     node.select('circle.halo')
       .attr('r', d => d.size + (glow ? 14 : 7))
-      .attr('fill', d => glow ? `url(#glow-${st[d.id] === 'up' || st[d.id] === 'down' ? st[d.id] : 'idle'})` : color(st[d.id]))
+      .attr('fill', d => glow ? `url(#glow-${['up', 'down', 'degraded'].includes(st[d.id]) ? st[d.id] : 'idle'})` : color(st[d.id]))
       .attr('opacity', glow ? 1 : storm ? .08 : .14)
       .style('fill', storm ? 'var(--stale)' : null);
     node.select('circle.body')
@@ -978,10 +1024,15 @@ class Component extends DCLogic {
     const { status, form, selectedId, theme, env } = this.state;
     const apps = this.envApps();
     const light = theme === 'light';
-    const label = s => s === 'up' ? 'NO AR' : s === 'down' ? 'FORA DO AR' : 'VERIFICANDO';
+    const label = s => s === 'up' ? 'NO AR' : s === 'down' ? 'FORA DO AR' : s === 'degraded' ? 'DEGRADADO' : 'VERIFICANDO';
+    const secs = ms => `${(ms / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} s`;
+    const slowTitle = id => {
+      const l = (this.latency || {})[id];
+      return l && l.ms != null && l.limit ? `Resposta em ${secs(l.ms)} · limite ${secs(l.limit)}` : 'Tempo de resposta acima do limite';
+    };
     const apiDown = this.state.apiDown;
     const lastOk = this.state.lastOk;
-    const col = s => apiDown ? 'var(--stale)' : s === 'up' ? (light ? '#1c8a58' : '#6fd39b') : s === 'down' ? (light ? '#c0384a' : '#e8808c') : (light ? '#7d94ad' : '#6e6e86');
+    const col = s => apiDown ? 'var(--stale)' : s === 'up' ? (light ? '#1c8a58' : '#6fd39b') : s === 'down' ? (light ? '#c0384a' : '#e8808c') : s === 'degraded' ? 'var(--warn)' : (light ? '#7d94ad' : '#6e6e86');
     const dot = s => `width:11px; height:11px; border-radius:50%; flex:none; background:${col(s)}; box-shadow:0 0 ${light ? 6 : 12}px ${col(s)}`;
     const sel = apps.find(a => a.id === selectedId);
     const pending = apps.find(a => a.id === this.state.pendingRemoveId);
@@ -1001,7 +1052,7 @@ class Component extends DCLogic {
     const swTrack = on => `position:relative; width:38px; height:21px; border-radius:11px; flex:none; transition:background .25s ease, border-color .25s ease; border:1px solid ${on ? 'var(--accent)' : 'var(--line)'}; background:${on ? 'var(--accent-tint)' : 'transparent'}`;
     const swKnob = on => `position:absolute; top:2px; left:2px; width:15px; height:15px; border-radius:50%; transition:transform .25s cubic-bezier(.3,.8,.3,1), background .25s ease; background:${on ? 'var(--accent)' : 'var(--faint)'}; transform:translateX(${on ? '17px' : '0'})`;
     const navBtn = enabled => `width:26px; height:24px; display:flex; align-items:center; justify-content:center; border-radius:var(--radius-sm); font-size:15px; line-height:1; border:1px solid var(--line); background:transparent; color:${enabled ? 'var(--accent-soft)' : 'var(--faint)'}; opacity:${enabled ? 1 : .4}; cursor:${enabled ? 'pointer' : 'default'}`;
-    const chip = active => `font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:.14em; padding:6px 11px; border-radius:var(--radius-sm); cursor:pointer; border:1px solid ${active ? 'var(--accent)' : 'var(--line)'}; background:${active ? 'var(--accent-tint)' : 'transparent'}; color:${active ? 'var(--accent-soft)' : 'var(--muted)'}`;
+    const chip = active => `font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:.14em; padding:6px 11px; border-radius:var(--radius-sm); cursor:pointer; border:1px solid ${active ? 'var(--accent)' : 'var(--line)'}; background:${active ? 'var(--accent-tint)' : 'transparent'}; color:${active ? 'var(--accent-soft)' : 'var(--muted)'}; white-space:nowrap`;
     const setF = k => e => this.setState({ form: { ...this.state.form, [k]: e.target.value } });
     const selBorder = light ? 'rgba(61,116,184,.55)' : 'rgba(145,132,217,.55)';
     const selBg = light ? 'rgba(61,116,184,.1)' : 'rgba(145,132,217,.1)';
@@ -1011,6 +1062,7 @@ class Component extends DCLogic {
       starsRef: el => { this.starsEl = el; },
       cloudsRef: el => { this.cloudsEl = el; if (el && d3Ready()) this.drawClouds(); },
       stormRef: el => { this.stormEl = el; if (el) this.drawStorm(); },
+      cometRef: el => { this.cometEl = el; },
       apiDown,
       stormMsg: lastOk
         ? `Os status abaixo são da última checagem, às ${clockLabel(lastOk)} (${agoLabel(lastOk)}). Tentando reconectar a cada ciclo.`
@@ -1054,6 +1106,7 @@ class Component extends DCLogic {
       toggleTheme: this.toggleTheme,
       upCount: apps.filter(a => status[a.id] === 'up').length,
       downCount: apps.filter(a => status[a.id] === 'down').length,
+      degradedCount: apps.filter(a => status[a.id] === 'degraded').length,
       totalLabel: `${apps.length} ${apps.length === 1 ? 'APLICAÇÃO' : 'APLICAÇÕES'}`,
       isEmpty: visible.length === 0,
       pageLabel: `${page + 1}/${pages}`,
@@ -1069,9 +1122,11 @@ class Component extends DCLogic {
       onQuery: e => this.setState({ query: e.target.value, page: 0 }, () => this.updatePlanets()),
       filterAll: () => this.setState({ filter: 'all', page: 0 }, () => this.updatePlanets()),
       filterUp: () => this.setState({ filter: 'up', page: 0 }, () => this.updatePlanets()),
+      filterDegraded: () => this.setState({ filter: 'degraded', page: 0 }, () => this.updatePlanets()),
       filterDown: () => this.setState({ filter: 'down', page: 0 }, () => this.updatePlanets()),
       fAllStyle: chip(filter === 'all'),
       fUpStyle: chip(filter === 'up'),
+      fDegradedStyle: chip(filter === 'degraded'),
       fDownStyle: chip(filter === 'down'),
       scanLabel: this.state.scanning ? 'Sincronizando…' : 'Sincronizar',
       checkAll: this.checkAll,
@@ -1101,8 +1156,9 @@ class Component extends DCLogic {
         statusLabel: apiDown && status[a.id] ? `ÚLTIMO: ${label(status[a.id])}` : label(status[a.id]),
         envLabel: ((ENVS.find(e => e[0] === (a.env || 'prd')) || [])[1] || 'PRODUÇÃO').slice(0, 3),
         envBadgeStyle: `font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.14em; padding:4px 8px; border-radius:var(--radius-sm); color:var(--muted); border:1px solid var(--line); white-space:nowrap`,
+        statusTitle: status[a.id] === 'degraded' ? slowTitle(a.id) : undefined,
         dotStyle: dot(status[a.id]),
-        badgeStyle: `font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.14em; padding:4px 8px; border-radius:var(--radius-sm); color:${col(status[a.id])}; background:${apiDown ? 'color-mix(in srgb, var(--stale) 14%, transparent)' : col(status[a.id]) + '1f'}; white-space:nowrap`,
+        badgeStyle: `font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.14em; padding:4px 8px; border-radius:var(--radius-sm); color:${col(status[a.id])}; background:${apiDown ? 'color-mix(in srgb, var(--stale) 14%, transparent)' : `color-mix(in srgb, ${col(status[a.id])} 12%, transparent)`}; white-space:nowrap`,
         cardStyle: `position:relative; padding:14px 16px; border-radius:var(--radius-md); cursor:pointer; border:1px solid ${selectedId === a.id ? selBorder : 'var(--line)'}; background:${selectedId === a.id ? selBg : 'var(--surface)'}`,
         swagger: a.swagger || undefined,
         swaggerStyle: `display:inline-flex; align-items:center; gap:6px; padding:5px 11px; border-radius:var(--radius-sm); text-decoration:none; letter-spacing:.1em; font-size:11px; border:1px solid ${a.swagger ? 'var(--accent)' : 'var(--line)'}; color:${a.swagger ? 'var(--accent-soft)' : 'var(--faint)'}; ${a.swagger ? '' : 'opacity:.45; pointer-events:none;'}`,
@@ -1116,9 +1172,10 @@ class Component extends DCLogic {
       confirmRemove: async () => {
         const id = this.state.pendingRemoveId;
         const app = this.state.apps.find(x => x.id === id);
-        try { await fetch(`${API_BASE}/applications/${ENV_TO_API[app.env]}/${id}`, { method: 'DELETE' }); } catch (e) {}
+        try { await fetch(`${API_BASE}/applications/${ENV_TO_API[app.env]}/${id}`, { method: 'DELETE', signal: apiSignal() }); } catch (e) {}
         const next = this.state.apps.filter(x => x.id !== id);
         this.downSeen.delete(id);
+        delete this.latency[id];
         try { localStorage.setItem(AKEY, JSON.stringify(next)); } catch (e) {}
         this.setState({ apps: next, pendingRemoveId: null, selectedId: selectedId === id ? null : selectedId }, () => { this.updatePlanets(); this.updateTitle(); });
       },
@@ -1164,7 +1221,8 @@ class Component extends DCLogic {
         try {
           const created = await fetch(`${API_BASE}/applications/${apiEnv}`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(toApi(localApp))
+            body: JSON.stringify(toApi(localApp)),
+            signal: apiSignal()
           }).then(r => r.json());
           app = fromApi(created, apiEnv);
         } catch (e) { return; }

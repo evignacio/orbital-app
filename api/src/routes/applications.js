@@ -4,6 +4,8 @@ const { connect } = require("../db");
 const { withCache, invalidate } = require("../cache");
 
 const SYNC_TTL = parseInt(process.env.SYNC_CACHE_TTL || "3");
+const CHECK_CONCURRENCY = Math.max(1, parseInt(process.env.HEALTH_CHECK_CONCURRENCY || "10") || 10);
+const DEGRADED_LATENCY_MS = Math.max(1, parseInt(process.env.DEGRADED_LATENCY_MS || "1000") || 1000);
 
 const router = Router();
 
@@ -50,13 +52,38 @@ router.get("/:env", async (req, res) => {
   }
 });
 
+// A 2xx slower than DEGRADED_LATENCY_MS is "degraded"; any error wins over
+// slowness. Latency is measured up to the response headers.
 async function checkHealth(app) {
+  const started = performance.now();
   try {
     const response = await fetch(app.healthCheckUrl, { signal: AbortSignal.timeout(5000) });
-    return { id: app.id, name: app.name, status: response.ok ? "healthy" : "unhealthy" };
+    const latencyMs = Math.round(performance.now() - started);
+    // The body is never read; cancel it so the connection is released now.
+    response.body?.cancel().catch(() => {});
+    if (!response.ok) return { id: app.id, name: app.name, status: "unhealthy", latencyMs };
+    if (latencyMs > DEGRADED_LATENCY_MS) {
+      return { id: app.id, name: app.name, status: "degraded", latencyMs, limitMs: DEGRADED_LATENCY_MS };
+    }
+    return { id: app.id, name: app.name, status: "healthy", latencyMs };
   } catch {
-    return { id: app.id, name: app.name, status: "unhealthy" };
+    return { id: app.id, name: app.name, status: "unhealthy", latencyMs: null };
   }
+}
+
+// Like Promise.all(items.map(fn)), but with at most `limit` calls in flight.
+// Results keep the order of `items`.
+async function mapLimit(items, limit, fn) {
+  const results = new Array(items.length);
+  let next = 0;
+  async function worker() {
+    while (next < items.length) {
+      const i = next++;
+      results[i] = await fn(items[i]);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return results;
 }
 
 router.post("/:env/sync", async (req, res) => {
@@ -71,7 +98,7 @@ router.post("/:env/sync", async (req, res) => {
       const db = await connect();
       const docs = await db.collection(toCollection(env)).find().toArray();
       const apps = docs.map(serialize);
-      return await Promise.all(apps.map(checkHealth));
+      return await mapLimit(apps, CHECK_CONCURRENCY, checkHealth);
     });
     res.json(results);
   } catch (err) {
