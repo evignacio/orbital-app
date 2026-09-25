@@ -251,14 +251,20 @@
           <button onClick="{{ closeForm }}" style="border:1px solid var(--line); background:var(--surface); color:var(--muted); width:32px; height:32px; border-radius:var(--radius-md); cursor:pointer; font-size:15px">✕</button>
         </div>
 
-        <form onSubmit="{{ submit }}" style="display:flex; flex-direction:column; gap:14px">
+        <form onSubmit="{{ submit }}" novalidate="novalidate" style="display:flex; flex-direction:column; gap:14px">
           <label style="display:flex; flex-direction:column; gap:6px">
             <span style="font-size:12.5px; color:var(--muted)">Nome da aplicação <span style="color:var(--down)">*</span></span>
-            <input value="{{ formName }}" onChange="{{ onName }}" required="{{ true }}" placeholder="checkout-api" style="padding:11px 13px; border-radius:var(--radius-md); border:1px solid var(--line); background:var(--field); color:var(--ink); font-size:14px; outline:none" style-focus="border-color:var(--accent)">
+            <input value="{{ formName }}" onChange="{{ onName }}" required="{{ true }}" maxLength="{{ nameMax }}" aria-invalid="{{ nameInvalid }}" placeholder="checkout-api" style="{{ nameInputStyle }}" style-focus="border-color:var(--accent)">
+            <sc-if value="{{ hasNameErr }}" hint-placeholder-val="{{ false }}">
+              <span role="alert" style="{{ fieldErrStyle }}">{{ nameErr }}</span>
+            </sc-if>
           </label>
           <label style="display:flex; flex-direction:column; gap:6px; position:relative">
             <span style="font-size:12.5px; color:var(--muted)">Time responsável <span style="color:var(--down)">*</span></span>
-            <input value="{{ formTeam }}" onChange="{{ onTeam }}" onFocus="{{ onTeamFocus }}" onBlur="{{ onTeamBlur }}" required="{{ true }}" placeholder="Pagamentos" autocomplete="off" style="padding:11px 13px; border-radius:var(--radius-md); border:1px solid var(--line); background:var(--field); color:var(--ink); font-size:14px; outline:none" style-focus="border-color:var(--accent)">
+            <input value="{{ formTeam }}" onChange="{{ onTeam }}" onFocus="{{ onTeamFocus }}" onBlur="{{ onTeamBlur }}" required="{{ true }}" maxLength="{{ teamMax }}" aria-invalid="{{ teamInvalid }}" placeholder="Pagamentos" autocomplete="off" style="{{ teamInputStyle }}" style-focus="border-color:var(--accent)">
+            <sc-if value="{{ hasTeamErr }}" hint-placeholder-val="{{ false }}">
+              <span role="alert" style="{{ fieldErrStyle }}">{{ teamErr }}</span>
+            </sc-if>
             <sc-if value="{{ teamDropOpen }}" hint-placeholder-val="{{ false }}">
               <div style="position:absolute; top:calc(100% + 2px); left:0; right:0; z-index:200; border:1px solid var(--accent); border-radius:var(--radius-md); background:var(--dialog); box-shadow:var(--elev-md); max-height:180px; overflow-y:auto">
                 <sc-for list="{{ teamSuggestions }}" as="sug">
@@ -277,11 +283,17 @@
           </label>
           <label style="display:flex; flex-direction:column; gap:6px">
             <span style="font-size:12.5px; color:var(--muted)">URL do Swagger <span style="color:var(--faint)">(opcional)</span></span>
-            <input value="{{ formSwaggerUrl }}" onChange="{{ onSwaggerUrl }}" placeholder="https://api.exemplo.com/swagger-ui.html" style="padding:11px 13px; border-radius:var(--radius-md); border:1px solid var(--line); background:var(--field); color:var(--ink); font-size:14px; outline:none; font-family:var(--mono)" style-focus="border-color:var(--accent)">
+            <input value="{{ formSwaggerUrl }}" onChange="{{ onSwaggerUrl }}" maxLength="{{ urlMax }}" aria-invalid="{{ swaggerInvalid }}" placeholder="https://api.exemplo.com/swagger-ui.html" style="{{ swaggerInputStyle }}" style-focus="border-color:var(--accent)">
+            <sc-if value="{{ hasSwaggerErr }}" hint-placeholder-val="{{ false }}">
+              <span role="alert" style="{{ fieldErrStyle }}">{{ swaggerErr }}</span>
+            </sc-if>
           </label>
           <label style="display:flex; flex-direction:column; gap:6px">
             <span style="font-size:12.5px; color:var(--muted)">URL do health check <span style="color:var(--down)">*</span></span>
-            <input value="{{ formHealthCheckUrl }}" onChange="{{ onHealthCheckUrl }}" required="{{ true }}" placeholder="https://api.exemplo.com/actuator/health" style="padding:11px 13px; border-radius:var(--radius-md); border:1px solid var(--line); background:var(--field); color:var(--ink); font-size:14px; outline:none; font-family:var(--mono)" style-focus="border-color:var(--accent)">
+            <input value="{{ formHealthCheckUrl }}" onChange="{{ onHealthCheckUrl }}" required="{{ true }}" maxLength="{{ urlMax }}" aria-invalid="{{ healthInvalid }}" placeholder="https://api.exemplo.com/actuator/health" style="{{ healthInputStyle }}" style-focus="border-color:var(--accent)">
+            <sc-if value="{{ hasHealthErr }}" hint-placeholder-val="{{ false }}">
+              <span role="alert" style="{{ fieldErrStyle }}">{{ healthErr }}</span>
+            </sc-if>
           </label>
           <sc-if value="{{ hasFormError }}" hint-placeholder-val="{{ false }}">
             <div role="alert" style="padding:10px 12px; border:1px solid var(--down-line); border-radius:var(--radius-md); background:var(--down-fill); color:var(--down); font-size:13px; line-height:1.45; text-wrap:pretty">{{ formError }}</div>
@@ -399,10 +411,11 @@ function apiSignal() {
 async function apiFetch(path, opts = {}) {
   const r = await fetch(`${API_BASE}${path}`, { ...opts, signal: apiSignal() });
   if (!r.ok) {
-    let msg = '';
-    try { msg = (await r.json()).error || ''; } catch (e) {}
-    const err = new Error(msg || `HTTP ${r.status}`);
+    let body = null;
+    try { body = await r.json(); } catch (e) {}
+    const err = new Error((body && body.error) || `HTTP ${r.status}`);
     err.status = r.status;
+    err.body = body;
     throw err;
   }
   return r.status === 204 ? null : r.json();
@@ -413,6 +426,50 @@ function apiErrorMsg(e) {
   if (e && e.status >= 502 && e.status <= 504) return `sem contato com a API (HTTP ${e.status}).`;
   if (e && e.status) return `a API respondeu ${e.status}${e.message && !/^HTTP \d+$/.test(e.message) ? ` (${e.message})` : ''}.`;
   return 'sem contato com a API.';
+}
+// Validação do cadastro: as mesmas regras de api/src/validation.js, que
+// continua sendo a autoridade (um 400 dela também vira erro por campo).
+const FIELD_LIMITS = { name: 60, team: 60, url: 2048 };
+const CONTROL_CHARS = /[\u0000-\u001f\u007f]/;
+function urlError(v, required) {
+  if (!v) return required ? 'Informe a URL.' : '';
+  if (v.length > FIELD_LIMITS.url) return `Use no máximo ${FIELD_LIMITS.url} caracteres.`;
+  if (CONTROL_CHARS.test(v)) return 'A URL tem caracteres inválidos.';
+  // O esquema é obrigatório: sem ele, "qualquer" viraria o host de uma URL válida.
+  if (!/^https?:\/\//i.test(v)) return 'A URL deve começar com http:// ou https://';
+  let u;
+  try { u = new URL(v); } catch (e) { return 'URL inválida.'; }
+  if (u.username || u.password) return 'Não inclua usuário ou senha na URL.';
+  return '';
+}
+function textError(v, max, re, format) {
+  if (!v) return 'Campo obrigatório.';
+  if (v.length < 2 || v.length > max) return `Use de 2 a ${max} caracteres.`;
+  if (CONTROL_CHARS.test(v) || !re.test(v)) return format;
+  return '';
+}
+// { value, errors }: value já normalizado (trim), errors
+// só com os campos inválidos.
+function validateAppForm(f) {
+  const value = {
+    name: f.name.trim(),
+    team: f.team.trim(),
+    healthCheckUrl: f.healthCheckUrl.trim(),
+    swaggerUrl: f.swaggerUrl.trim()
+  };
+  const errors = {
+    name: textError(value.name, FIELD_LIMITS.name, /^[A-Za-z0-9][A-Za-z0-9._-]*$/, 'Use letras sem acento, números, ".", "_" ou "-", começando por letra ou número.'),
+    team: textError(value.team, FIELD_LIMITS.team, /^[\p{L}\p{N} ._-]+$/u, 'Use letras, números, espaços, ".", "_" ou "-".'),
+    healthCheckUrl: urlError(value.healthCheckUrl, true),
+    swaggerUrl: urlError(value.swaggerUrl, false)
+  };
+  Object.keys(errors).forEach(k => { if (!errors[k]) delete errors[k]; });
+  return { value, errors };
+}
+// Só http(s) vira link: protege registros antigos, gravados antes da validação.
+function safeHref(v) { return v && /^https?:\/\//i.test(v) ? v : ''; }
+function fieldStyle(err, mono) {
+  return `padding:11px 13px; border-radius:var(--radius-md); border:1px solid ${err ? 'var(--down)' : 'var(--line)'}; background:var(--field); color:var(--ink); font-size:14px; outline:none${mono ? '; font-family:var(--mono)' : ''}`;
 }
 // Só d3-selection + d3-timer são carregados; os dois preenchem window.d3.
 function d3Ready() { return !!(window.d3 && window.d3.select && window.d3.timer); }
@@ -576,7 +633,7 @@ class Component extends DCLogic {
   state = {
     apps: [], status: {}, formOpen: false, scanning: false, selectedId: null, pendingRemoveId: null, theme: 'dark', query: '', filter: 'all', page: 0, env: DEFAULT_ENV, rates: {}, rateOpen: false, teamDropOpen: false,
     notify: false, sound: false, notifyOpen: false, notifyBlocked: false, apiDown: false, lastOk: null,
-    staleEnvs: [], submitting: false, formError: '', removing: false, removeError: '', d3Failed: false,
+    staleEnvs: [], submitting: false, formError: '', formErrors: {}, removing: false, removeError: '', d3Failed: false,
     form: { name: '', team: '', swaggerUrl: '', healthCheckUrl: '', env: DEFAULT_ENV }
   };
 
@@ -1307,13 +1364,12 @@ class Component extends DCLogic {
     // Duplo clique / Enter repetido: um envio por vez.
     if (this.submitBusy) return;
     const f = this.state.form;
-    if (!f.name.trim() || !f.team.trim() || !f.healthCheckUrl.trim()) return;
-    const url = v => { v = v.trim(); return v && !/^https?:\/\//i.test(v) ? 'https://' + v : v; };
-    const payload = { name: f.name.trim(), team: f.team.trim(), healthCheckUrl: url(f.healthCheckUrl), swaggerUrl: url(f.swaggerUrl) };
+    const { value: payload, errors } = validateAppForm(f);
+    if (Object.keys(errors).length) { this.setState({ formErrors: errors, formError: '' }); return; }
     const apiEnv = ENV_TO_API[f.env || DEFAULT_ENV];
     // Flag de instância: o setState não é síncrono e o segundo clique chegaria antes.
     this.submitBusy = true;
-    this.setState({ submitting: true, formError: '' });
+    this.setState({ submitting: true, formError: '', formErrors: {} });
     let app;
     try {
       const created = await apiFetch(`/applications/${apiEnv}`, {
@@ -1324,6 +1380,12 @@ class Component extends DCLogic {
       app = fromApi(created, apiEnv);
     } catch (err) {
       this.submitBusy = false;
+      // 400 com { fields }: a API recusou campos que passaram aqui; mostra no campo.
+      const fields = err.status === 400 && err.body && err.body.fields;
+      if (fields && typeof fields === 'object') {
+        this.setState({ submitting: false, formErrors: fields, formError: 'A API recusou os dados: revise os campos marcados.' });
+        return;
+      }
       this.setState({ submitting: false, formError: `Não foi possível cadastrar: ${err.message === 'resposta sem id' ? 'a API não devolveu o id da aplicação.' : apiErrorMsg(err)}` });
       return;
     }
@@ -1331,7 +1393,7 @@ class Component extends DCLogic {
     const nextApps = [...this.state.apps.filter(x => x.id !== app.id), app];
     try { localStorage.setItem(AKEY, JSON.stringify(nextApps)); } catch (e) {}
     const envChanged = app.env !== this.state.env;
-    this.setState({ apps: nextApps, submitting: false, formError: '', formOpen: false, env: app.env, form: { name: '', team: '', swaggerUrl: '', healthCheckUrl: '', env: app.env } }, () => {
+    this.setState({ apps: nextApps, submitting: false, formError: '', formErrors: {}, formOpen: false, env: app.env, form: { name: '', team: '', swaggerUrl: '', healthCheckUrl: '', env: app.env } }, () => {
       if (envChanged) { this.paintCountdown(); this.redraw(); } else this.updatePlanets();
     });
     this.syncEnv(app.env);
@@ -1482,8 +1544,8 @@ class Component extends DCLogic {
         dotStyle: `width:11px; height:11px; border-radius:50%; flex:none; background:${col(status[a.id])}; box-shadow:0 0 ${light ? 6 : 12}px ${col(status[a.id])}`,
         badgeStyle: `font-family:var(--mono); font-size:10px; letter-spacing:.14em; padding:4px 8px; border-radius:var(--radius-sm); color:${col(status[a.id])}; background:${stale ? 'color-mix(in srgb, var(--stale) 14%, transparent)' : `color-mix(in srgb, ${col(status[a.id])} 12%, transparent)`}; white-space:nowrap`,
         cardStyle: `position:relative; padding:14px 16px; border-radius:var(--radius-md); cursor:pointer; border:1px solid ${selectedId === a.id ? 'var(--sel-line)' : 'var(--line)'}; background:${selectedId === a.id ? 'var(--sel-fill)' : 'var(--surface)'}`,
-        swaggerUrl: a.swaggerUrl || undefined,
-        swaggerStyle: `display:inline-flex; align-items:center; gap:6px; padding:5px 11px; border-radius:var(--radius-sm); text-decoration:none; letter-spacing:.1em; font-size:11px; border:1px solid ${a.swaggerUrl ? 'var(--accent)' : 'var(--line)'}; color:${a.swaggerUrl ? 'var(--accent-soft)' : 'var(--faint)'}; ${a.swaggerUrl ? '' : 'opacity:.45; pointer-events:none;'}`,
+        swaggerUrl: safeHref(a.swaggerUrl) || undefined,
+        swaggerStyle: `display:inline-flex; align-items:center; gap:6px; padding:5px 11px; border-radius:var(--radius-sm); text-decoration:none; letter-spacing:.1em; font-size:11px; border:1px solid ${safeHref(a.swaggerUrl) ? 'var(--accent)' : 'var(--line)'}; color:${safeHref(a.swaggerUrl) ? 'var(--accent-soft)' : 'var(--faint)'}; ${safeHref(a.swaggerUrl) ? '' : 'opacity:.45; pointer-events:none;'}`,
         select: () => this.select(a.id),
         remove: e => { e.stopPropagation(); this.setState({ pendingRemoveId: a.id }); }
       }))
@@ -1509,12 +1571,24 @@ class Component extends DCLogic {
 
   // Modal de cadastro.
   formVals() {
-    const { form, formOpen, submitting, formError } = this.state;
-    const setF = k => e => this.setState({ form: { ...this.state.form, [k]: e.target.value } });
+    const { form, formOpen, submitting, formError, formErrors } = this.state;
+    const setF = k => e => this.setState({ form: { ...this.state.form, [k]: e.target.value }, formErrors: { ...this.state.formErrors, [k]: '' } });
+    // Por campo: a mensagem, a flag do sc-if, o estilo do input e aria-invalid.
+    const field = (k, mono) => {
+      const err = formErrors[k] || '';
+      return { err, has: !!err, style: fieldStyle(err, mono), invalid: err ? 'true' : 'false' };
+    };
+    const [fName, fTeam, fSwagger, fHealth] = [field('name'), field('team'), field('swaggerUrl', true), field('healthCheckUrl', true)];
     return {
       formOpen,
-      openForm: () => this.setState({ formOpen: true, formError: '' }),
-      closeForm: () => { if (!this.state.submitting) this.setState({ formOpen: false, formError: '' }); },
+      openForm: () => this.setState({ formOpen: true, formError: '', formErrors: {} }),
+      closeForm: () => { if (!this.state.submitting) this.setState({ formOpen: false, formError: '', formErrors: {} }); },
+      nameErr: fName.err, hasNameErr: fName.has, nameInputStyle: fName.style, nameInvalid: fName.invalid,
+      teamErr: fTeam.err, hasTeamErr: fTeam.has, teamInputStyle: fTeam.style, teamInvalid: fTeam.invalid,
+      swaggerErr: fSwagger.err, hasSwaggerErr: fSwagger.has, swaggerInputStyle: fSwagger.style, swaggerInvalid: fSwagger.invalid,
+      healthErr: fHealth.err, hasHealthErr: fHealth.has, healthInputStyle: fHealth.style, healthInvalid: fHealth.invalid,
+      nameMax: FIELD_LIMITS.name, teamMax: FIELD_LIMITS.team, urlMax: FIELD_LIMITS.url,
+      fieldErrStyle: 'font-size:12px; line-height:1.4; color:var(--down)',
       submitting,
       hasFormError: !!formError,
       formError,
@@ -1534,11 +1608,11 @@ class Component extends DCLogic {
     const allTeams = [...new Set(this.state.apps.map(a => a.team).filter(Boolean))].sort();
     const teamSuggestions = (tq ? allTeams.filter(t => t.toLowerCase().includes(tq)) : allTeams)
       .filter(t => t.toLowerCase() !== tq)
-      .map(name => ({ name, select: () => this.setState({ form: { ...this.state.form, team: name }, teamDropOpen: false }) }));
+      .map(name => ({ name, select: () => this.setState({ form: { ...this.state.form, team: name }, formErrors: { ...this.state.formErrors, team: '' }, teamDropOpen: false }) }));
     return {
       teamSuggestions,
       teamDropOpen: this.state.teamDropOpen && teamSuggestions.length > 0,
-      onTeam: e => this.setState({ form: { ...this.state.form, team: e.target.value }, teamDropOpen: true }),
+      onTeam: e => this.setState({ form: { ...this.state.form, team: e.target.value }, formErrors: { ...this.state.formErrors, team: '' }, teamDropOpen: true }),
       onTeamFocus: () => this.setState({ teamDropOpen: true }),
       onTeamBlur: () => setTimeout(() => this.setState({ teamDropOpen: false }), TEAM_BLUR_MS)
     };

@@ -66,6 +66,12 @@ const requestLogLevel = () =>
   ["info", "warn", "error"].find(level => log[level].mock.calls.some(([msg]) => msg === "request completed"));
 
 describe("GET /applications", () => {
+  it("envia X-Content-Type-Options: nosniff", async () => {
+    const res = await request(app).get("/applications");
+
+    expect(res.headers["x-content-type-options"]).toBe("nosniff");
+  });
+
   it("devolve as aplicações dos três ambientes agrupadas, com _id convertido em id", async () => {
     const res = await request(app).get("/applications");
 
@@ -226,15 +232,92 @@ describe("POST /applications/:env", () => {
     expect(db.collections.applications_production.insertOne).toHaveBeenCalledWith(body);
   });
 
-  it("responde 400 e informa os campos obrigatórios quando algum está faltando", async () => {
+  it("responde 400 com o erro de cada campo obrigatório que está faltando, sem acessar o Mongo", async () => {
     const res = await request(app).post("/applications/production").send({ name: "billing", team: "" });
 
     expect(res.status).toBe(400);
-    expect(res.body).toEqual({ error: "Fields required: name, team, healthCheckUrl" });
-    expect(log.warn).toHaveBeenCalledWith("create application rejected: missing required fields", {
-      env: "production",
-      missing: ["team", "healthCheckUrl"],
+    expect(res.body).toEqual({
+      error: "Invalid application",
+      fields: { team: "team is required", healthCheckUrl: "healthCheckUrl is required" },
     });
+    expect(log.warn).toHaveBeenCalledWith("create application rejected: invalid fields", {
+      env: "production",
+      fields: ["team", "healthCheckUrl"],
+    });
+    expect(connect).not.toHaveBeenCalled();
+  });
+
+  it("grava os valores sem os espaços nas pontas", async () => {
+    const padded = { name: " billing ", team: " pagamentos ", healthCheckUrl: " http://billing/health ", swaggerUrl: " " };
+
+    const res = await request(app).post("/applications/production").send(padded);
+
+    expect(res.status).toBe(201);
+    expect(db.collections.applications_production.insertOne).toHaveBeenCalledWith({
+      name: "billing", team: "pagamentos", healthCheckUrl: "http://billing/health", swaggerUrl: "",
+    });
+  });
+
+  it("rejeita operadores do Mongo no lugar de strings, sem gravar nada", async () => {
+    const res = await request(app)
+      .post("/applications/production")
+      .send({ ...body, name: { $gt: "" }, team: { $where: "sleep(1000)" } });
+
+    expect(res.status).toBe(400);
+    expect(res.body.fields).toEqual({ name: "name must be a string", team: "team must be a string" });
+    expect(connect).not.toHaveBeenCalled();
+  });
+
+  it("rejeita swaggerUrl com javascript:, que viraria o href do link no card", async () => {
+    const res = await request(app).post("/applications/production").send({ ...body, swaggerUrl: "javascript:alert(1)" });
+
+    expect(res.status).toBe(400);
+    expect(res.body.fields).toEqual({ swaggerUrl: "swaggerUrl must use http or https" });
+  });
+
+  it("não registra no log os valores rejeitados, só os nomes dos campos", async () => {
+    await request(app).post("/applications/production").send({ ...body, name: "<script>segredo</script>" });
+
+    expect(JSON.stringify(log.warn.mock.calls)).not.toContain("segredo");
+  });
+
+  it("responde 400 em JSON quando o corpo é um JSON malformado", async () => {
+    const res = await request(app)
+      .post("/applications/production")
+      .set("Content-Type", "application/json")
+      .send('{"name": "billing",');
+
+    expect(res.status).toBe(400);
+    expect(res.headers["content-type"]).toMatch(/application\/json/);
+    expect(res.body).toEqual({ error: "Malformed JSON body" });
+    expect(connect).not.toHaveBeenCalled();
+  });
+
+  it("responde 400 quando o corpo JSON não é um objeto", async () => {
+    const res = await request(app)
+      .post("/applications/production")
+      .set("Content-Type", "application/json")
+      .send("[1, 2]");
+
+    expect(res.status).toBe(400);
+    expect(res.body.fields).toEqual({ body: "body must be a JSON object" });
+  });
+
+  it("responde 415 em JSON quando o charset do corpo não é suportado", async () => {
+    const res = await request(app)
+      .post("/applications/production")
+      .set("Content-Type", "application/json; charset=latin1")
+      .send(JSON.stringify(body));
+
+    expect(res.status).toBe(415);
+    expect(res.body).toEqual({ error: "Invalid request body" });
+  });
+
+  it("responde 413 quando o corpo passa de 10kb", async () => {
+    const res = await request(app).post("/applications/production").send({ ...body, team: "a".repeat(11 * 1024) });
+
+    expect(res.status).toBe(413);
+    expect(res.body).toEqual({ error: "Request body too large" });
     expect(connect).not.toHaveBeenCalled();
   });
 
@@ -266,6 +349,13 @@ describe("DELETE /applications/:env/:id", () => {
 
     expect(res.status).toBe(400);
     expect(res.body).toEqual({ error: "Invalid id format" });
+    expect(connect).not.toHaveBeenCalled();
+  });
+
+  it("responde 400 para um id de 12 caracteres, que new ObjectId aceitaria", async () => {
+    const res = await request(app).delete("/applications/production/aaaaaaaaaaaa");
+
+    expect(res.status).toBe(400);
     expect(connect).not.toHaveBeenCalled();
   });
 
@@ -336,7 +426,7 @@ describe("cache da lista de aplicações", () => {
   });
 
   it("criar ou remover aplicação invalida só os caches do próprio ambiente", async () => {
-    await request(app).post("/applications/staging").send({ name: "x", team: "y", healthCheckUrl: "http://x" });
+    await request(app).post("/applications/staging").send({ name: "busca-api", team: "busca", healthCheckUrl: "http://busca/health" });
     await request(app).delete(`/applications/staging/${ids.search}`);
 
     expect(invalidate.mock.calls.map(([key]) => key)).toEqual([

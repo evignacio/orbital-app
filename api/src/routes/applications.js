@@ -4,6 +4,7 @@ const { connect } = require("../db");
 const { withCache, invalidate } = require("../cache");
 const { checkHealth, mapLimit } = require("../health");
 const config = require("../config");
+const { validateApplication, isValidObjectId } = require("../validation");
 
 const SYNC_TTL = config.syncCacheTtl;
 const APPS_TTL = config.appsCacheTtl;
@@ -98,38 +99,36 @@ router.post("/:env/sync", async (req, res) => {
 
 router.post("/:env", async (req, res) => {
   const { env } = req.params;
-  const { name, team, healthCheckUrl, swaggerUrl = "" } = req.body;
-  if (!name || !team || !healthCheckUrl) {
-    const missing = ["name", "team", "healthCheckUrl"].filter(field => !req.body[field]);
-    req.log.warn("create application rejected: missing required fields", { env, missing });
-    return res.status(400).json({ error: "Fields required: name, team, healthCheckUrl" });
+  const { value: doc, errors } = validateApplication(req.body);
+  const invalid = Object.keys(errors);
+  if (invalid.length > 0) {
+    // Only the field names: rejected values are client input and stay out of the logs.
+    req.log.warn("create application rejected: invalid fields", { env, fields: invalid });
+    return res.status(400).json({ error: "Invalid application", fields: errors });
   }
 
   try {
     const db = await connect();
-    const doc = { name, team, healthCheckUrl, swaggerUrl };
-    const { insertedId } = await db.collection(toCollection(env)).insertOne(doc);
+    const { insertedId } = await db.collection(toCollection(env)).insertOne({ ...doc });
     await invalidateEnv(env);
-    req.log.info("application created", { env, id: insertedId.toString(), name, team, healthCheckUrl });
+    req.log.info("application created", { env, id: insertedId.toString(), name: doc.name, team: doc.team, healthCheckUrl: doc.healthCheckUrl });
     res.status(201).json({ id: insertedId.toString(), ...doc });
   } catch (err) {
-    req.log.error("create application failed", { env, name, err });
+    req.log.error("create application failed", { env, name: doc.name, err });
     res.status(500).json({ error: err.message });
   }
 });
 
 router.delete("/:env/:id", async (req, res) => {
   const { env, id } = req.params;
-  let objectId;
-  try {
-    objectId = new ObjectId(id);
-  } catch {
+  // 24 hex characters only: new ObjectId() would also take any 12-character string.
+  if (!isValidObjectId(id)) {
     req.log.warn("delete application rejected: invalid id", { env, id });
     return res.status(400).json({ error: "Invalid id format" });
   }
   try {
     const db = await connect();
-    const { deletedCount } = await db.collection(toCollection(env)).deleteOne({ _id: objectId });
+    const { deletedCount } = await db.collection(toCollection(env)).deleteOne({ _id: new ObjectId(id) });
     if (deletedCount === 0) {
       req.log.warn("delete application: not found", { env, id });
       return res.status(404).json({ error: "Application not found" });
