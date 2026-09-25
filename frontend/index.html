@@ -340,9 +340,12 @@ const D3_POLL_MS = 120;
 // Periodicidades oferecidas no seletor do health check, em segundos.
 const RATE_OPTIONS = [15, 30, 60];
 const DEFAULT_RATE = 30;
+// Distância mínima (s) entre os /sync de dois ambientes: um ciclo que
+// recomeça perto demais de outro é empurrado para não chegarem juntos ao servidor.
+const SYNC_GAP_S = 2;
 // Cards por página na lista da frota.
 const PAGE_SIZE = 3;
-// Quedas que chegam dentro desta janela (os 3 ambientes sincronizam juntos) saem num bipe só.
+// Quedas que chegam dentro desta janela (ex.: /sync de ambientes que responderam juntos) saem num bipe só.
 const ALERT_BATCH_MS = 400;
 // Pausa as animações da tempestade só depois do fade do céu (transition de 1.2s no template).
 const STORM_FADE_MS = 1300;
@@ -360,12 +363,15 @@ const BOLT_PATH = 'M213.85,125.46l-112,120a8,8,0,0,1-13.69-7l14.66-73.33L45.19,1
 const BASE_TITLE = 'Orbital - App';
 // Tabela única de ambientes: código curto da UI, nome na API/Mongo e rótulo.
 // Tudo o que lista ou traduz ambientes deriva daqui.
+// startDelay: primeiro ciclo (s) quando não há timer salvo ou ele venceu com a
+// página fechada; valores diferentes para os ambientes não sincronizarem juntos.
 const ENVS = [
-  { code: 'dev', api: 'development', label: 'DESENVOLVIMENTO' },
-  { code: 'hml', api: 'staging', label: 'HOMOLOGAÇÃO' },
-  { code: 'prd', api: 'production', label: 'PRODUÇÃO' }
+  { code: 'dev', api: 'development', label: 'DESENVOLVIMENTO', startDelay: 15 },
+  { code: 'hml', api: 'staging', label: 'HOMOLOGAÇÃO', startDelay: 10 },
+  { code: 'prd', api: 'production', label: 'PRODUÇÃO', startDelay: 5 }
 ];
 const ENV_CODES = ENVS.map(e => e.code);
+const ENV_START_DELAY = Object.fromEntries(ENVS.map(e => [e.code, e.startDelay]));
 const ENV_TO_API = Object.fromEntries(ENVS.map(e => [e.code, e.api]));
 const API_TO_ENV = Object.fromEntries(ENVS.map(e => [e.api, e.code]));
 const DEFAULT_ENV = 'prd';
@@ -485,6 +491,17 @@ function migrateApp(a) {
 function migrateStatus(map) {
   return Object.fromEntries(Object.entries(map).map(([id, s]) => [id, LEGACY_STATUS[s] || s]).filter(([, s]) => STATUSES.includes(s)));
 }
+// Periodicidade por ambiente, { dev: 30, … }. O formato antigo era um número
+// só, para os três: vira o valor de cada um. Ambiente sem valor válido fica de
+// fora, e um valor ilegível não lança: o resto das preferências ainda é lido.
+function parseRates(raw) {
+  let p;
+  try { p = JSON.parse(raw); } catch (e) { return {}; }
+  const ok = v => Number.isInteger(v) && v > 0;
+  if (ok(p)) return Object.fromEntries(ENV_CODES.map(env => [env, p]));
+  if (!p || typeof p !== 'object') return {};
+  return Object.fromEntries(ENV_CODES.filter(env => ok(p[env])).map(env => [env, p[env]]));
+}
 
 const THEMES = {
   dark: {
@@ -557,9 +574,9 @@ const STORM_OVERRIDES = {
 
 class Component extends DCLogic {
   state = {
-    apps: [], status: {}, formOpen: false, scanning: false, selectedId: null, pendingRemoveId: null, theme: 'dark', query: '', filter: 'all', page: 0, env: DEFAULT_ENV, rate: DEFAULT_RATE, rateOpen: false, teamDropOpen: false,
+    apps: [], status: {}, formOpen: false, scanning: false, selectedId: null, pendingRemoveId: null, theme: 'dark', query: '', filter: 'all', page: 0, env: DEFAULT_ENV, rates: {}, rateOpen: false, teamDropOpen: false,
     notify: false, sound: false, notifyOpen: false, notifyBlocked: false, apiDown: false, lastOk: null,
-    statusStale: false, submitting: false, formError: '', removing: false, removeError: '', d3Failed: false,
+    staleEnvs: [], submitting: false, formError: '', removing: false, removeError: '', d3Failed: false,
     form: { name: '', team: '', swaggerUrl: '', healthCheckUrl: '', env: DEFAULT_ENV }
   };
 
@@ -569,7 +586,7 @@ class Component extends DCLogic {
     const prefs = {};
     try {
       const t = localStorage.getItem(TKEY); if (t === 'light' || t === 'dark') theme = t;
-      const r = parseInt(localStorage.getItem(RKEY), 10); if (r) prefs.rate = r;
+      const r = localStorage.getItem(RKEY); if (r) prefs.rates = parseRates(r);
       const a = localStorage.getItem(AKEY); if (a) apps = (JSON.parse(a) || []).map(migrateApp);
       const s = localStorage.getItem(SKEY);
       if (s) {
@@ -586,13 +603,14 @@ class Component extends DCLogic {
     const known = new Set(apps.map(a => a.id));
     status = migrateStatus(Object.fromEntries(Object.entries(status).filter(([id]) => known.has(id))));
     this.statusTs = statusTs;
-    const statusStale = Object.keys(status).length > 0 && Date.now() - statusTs > STATUS_STALE_MS;
+    // Status antigo vale por ambiente: cada um sai do "último conhecido" no próprio primeiro sync.
+    const staleEnvs = Object.keys(status).length > 0 && Date.now() - statusTs > STATUS_STALE_MS ? ENV_CODES : [];
     this.downSeen = new Set(Object.keys(status).filter(id => status[id] === 'unhealthy'));
     this.latency = {};
     this.onReturn = () => { if (!this.isAway()) this.dismissAlerts(); };
     document.addEventListener('visibilitychange', this.onReturn);
     window.addEventListener('focus', this.onReturn);
-    this.setState({ ...prefs, apps, status, theme, statusStale }, () => { this.applyTheme(); this.waitForD3(); this.startAuto(); this.scheduleComet(); this.updateTitle(); });
+    this.setState({ ...prefs, apps, status, theme, staleEnvs }, () => { this.applyTheme(); this.waitForD3(); this.startAuto(); this.scheduleComet(); this.updateTitle(); });
     if (!(await this.loadApps())) this.markApiDown();
   }
 
@@ -650,32 +668,35 @@ class Component extends DCLogic {
       localStorage.setItem(CKEY, JSON.stringify(data));
     } catch (e) {}
   }
+  rateOf(env) { return this.state.rates[env] || DEFAULT_RATE; }
+  // Recomeça o ciclo de env daqui a `seconds`, empurrado o necessário para
+  // ficar a pelo menos SYNC_GAP_S do próximo /sync de cada outro ambiente.
+  restartCycle(env, seconds) {
+    const others = ENV_CODES.filter(e => e !== env && this.counters[e] > 0).map(e => this.counters[e]);
+    let next = seconds;
+    while (others.some(c => Math.abs(c - next) < SYNC_GAP_S)) next++;
+    this.counters[env] = next;
+  }
   startAuto() {
     clearInterval(this.autoId);
     if (!this.counters) {
-      const r = this.state.rate || DEFAULT_RATE;
       let saved = null;
       try { saved = JSON.parse(localStorage.getItem(CKEY)); } catch (e) {}
       const now = Date.now();
       this.counters = {};
       const expired = [];
       ENV_CODES.forEach(env => {
-        if (saved?.[env]) {
-          const elapsed = Math.floor((now - saved[env].ts) / 1000);
-          const remaining = saved[env].val - elapsed;
-          if (remaining > 0) {
-            this.counters[env] = remaining;
-          } else {
-            this.counters[env] = r;
-            expired.push(env);
-          }
-        } else {
-          this.counters[env] = r;
-          expired.push(env);
-        }
+        const remaining = saved?.[env] ? saved[env].val - Math.floor((now - saved[env].ts) / 1000) : 0;
+        if (remaining > 0) this.counters[env] = remaining;
+        else expired.push(env);
       });
+      // Sem timer salvo, ou vencido com a página fechada: não sincroniza na
+      // carga, recomeça em startDelay (diferente por ambiente) para os /sync não
+      // saírem juntos. Grava já: sem isso um reload antes do fim do primeiro
+      // ciclo não acharia nada salvo. Os restaurados seguem o ts gravado.
+      expired.forEach(env => this.restartCycle(env, Math.min(ENV_START_DELAY[env], this.rateOf(env))));
+      if (expired.length) this.saveCounters();
       this.paintCountdown();
-      if (expired.length) Promise.all(expired.map(env => this.syncEnv(env)));
     }
     this.lastTick = Date.now();
     this.autoId = setInterval(() => {
@@ -685,15 +706,19 @@ class Component extends DCLogic {
       const now = Date.now();
       const elapsed = Math.max(1, Math.round((now - this.lastTick) / 1000));
       this.lastTick = now;
-      const r = this.state.rate || DEFAULT_RATE;
-      let reset = false;
-      ENV_CODES.forEach(env => {
-        this.counters[env] -= elapsed;
-        if (this.counters[env] <= 0) { this.counters[env] = r; reset = true; this.syncEnv(env); }
+      ENV_CODES.forEach(env => { this.counters[env] -= elapsed; });
+      // Vários vencendo no mesmo tick (típico da aba em background) não saem
+      // juntos: o mais atrasado sincroniza agora e os outros são adiados, cada
+      // um a SYNC_GAP_S dos demais. Mais atrasado primeiro, para nenhum ficar sempre para trás.
+      const due = ENV_CODES.filter(env => this.counters[env] <= 0).sort((a, b) => this.counters[a] - this.counters[b]);
+      due.forEach((env, i) => {
+        if (i > 0) { this.restartCycle(env, SYNC_GAP_S); return; }
+        this.restartCycle(env, this.rateOf(env));
+        this.syncEnv(env);
       });
       // O restore desconta o tempo desde o ts gravado, então o decremento
       // linear não precisa ir para o localStorage: só os reinícios.
-      if (reset) this.saveCounters();
+      if (due.length) this.saveCounters();
       this.paintCountdown();
     }, 1000);
   }
@@ -702,13 +727,17 @@ class Component extends DCLogic {
   // o React nunca sobrescreve o que é posto aqui.
   paintCountdown() {
     const el = this.countdownEl; if (!el) return;
-    el.textContent = `${this.counters?.[this.state.env] ?? this.state.rate}s`;
+    const env = this.state.env;
+    el.textContent = `${this.counters?.[env] ?? this.rateOf(env)}s`;
   }
+  // A periodicidade é do ambiente na tela: só o ciclo dele recomeça, os
+  // outros seguem os seus.
   setRate(s) {
-    try { localStorage.setItem(RKEY, String(s)); } catch (e) {}
-    this.counters = Object.fromEntries(ENV_CODES.map(env => [env, s]));
-    this.saveCounters();
-    this.setState({ rate: s, rateOpen: false }, () => { this.paintCountdown(); this.startAuto(); });
+    const env = this.state.env;
+    const rates = { ...this.state.rates, [env]: s };
+    try { localStorage.setItem(RKEY, JSON.stringify(rates)); } catch (e) {}
+    if (this.counters) { this.restartCycle(env, s); this.saveCounters(); }
+    this.setState({ rates, rateOpen: false }, () => this.paintCountdown());
   }
   // fresh: o "Sincronizar" pede checagem nova (?fresh=1, a API pula o cache);
   // o ciclo automático aceita o resultado em cache.
@@ -732,16 +761,18 @@ class Component extends DCLogic {
       });
       const nextStatus = { ...this.state.status, ...patch };
       const lastOk = Date.now();
-      this.statusTs = lastOk;
+      const staleEnvs = this.state.staleEnvs.filter(e => e !== env);
+      // O ts gravado data o status mais antigo do mapa: só avança quando nenhum
+      // ambiente segue com status da carga, senão um reload o daria por novo.
+      if (!staleEnvs.length) this.statusTs = lastOk;
       this.saveStatus(nextStatus);
       try { localStorage.setItem(LKEY, String(lastOk)); } catch (e) {}
       const cleared = this.state.apiDown;
-      const wasStale = this.state.statusStale;
-      this.setState({ status: nextStatus, apiDown: false, statusStale: false, lastOk }, () => {
+      this.setState({ status: nextStatus, apiDown: false, staleEnvs, lastOk }, () => {
         // O céu abrindo muda o núcleo: esqueleto novo. Fora disso, só o
         // ambiente na tela toca a órbita — os outros dois não têm o que redesenhar.
         if (cleared) { this.applySky(); this.redraw(); }
-        else if (env === this.state.env || wasStale) this.updatePlanets();
+        else if (env === this.state.env) this.updatePlanets();
         this.updateTitle();
       });
       // A lista pode ter mudado enquanto a API estava fora, ou em outra aba.
@@ -1150,7 +1181,7 @@ class Component extends DCLogic {
     const o = this.orbit, node = this.planetSel; if (!o || !node) return;
     const { light } = o;
     // Status antigo do localStorage (antes do primeiro sync) tem o mesmo visual da tempestade.
-    const storm = o.storm || this.state.statusStale;
+    const storm = o.storm || this.state.staleEnvs.includes(this.state.env);
     const st = this.state.status;
     const selId = this.state.selectedId;
     const glow = !light && !storm;
@@ -1207,7 +1238,7 @@ class Component extends DCLogic {
     const env = this.state.env;
     this.setState({ scanning: true });
     await this.syncEnv(env, true);
-    if (this.counters) { this.counters[env] = this.state.rate || DEFAULT_RATE; this.saveCounters(); }
+    if (this.counters) { this.restartCycle(env, this.rateOf(env)); this.saveCounters(); }
     this.setState({ scanning: false }, () => this.paintCountdown());
   };
 
@@ -1328,8 +1359,8 @@ class Component extends DCLogic {
     };
   }
 
-  // Tempestade ou status antigo do localStorage: tudo aparece como "último conhecido".
-  isStale() { return this.state.apiDown || this.state.statusStale; }
+  // Tempestade, ou status antigo do localStorage no ambiente da tela: aparece como "último conhecido".
+  isStale() { return this.state.apiDown || this.state.staleEnvs.includes(this.state.env); }
 
   // Tooltip do badge DEGRADADO: latência do último sync (só em memória).
   slowTitle(id) {
@@ -1361,7 +1392,8 @@ class Component extends DCLogic {
 
   // Barra do topo: tema, Sincronizar, periodicidade e alertas de queda.
   toolbarVals() {
-    const { theme, scanning, rate, rateOpen, notifyOpen, notify, sound, notifyBlocked } = this.state;
+    const { theme, scanning, rateOpen, notifyOpen, notify, sound, notifyBlocked } = this.state;
+    const rate = this.rateOf(this.state.env);
     const light = theme === 'light';
     return {
       isLight: light,

@@ -37,25 +37,38 @@ The browser never probes health check URLs itself. It calls `POST /applications/
 
 ### API (`api/`)
 
-Express, no framework beyond it. Routes live in `api/src/routes/applications.js`:
+Express, no framework beyond it. `api/src/app.js` builds the Express app (CORS, per-request logging, JSON body, routes) and `api/src/index.js` only validates the config, installs the process handlers and calls `listen`. `checkHealth()` and `mapLimit()` live in `api/src/health.js`. Routes live in `api/src/routes/applications.js`:
 
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/applications` | all apps, grouped by environment |
-| GET | `/applications/:env` | apps of one environment |
 | POST | `/applications/:env/sync` | run health checks, return statuses |
 | POST | `/applications/:env` | create an app |
 | DELETE | `/applications/:env/:id` | remove an app |
 
 There is **no update endpoint** — changing an existing app means editing Mongo directly.
 
-`/sync` results are cached in Redis for `SYNC_CACHE_TTL` seconds (13 in local compose), so a health check URL change takes up to that long to show. `api/src/cache.js` degrades gracefully: if Redis is unreachable the check just runs uncached. CORS in `api/src/index.js` reflects any origin.
+`/sync` results are cached in Redis for `SYNC_CACHE_TTL` seconds (13 in local compose). Each environment's application list is cached too, under `apps:<env>` for `APPS_CACHE_TTL` seconds (default 7200 = 2h, `0` disables), and is the source for both `GET /applications` and the health check URLs `/sync` checks (`listApps()`). Create and delete invalidate `apps:<env>` and `sync:<env>` of that environment (`invalidateEnv()`); an edit made straight in Mongo only shows after `APPS_CACHE_TTL` — or delete the Redis key (`orbital:apps:<env>`) by hand. `api/src/cache.js` degrades gracefully: if Redis is unreachable the check just runs uncached. CORS in `api/src/app.js` reflects any origin.
 
 Logging goes through `api/src/logger.js` (no dependency): `log.info/warn/error(msg, fields)` writes one JSON line per event (`info` → stdout, `warn`/`error` → stderr), `Error` fields are serialized with `cause` (and `stack` at `error`), and `LOG_LEVEL` (`info` default, `warn`, `error`) filters. Never use `console.*`. Inside a route use `req.log`, a child carrying the request's `reqId`; every request also gets one `request completed` line (4xx → warn, 5xx → error). Level rule: `info` for flow (boot, connections, sync summary, create/delete), `warn` for things that need attention but aren't API failures (invalid client input, unhealthy/degraded monitored apps, Redis down or cache op failed), `error` for API failures (500s, Mongo connection, uncaught). Redis errors log only on the up→down transition, and the sync summary only when checks actually run (cache miss or `?fresh=1`). Redact connection URLs with `log.redactUrl()`.
 
+#### Tests
+
+Unit tests use **Jest + Supertest** and live in `api/test/*.test.js` (outside `src/`, so the Docker image doesn't ship them). No Mongo, Redis or network is needed: `mongodb`, `ioredis`, `fetch` and the logger are mocked.
+
+```bash
+cd api && npm test
+cd api && npm run test:coverage
+```
+
+- Every `describe`/`it` description is in Brazilian Portuguese and states the behavior under test.
+- `config`, `logger`, `cache` and `db` keep state at module level; load them with `loadFresh(env, loader)` from `test/helpers.js`, which runs `loader` in a fresh module registry with exactly `env` set. Require mocked modules inside `loader` to get the instances the code sees.
+- Mock `dotenv` (`jest.mock("dotenv", () => ({ config: jest.fn() }))`) in any test that loads `config`, so `api/.env` doesn't leak in.
+- Route tests go through `src/app.js` with Supertest, mocking `src/db`, `src/cache` and `checkHealth`.
+
 ### Environments
 
-The UI uses three short codes that map onto API/Mongo names. The single source is the `ENVS` table in `index.html` (`{ code, api, label }`); `ENV_CODES`, the `ENV_TO_API` / `API_TO_ENV` lookups and `envLabel()` are derived from it, so a new environment is one entry there:
+The UI uses three short codes that map onto API/Mongo names. The single source is the `ENVS` table in `index.html` (`{ code, api, label, startDelay }`); `ENV_CODES`, the `ENV_TO_API` / `API_TO_ENV` / `ENV_START_DELAY` lookups and `envLabel()` are derived from it, so a new environment is one entry there:
 
 | UI | API path & Mongo collection |
 |---|---|
@@ -63,7 +76,7 @@ The UI uses three short codes that map onto API/Mongo names. The single source i
 | `hml` | `staging` → `applications_staging` |
 | `prd` | `production` → `applications_production` |
 
-The health-check ticker syncs **all three** environments every cycle, regardless of which tab is on screen.
+The health-check ticker syncs **all three** environments, regardless of which tab is on screen, each on its **own** cycle and interval (the interval picker changes only the environment on screen). Cycles are kept apart so the API never gets the three `/sync` at once: with no saved countdown (or one that expired while the page was closed) an environment starts at its `startDelay` (dev 15s, hml 10s, prd 5s) instead of syncing on load; every cycle restart (`restartCycle()` — end of cycle, "Sincronizar", interval change) is pushed to stay at least `SYNC_GAP_S` (2s) from the others; and when several expire in the same tick (background tab), only the most overdue syncs, the rest wait `SYNC_GAP_S` each. A reload never syncs by itself: countdowns are restored from `orbital-counters-v1`.
 
 ### Seed data
 
@@ -91,10 +104,10 @@ State lives in `this.state = {}` and updates via `this.setState(nextState, callb
 MongoDB is the source of truth. `localStorage` holds a local cache plus user preferences:
 
 - `orbital-apps-v1` — cache of the last `GET /applications`, as `{ id, env, name, team, healthCheckUrl, swaggerUrl }` (`env` is the short code). Entries in the old `{ nome, time, health, swagger }` shape are converted on read by `migrateApp()` and rewritten in the new shape on the next save. The list is reloaded (`loadApps()`) on mount, when the storm ends, and whenever a `/sync` returns IDs that don't match the environment's list
-- `orbital-status-v1` — `{ status: { [appId]: 'healthy' | 'degraded' | 'unhealthy' }, ts }`, `ts` being the last successful `/sync` (ms). The old bare-map format is still read, as `ts = 0`, and the old values `up`/`down` are mapped to `healthy`/`unhealthy` on read by `migrateStatus()` (unknown values are dropped). If `ts` is older than `STATUS_STALE_MS` (5 min) on load, statuses show as "último conhecido" with the storm's `--stale` look until the first successful sync. IDs not in the app list are dropped. The latency behind the degraded tooltip lives only in memory, `this.latency`
-- `orbital-counters-v1` — per-environment countdown to the next sync
+- `orbital-status-v1` — `{ status: { [appId]: 'healthy' | 'degraded' | 'unhealthy' }, ts }`, `ts` being the last successful `/sync` (ms) — but it only advances once no environment is still showing statuses from load, so it always dates the oldest status in the map. The old bare-map format is still read, as `ts = 0`, and the old values `up`/`down` are mapped to `healthy`/`unhealthy` on read by `migrateStatus()` (unknown values are dropped). If `ts` is older than `STATUS_STALE_MS` (5 min) on load, statuses show as "último conhecido" with the storm's `--stale` look, per environment (`staleEnvs`), until that environment's first successful sync. IDs not in the app list are dropped. The latency behind the degraded tooltip lives only in memory, `this.latency`
+- `orbital-counters-v1` — per-environment countdown to the next sync, `{ [env]: { val, ts } }` (seconds left at `ts`); written whenever a cycle restarts, including on load
 - `orbital-theme-v1` — `'dark'` | `'light'`
-- `orbital-rate-v1` — health-check interval in seconds
+- `orbital-rate-v1` — health-check interval in seconds per environment, `{ dev, hml, prd }` (missing → `DEFAULT_RATE`). The old single number is read by `parseRates()` as the value of all three
 - `orbital-notify-v1` / `orbital-sound-v1` — `'1'` | `'0'`, down-alert toggles
 - `orbital-lastok-v1` — timestamp (ms) of the last successful `/sync`, shown while the API is unreachable
 - `orbital-comet-v1` — timestamps (ms) of the comets shown in the last hour
@@ -103,7 +116,7 @@ Every read and write is wrapped in an inline `try { … } catch (e) {}` — foll
 
 ### Down alerts
 
-When an application transitions to `unhealthy`, the app fires a browser notification (`{name} saiu de órbita`, with team and environment in the body) and a WebAudio beep — both **only** when the tab is out of focus (`document.hidden || !document.hasFocus()`). A counter stays in the page title while any application is `unhealthy`. `degraded` never alerts and is not counted in the title. `this.downSeen` dedupes, so a single fall notifies once, and simultaneous falls across environments are buffered to produce one beep.
+When an application transitions to `unhealthy`, the app fires a browser notification (`{name} saiu de órbita`, with team and environment in the body) and a WebAudio beep — both **only** when the tab is out of focus (`document.hidden || !document.hasFocus()`). A counter stays in the page title while any application is `unhealthy`. `degraded` never alerts and is not counted in the title. `this.downSeen` dedupes, so a single fall notifies once, and falls arriving within `ALERT_BATCH_MS` (400ms) are buffered to produce one beep. Since the environments' `/sync` calls are kept at least `SYNC_GAP_S` apart, falls in different environments normally beep separately.
 
 ### API unreachable — "tempestade"
 
