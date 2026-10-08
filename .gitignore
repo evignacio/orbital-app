@@ -144,3 +144,4 @@ vite.config.ts.timestamp-*
 .vite/
 
 sugestoes-de-melhorias*.md
+docs/32-health-checks-no-servidor-sse.md
