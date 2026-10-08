@@ -45,35 +45,41 @@ function checkUrl(raw, field, { required }) {
   return { value };
 }
 
-// { value, errors }: value holds only the known fields, trimmed; errors maps
-// field → message and is empty when the body is valid.
-function validateApplication(body) {
-  if (!body || typeof body !== "object" || Array.isArray(body)) {
-    return { value: null, errors: { body: "body must be a JSON object" } };
+class ApplicationValidator {
+  constructor() {
+    this.LIMITS = LIMITS;
   }
-  const checks = {
-    name: checkText(body.name, "name", {
-      min: LIMITS.nameMin, max: LIMITS.nameMax, re: NAME_RE,
-      format: "may contain only letters, digits, '.', '_' and '-', starting with a letter or digit",
-    }),
-    team: checkText(body.team, "team", {
-      min: LIMITS.teamMin, max: LIMITS.teamMax, re: TEAM_RE,
-      format: "may contain only letters, digits, spaces, '.', '_' and '-'",
-    }),
-    healthCheckUrl: checkUrl(body.healthCheckUrl, "healthCheckUrl", { required: true }),
-    swaggerUrl: checkUrl(body.swaggerUrl, "swaggerUrl", { required: false }),
-  };
-  const value = {};
-  const errors = {};
-  for (const [field, result] of Object.entries(checks)) {
-    if (result.error) errors[field] = result.error;
-    else value[field] = result.value;
+
+  // { value, errors }: value holds only the known fields, trimmed; errors maps
+  // field → message and is empty when the body is valid.
+  validate(body) {
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return { value: null, errors: { body: "body must be a JSON object" } };
+    }
+    const checks = {
+      name: checkText(body.name, "name", {
+        min: this.LIMITS.nameMin, max: this.LIMITS.nameMax, re: NAME_RE,
+        format: "may contain only letters, digits, '.', '_' and '-', starting with a letter or digit",
+      }),
+      team: checkText(body.team, "team", {
+        min: this.LIMITS.teamMin, max: this.LIMITS.teamMax, re: TEAM_RE,
+        format: "may contain only letters, digits, spaces, '.', '_' and '-'",
+      }),
+      healthCheckUrl: checkUrl(body.healthCheckUrl, "healthCheckUrl", { required: true }),
+      swaggerUrl: checkUrl(body.swaggerUrl, "swaggerUrl", { required: false }),
+    };
+    const value = {};
+    const errors = {};
+    for (const [field, result] of Object.entries(checks)) {
+      if (result.error) errors[field] = result.error;
+      else value[field] = result.value;
+    }
+    return { value, errors };
   }
-  return { value, errors };
+
+  isValidObjectId(id) {
+    return typeof id === "string" && OBJECT_ID_RE.test(id);
+  }
 }
 
-function isValidObjectId(id) {
-  return typeof id === "string" && OBJECT_ID_RE.test(id);
-}
-
-module.exports = { validateApplication, isValidObjectId, LIMITS };
+module.exports = new ApplicationValidator();

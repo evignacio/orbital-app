@@ -2,9 +2,9 @@ const { loadFresh } = require("./helpers");
 
 jest.mock("dotenv", () => ({ config: jest.fn() }));
 // Fake logger that keeps the real redactUrl, so the logged URLs can be checked.
-jest.mock("../src/logger", () => {
+jest.mock("../src/utils/logger", () => {
   const log = require("./helpers").fakeLogger();
-  log.redactUrl.mockImplementation(jest.requireActual("../src/logger").redactUrl);
+  log.redactUrl.mockImplementation(jest.requireActual("../src/utils/logger").redactUrl);
   return log;
 });
 
@@ -29,9 +29,9 @@ jest.mock("mongodb", () => {
 // db.js caches its client at module level; load a fresh copy per scenario.
 function load(env = {}) {
   return loadFresh(env, () => ({
-    db: require("../src/db"),
+    db: require("../src/config/database"),
     MongoClient: require("mongodb").MongoClient,
-    log: require("../src/logger"),
+    log: require("../src/utils/logger"),
   }));
 }
 

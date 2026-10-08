@@ -1,0 +1,16 @@
+// Like Promise.all(items.map(fn)), but with at most `limit` calls in flight.
+// Results keep the order of `items`.
+async function mapLimit(items, limit, fn) {
+  const results = new Array(items.length);
+  let next = 0;
+  async function worker() {
+    while (next < items.length) {
+      const i = next++;
+      results[i] = await fn(items[i]);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return results;
+}
+
+module.exports = mapLimit;

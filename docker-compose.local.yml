@@ -15,13 +15,14 @@ services:
 
   api:
     build: ./api
+    env_file: ./api/.env.example
     ports:
       - "3001:3001"
     environment:
       MONGO_URL: mongodb://mongo:27017
       MONGO_DB: orbital
       REDIS_URL: redis://redis:6379
-      SYNC_CACHE_TTL: "13"
+      HEALTH_CHECK_INTERVAL_S: "30"
       APPS_CACHE_TTL: "7200"
     depends_on:
       - mongo

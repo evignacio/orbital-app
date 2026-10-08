@@ -1,14 +1,17 @@
 const { loadFresh, fakeLogger } = require("./helpers");
+const mapLimit = require("../src/utils/map-limit");
 
 jest.mock("dotenv", () => ({ config: jest.fn() }));
 
 const DEGRADED_LATENCY_MS = 1000;
 const HEALTH_CHECK_TIMEOUT_MS = 2000;
 
-const { checkHealth, mapLimit } = loadFresh(
+const healthCheckService = loadFresh(
   { DEGRADED_LATENCY_MS: String(DEGRADED_LATENCY_MS), HEALTH_CHECK_TIMEOUT_MS: String(HEALTH_CHECK_TIMEOUT_MS) },
-  () => require("../src/health")
+  () => require("../src/services/health-check.service")
 );
+// check() reads its limits from the instance, so it is always called through it.
+const checkHealth = (app, log) => healthCheckService.check(app, log);
 
 const app = { id: "a1", name: "billing", healthCheckUrl: "http://billing/health" };
 

@@ -29,9 +29,9 @@ const config = Object.freeze({
   mongoPass: str("MONGO_PASS", undefined),
   mongoDb: str("MONGO_DB", undefined),
   redisUrl: str("REDIS_URL", "redis://localhost:6379"),
-  // 0 disables the Redis cache; concurrent syncs are still deduplicated.
-  syncCacheTtl: int("SYNC_CACHE_TTL", 13, 0),
-  // Application lists per environment (GET and the /sync source). Invalidated
+  // Seconds between the scheduled health checks of each environment.
+  healthCheckIntervalS: int("HEALTH_CHECK_INTERVAL_S", 30, 5),
+  // Application lists per environment (GET and the scheduler's source). Invalidated
   // on create/delete; edits made straight in Mongo show up after this. 0 disables.
   appsCacheTtl: int("APPS_CACHE_TTL", 7200, 0),
   healthCheckConcurrency: int("HEALTH_CHECK_CONCURRENCY", 10, 1),

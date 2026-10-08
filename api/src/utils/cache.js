@@ -1,5 +1,5 @@
 const Redis = require("ioredis");
-const config = require("./config");
+const config = require("../config");
 const log = require("./logger");
 
 const READY_TIMEOUT_MS = 1000;
@@ -14,7 +14,7 @@ function getClient() {
   if (!client) {
     client = new Redis(config.redisUrl, {
       enableOfflineQueue: false,
-      // Namespaces every key (sync:production → orbital:sync:production) so a
+      // Namespaces every key (apps:production → orbital:apps:production) so a
       // shared Redis does not collide with other systems.
       keyPrefix: "orbital:",
     });
@@ -25,7 +25,7 @@ function getClient() {
     client.on("error", err => {
       if (!available) return;
       available = false;
-      log.warn("redis unavailable, sync cache bypassed", { url: log.redactUrl(config.redisUrl), err });
+      log.warn("redis unavailable, cache bypassed", { url: log.redactUrl(config.redisUrl), err });
     });
   }
   return client;
@@ -86,11 +86,9 @@ async function writeCache(key, ttlSeconds, value) {
 }
 
 // ttlSeconds <= 0 disables the Redis cache (single-flight still applies).
-// `fresh` skips the cache read but still joins a run in progress and still
-// writes its result, so the next cached read sees it.
-async function withCache(key, ttlSeconds, fn, { fresh = false } = {}) {
+async function withCache(key, ttlSeconds, fn) {
   const caching = ttlSeconds > 0;
-  if (caching && !fresh) {
+  if (caching) {
     const cached = await readCache(key);
     if (cached !== undefined) return cached;
   }
@@ -120,4 +118,15 @@ async function invalidate(key) {
   }
 }
 
-module.exports = { withCache, invalidate };
+// Runs fn(redis) and returns its result; on any Redis error logs like the
+// other cache operations (only while Redis is believed up) and returns fallback.
+async function withRedis(op, key, fn, fallback) {
+  try {
+    return await fn(await ready());
+  } catch (err) {
+    cacheFailed(op, key, err);
+    return fallback;
+  }
+}
+
+module.exports = { withCache, invalidate, withRedis };

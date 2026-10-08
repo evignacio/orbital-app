@@ -1,4 +1,9 @@
-const { validateApplication, isValidObjectId, LIMITS } = require("../src/validation");
+const applicationValidator = require("../src/validators/application.validator");
+
+// Called through the instance: the methods are class methods and may use this.
+const validateApplication = body => applicationValidator.validate(body);
+const isValidObjectId = id => applicationValidator.isValidObjectId(id);
+const { LIMITS } = applicationValidator;
 
 const valid = {
   name: "checkout-api",

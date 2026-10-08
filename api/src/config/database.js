@@ -1,6 +1,6 @@
 const { MongoClient } = require("mongodb");
-const config = require("./config");
-const log = require("./logger");
+const config = require("./index");
+const log = require("../utils/logger");
 
 let client;
 

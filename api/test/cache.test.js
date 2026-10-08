@@ -1,7 +1,7 @@
 const { loadFresh } = require("./helpers");
 
 jest.mock("dotenv", () => ({ config: jest.fn() }));
-jest.mock("../src/logger", () => require("./helpers").fakeLogger());
+jest.mock("../src/utils/logger", () => require("./helpers").fakeLogger());
 
 // In-memory stand-in for ioredis. The commands are shared by every instance so
 // a test can script them before cache.js creates its (lazy) client.
@@ -35,9 +35,9 @@ let log;
 
 beforeEach(() => {
   ({ cache, Redis, log } = loadFresh({ REDIS_URL: "redis://redis:6379" }, () => ({
-    cache: require("../src/cache"),
+    cache: require("../src/utils/cache"),
     Redis: require("ioredis"),
-    log: require("../src/logger"),
+    log: require("../src/utils/logger"),
   })));
 });
 
@@ -71,16 +71,16 @@ describe("withCache", () => {
     Redis.get.mockResolvedValue(JSON.stringify([{ id: "a1", status: "healthy" }]));
     const fn = jest.fn();
 
-    await expect(cache.withCache("sync:production", 13, fn)).resolves.toEqual([{ id: "a1", status: "healthy" }]);
-    expect(Redis.get).toHaveBeenCalledWith("sync:production");
+    await expect(cache.withCache("apps:production", 13, fn)).resolves.toEqual([{ id: "a1", status: "healthy" }]);
+    expect(Redis.get).toHaveBeenCalledWith("apps:production");
     expect(fn).not.toHaveBeenCalled();
   });
 
   it("em cache miss executa a função e grava o resultado em JSON com expiração (EX ttl)", async () => {
     const result = [{ id: "a1", status: "degraded" }];
 
-    await expect(cache.withCache("sync:staging", 13, async () => result)).resolves.toBe(result);
-    expect(Redis.set).toHaveBeenCalledWith("sync:staging", JSON.stringify(result), "EX", 13);
+    await expect(cache.withCache("apps:staging", 13, async () => result)).resolves.toBe(result);
+    expect(Redis.set).toHaveBeenCalledWith("apps:staging", JSON.stringify(result), "EX", 13);
   });
 
   it("com ttl 0 não lê nem grava no Redis, apenas executa a função", async () => {
@@ -89,25 +89,16 @@ describe("withCache", () => {
     expect(Redis.set).not.toHaveBeenCalled();
   });
 
-  it("com fresh: true ignora o valor em cache mas grava o novo resultado", async () => {
-    Redis.get.mockResolvedValue(JSON.stringify("antigo"));
-
-    await expect(cache.withCache("k", 13, async () => "novo", { fresh: true })).resolves.toBe("novo");
-    expect(Redis.get).not.toHaveBeenCalled();
-    expect(Redis.set).toHaveBeenCalledWith("k", JSON.stringify("novo"), "EX", 13);
-  });
-
   it("chamadas simultâneas na mesma chave compartilham uma única execução (single-flight)", async () => {
     const d = deferred();
     const fn = jest.fn(() => d.promise);
 
     const first = cache.withCache("k", 13, fn);
     const second = cache.withCache("k", 13, fn);
-    const fresh = cache.withCache("k", 13, fn, { fresh: true });
     await flush();
     d.resolve("resultado");
 
-    await expect(Promise.all([first, second, fresh])).resolves.toEqual(["resultado", "resultado", "resultado"]);
+    await expect(Promise.all([first, second])).resolves.toEqual(["resultado", "resultado"]);
     expect(fn).toHaveBeenCalledTimes(1);
     expect(Redis.set).toHaveBeenCalledTimes(1);
   });
@@ -157,8 +148,8 @@ describe("withCache", () => {
 
 describe("invalidate", () => {
   it("apaga a chave no Redis", async () => {
-    await cache.invalidate("sync:production");
-    expect(Redis.del).toHaveBeenCalledWith("sync:production");
+    await cache.invalidate("apps:production");
+    expect(Redis.del).toHaveBeenCalledWith("apps:production");
   });
 
   it("impede que uma execução iniciada antes grave seu resultado desatualizado", async () => {
@@ -195,6 +186,35 @@ describe("invalidate", () => {
 
     await expect(cache.invalidate("k")).resolves.toBeUndefined();
     expect(log.warn).toHaveBeenCalledWith("cache operation failed", { op: "invalidate", key: "k", err });
+  });
+});
+
+describe("withRedis", () => {
+  it("entrega o cliente Redis à função e devolve o resultado dela", async () => {
+    Redis.get.mockResolvedValue("valor");
+
+    const result = await cache.withRedis("read", "k", redis => redis.get("k"), null);
+
+    expect(result).toBe("valor");
+    expect(Redis.get).toHaveBeenCalledWith("k");
+  });
+
+  it("com erro do Redis devolve o fallback e loga um warn", async () => {
+    const err = new Error("Stream isn't writeable");
+    Redis.get.mockRejectedValue(err);
+
+    await expect(cache.withRedis("read", "k", redis => redis.get("k"), "fallback")).resolves.toBe("fallback");
+    expect(log.warn).toHaveBeenCalledWith("cache operation failed", { op: "read", key: "k", err });
+  });
+
+  it("não loga a falha quando o Redis já está marcado como indisponível", async () => {
+    await cache.invalidate("x"); // creates the client
+    client().emit("error", new Error("down"));
+    log.warn.mockClear();
+    Redis.get.mockRejectedValue(new Error("Stream isn't writeable"));
+
+    await expect(cache.withRedis("read", "k", redis => redis.get("k"), "fallback")).resolves.toBe("fallback");
+    expect(log.warn).not.toHaveBeenCalled();
   });
 });
 
@@ -254,8 +274,8 @@ describe("conexão com o Redis", () => {
 
     client().emit("error", err);
     client().emit("error", err);
-    expect(log.warn.mock.calls.filter(([msg]) => msg === "redis unavailable, sync cache bypassed")).toHaveLength(1);
-    expect(log.warn).toHaveBeenCalledWith("redis unavailable, sync cache bypassed", {
+    expect(log.warn.mock.calls.filter(([msg]) => msg === "redis unavailable, cache bypassed")).toHaveLength(1);
+    expect(log.warn).toHaveBeenCalledWith("redis unavailable, cache bypassed", {
       url: "redis://redis:6379",
       err,
     });
@@ -264,7 +284,7 @@ describe("conexão com o Redis", () => {
     expect(log.info).toHaveBeenCalledWith("redis connected", { url: "redis://redis:6379" });
 
     client().emit("error", err);
-    expect(log.warn.mock.calls.filter(([msg]) => msg === "redis unavailable, sync cache bypassed")).toHaveLength(2);
+    expect(log.warn.mock.calls.filter(([msg]) => msg === "redis unavailable, cache bypassed")).toHaveLength(2);
   });
 
   it("com o Redis fora do ar, não loga cada operação de cache que falha", async () => {

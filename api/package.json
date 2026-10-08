@@ -2,10 +2,10 @@
   "name": "orbital-api",
   "version": "1.0.0",
   "description": "REST API for Orbital App — serves application registry from MongoDB",
-  "main": "src/index.js",
+  "main": "src/server.js",
   "scripts": {
-    "start": "node src/index.js",
-    "dev": "node --watch src/index.js",
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
     "test": "jest",
     "test:coverage": "jest --coverage"
   },
@@ -28,7 +28,7 @@
     "restoreMocks": true,
     "collectCoverageFrom": [
       "src/**/*.js",
-      "!src/index.js"
+      "!src/server.js"
     ]
   }
 }

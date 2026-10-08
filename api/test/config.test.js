@@ -14,7 +14,7 @@ describe("config", () => {
       mongoPass: undefined,
       mongoDb: undefined,
       redisUrl: "redis://localhost:6379",
-      syncCacheTtl: 13,
+      healthCheckIntervalS: 30,
       appsCacheTtl: 7200,
       healthCheckConcurrency: 10,
       healthCheckTimeoutMs: 5000,
@@ -47,7 +47,7 @@ describe("config", () => {
   it("converte variáveis inteiras válidas para number", () => {
     const config = loadConfig({
       PORT: "8080",
-      SYNC_CACHE_TTL: " 30 ",
+      HEALTH_CHECK_INTERVAL_S: " 45 ",
       APPS_CACHE_TTL: "3600",
       HEALTH_CHECK_CONCURRENCY: "4",
       HEALTH_CHECK_TIMEOUT_MS: "1500",
@@ -55,7 +55,7 @@ describe("config", () => {
     });
     expect(config).toMatchObject({
       port: 8080,
-      syncCacheTtl: 30,
+      healthCheckIntervalS: 45,
       appsCacheTtl: 3600,
       healthCheckConcurrency: 4,
       healthCheckTimeoutMs: 1500,
@@ -63,8 +63,14 @@ describe("config", () => {
     });
   });
 
-  it("aceita SYNC_CACHE_TTL=0, que desliga o cache do Redis", () => {
-    expect(loadConfig({ SYNC_CACHE_TTL: "0" }).syncCacheTtl).toBe(0);
+  it("usa 30 s como intervalo padrão dos health checks e aceita o mínimo de 5 s", () => {
+    expect(loadConfig({}).healthCheckIntervalS).toBe(30);
+    expect(loadConfig({ HEALTH_CHECK_INTERVAL_S: "5" }).healthCheckIntervalS).toBe(5);
+  });
+
+  it("não lê mais SYNC_CACHE_TTL, que foi removida junto com o cache do /sync", () => {
+    const config = loadConfig({ SYNC_CACHE_TTL: "30" });
+    expect(config).not.toHaveProperty("syncCacheTtl");
   });
 
   it("usa 2 horas (7200 s) como TTL padrão do cache da lista de aplicações e aceita 0 para desligá-lo", () => {
@@ -74,7 +80,8 @@ describe("config", () => {
 
   it.each([
     ["PORT", "abc"],
-    ["SYNC_CACHE_TTL", "1.5"],
+    ["HEALTH_CHECK_INTERVAL_S", "abc"],
+    ["HEALTH_CHECK_INTERVAL_S", "1.5"],
     ["HEALTH_CHECK_TIMEOUT_MS", "5s"],
     ["DEGRADED_LATENCY_MS", "1e3"],
   ])("rejeita %s=%s por não ser um inteiro, citando a variável no erro", (name, value) => {
@@ -83,7 +90,8 @@ describe("config", () => {
 
   it.each([
     ["PORT", "0", 1],
-    ["SYNC_CACHE_TTL", "-1", 0],
+    ["HEALTH_CHECK_INTERVAL_S", "4", 5],
+    ["HEALTH_CHECK_INTERVAL_S", "-1", 5],
     ["APPS_CACHE_TTL", "-1", 0],
     ["HEALTH_CHECK_CONCURRENCY", "0", 1],
     ["HEALTH_CHECK_TIMEOUT_MS", "0", 1],

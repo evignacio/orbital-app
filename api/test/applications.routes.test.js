@@ -1,26 +1,30 @@
+const http = require("http");
 const request = require("supertest");
 const { ObjectId } = require("mongodb");
 
 jest.mock("dotenv", () => ({ config: jest.fn() }));
-jest.mock("../src/logger", () => require("./helpers").fakeLogger());
-jest.mock("../src/db", () => ({ connect: jest.fn() }));
+jest.mock("../src/utils/logger", () => require("./helpers").fakeLogger());
+jest.mock("../src/config/database", () => ({ connect: jest.fn() }));
 // withCache runs the check straight away; caching has its own tests.
-jest.mock("../src/cache", () => ({
+jest.mock("../src/utils/cache", () => ({
   withCache: jest.fn((key, ttl, fn) => fn()),
   invalidate: jest.fn(),
 }));
-// Real mapLimit, scripted checkHealth.
-jest.mock("../src/health", () => ({
-  ...jest.requireActual("../src/health"),
-  checkHealth: jest.fn(),
+jest.mock("../src/repositories/status.repository", () => ({
+  getStatuses: jest.fn(),
+  getCycle: jest.fn(),
+  removeStatuses: jest.fn(),
 }));
+// The scheduler has its own tests; the routes only call force().
+jest.mock("../src/services/scheduler.service", () => ({ force: jest.fn(), forget: jest.fn(), nextCheckAt: jest.fn() }));
 
 const app = require("../src/app");
 const config = require("../src/config");
-const log = require("../src/logger");
-const { connect } = require("../src/db");
-const { withCache, invalidate } = require("../src/cache");
-const { checkHealth } = require("../src/health");
+const log = require("../src/utils/logger");
+const { connect } = require("../src/config/database");
+const { withCache, invalidate } = require("../src/utils/cache");
+const { getStatuses, getCycle, removeStatuses } = require("../src/repositories/status.repository");
+const scheduler = require("../src/services/scheduler.service");
 
 const ids = {
   billing: new ObjectId("64b000000000000000000001"),
@@ -59,7 +63,19 @@ beforeEach(() => {
   connect.mockResolvedValue(db);
   withCache.mockImplementation((key, ttl, fn) => fn());
   invalidate.mockResolvedValue();
+  removeStatuses.mockResolvedValue();
+  getStatuses.mockResolvedValue({});
+  getCycle.mockResolvedValue(null);
 });
+
+// Polls until predicate() is true (events that happen on the server after the client acts).
+async function waitFor(predicate, timeoutMs = 2000) {
+  const deadline = Date.now() + timeoutMs;
+  while (!predicate()) {
+    if (Date.now() > deadline) throw new Error("waitFor: timed out");
+    await new Promise(resolve => setTimeout(resolve, 10));
+  }
+}
 
 // Level the "request completed" line was logged at, if any.
 const requestLogLevel = () =>
@@ -93,14 +109,15 @@ describe("GET /applications", () => {
     ]);
   });
 
-  it("responde 500 com a mensagem quando o Mongo está indisponível", async () => {
+  it("responde 500 sem expor a mensagem interna quando o Mongo está indisponível, e loga o erro uma única vez", async () => {
     connect.mockRejectedValue(new Error("connect ECONNREFUSED"));
 
     const res = await request(app).get("/applications");
 
     expect(res.status).toBe(500);
-    expect(res.body).toEqual({ error: "connect ECONNREFUSED" });
-    expect(log.error).toHaveBeenCalledWith("list applications failed", expect.objectContaining({ err: expect.any(Error) }));
+    expect(res.body).toEqual({ error: "Internal error" });
+    expect(log.error).toHaveBeenCalledWith("list applications failed", { err: expect.any(Error) });
+    expect(log.error).not.toHaveBeenCalledWith("unhandled error", expect.anything());
   });
 });
 
@@ -115,107 +132,71 @@ describe("GET /applications/:env", () => {
 });
 
 describe("POST /applications/:env/sync", () => {
+  const started = {
+    env: "production",
+    trigger: "manual",
+    startedAt: "2026-10-05T14:32:07.120Z",
+    nextCheckAt: "2026-10-05T14:33:00.000Z",
+    joined: false,
+  };
+
   beforeEach(() => {
-    checkHealth.mockImplementation(async app =>
-      app.name === "auth"
-        ? { id: app.id, name: app.name, status: "degraded", latencyMs: 3500, limitMs: 3000 }
-        : { id: app.id, name: app.name, status: "healthy", latencyMs: 40 }
-    );
+    scheduler.force.mockReturnValue(started);
   });
 
-  it("verifica cada aplicação do ambiente e devolve os status na ordem da lista", async () => {
+  it("força um ciclo no agendador e responde 202 na hora com o corpo dele", async () => {
     const res = await request(app).post("/applications/production/sync");
 
-    expect(res.status).toBe(200);
-    expect(res.body).toEqual([
-      { id: ids.billing.toString(), name: "billing", status: "healthy", latencyMs: 40 },
-      { id: ids.auth.toString(), name: "auth", status: "degraded", latencyMs: 3500, limitMs: 3000 },
-    ]);
-    expect(checkHealth).toHaveBeenCalledTimes(2);
-    expect(checkHealth).toHaveBeenCalledWith(
-      expect.objectContaining({ id: ids.billing.toString(), healthCheckUrl: "http://billing/health" }),
-      expect.anything()
-    );
+    expect(res.status).toBe(202);
+    expect(res.body).toEqual(started);
+    expect(scheduler.force).toHaveBeenCalledWith("production");
   });
 
-  it("usa o cache com a chave sync:<env> e o TTL configurado", async () => {
-    await request(app).post("/applications/staging/sync");
-
-    expect(withCache).toHaveBeenCalledWith("sync:staging", config.syncCacheTtl, expect.any(Function), { fresh: false });
-  });
-
-  it("com ?fresh=1 pede ao cache para ignorar o resultado salvo", async () => {
-    await request(app).post("/applications/staging/sync?fresh=1");
-
-    expect(withCache).toHaveBeenCalledWith("sync:staging", config.syncCacheTtl, expect.any(Function), { fresh: true });
-  });
-
-  it("devolve o resultado em cache sem executar os health checks", async () => {
-    const cached = [{ id: "x", name: "cached", status: "unhealthy", latencyMs: null }];
-    withCache.mockResolvedValue(cached);
+  it("devolve joined: true quando o ciclo em andamento foi reaproveitado", async () => {
+    scheduler.force.mockReturnValue({ ...started, trigger: "scheduled", joined: true });
 
     const res = await request(app).post("/applications/production/sync");
 
-    expect(res.body).toEqual(cached);
-    expect(connect).not.toHaveBeenCalled();
-    expect(checkHealth).not.toHaveBeenCalled();
+    expect(res.status).toBe(202);
+    expect(res.body).toMatchObject({ trigger: "scheduled", joined: true });
   });
 
-  it("loga o resumo da sincronização com a contagem por status", async () => {
+  it("ignora a query string (?fresh deixou de existir)", async () => {
+    const res = await request(app).post("/applications/staging/sync?fresh=1");
+
+    expect(res.status).toBe(202);
+    expect(scheduler.force).toHaveBeenCalledWith("staging");
+  });
+
+  it("não consulta cache nem Mongo: os resultados saem pelo SSE", async () => {
     await request(app).post("/applications/production/sync");
 
-    expect(log.info).toHaveBeenCalledWith("sync completed", {
-      env: "production",
-      fresh: false,
-      apps: 2,
-      healthy: 1,
-      degraded: 1,
-      unhealthy: 0,
-      durationMs: expect.any(Number),
-    });
+    expect(withCache).not.toHaveBeenCalled();
+    expect(connect).not.toHaveBeenCalled();
   });
 
-  it("devolve lista vazia e avisa quando o ambiente não tem aplicações", async () => {
-    const res = await request(app).post("/applications/development/sync");
-
-    expect(res.status).toBe(200);
-    expect(res.body).toEqual([]);
-    expect(log.warn).toHaveBeenCalledWith("no applications to check", { env: "development" });
-  });
-
-  it("responde 500 quando não consegue ler as aplicações do Mongo", async () => {
-    connect.mockRejectedValue(new Error("mongo down"));
-
-    const res = await request(app).post("/applications/production/sync");
-
-    expect(res.status).toBe(500);
-    expect(res.body).toEqual({ error: "mongo down" });
-    expect(log.error).toHaveBeenCalledWith("sync failed", expect.objectContaining({ env: "production" }));
-  });
-
-  it("responde 404 listando os ambientes válidos para um ambiente desconhecido, sem executar health checks", async () => {
+  it("responde 404 listando os ambientes válidos para um ambiente desconhecido, sem forçar ciclo", async () => {
     const res = await request(app).post("/applications/qa/sync");
 
     expect(res.status).toBe(404);
     expect(res.body).toEqual({
       error: 'Environment "qa" not found. Valid values: development, staging, production',
     });
-    expect(withCache).not.toHaveBeenCalled();
+    expect(scheduler.force).not.toHaveBeenCalled();
   });
 });
 
 describe("POST /applications/:env", () => {
   const body = { name: "billing", team: "pagamentos", healthCheckUrl: "http://billing/health", swaggerUrl: "http://billing/docs" };
 
-  it("cria a aplicação, responde 201 com o id gerado e invalida os caches da lista e do /sync do ambiente", async () => {
+  it("cria a aplicação, responde 201 com o id gerado e invalida o cache da lista do ambiente", async () => {
     const res = await request(app).post("/applications/production").send(body);
 
     expect(res.status).toBe(201);
     expect(res.body).toEqual({ id: "64b0000000000000000000ff", ...body });
     expect(db.collections.applications_production.insertOne).toHaveBeenCalledWith(body);
+    expect(invalidate).toHaveBeenCalledTimes(1);
     expect(invalidate).toHaveBeenCalledWith("apps:production");
-    expect(invalidate).toHaveBeenCalledWith("sync:production");
-    expect(invalidate).toHaveBeenCalledTimes(2);
   });
 
   it("usa swaggerUrl vazio quando ele não é enviado", async () => {
@@ -327,21 +308,37 @@ describe("POST /applications/:env", () => {
     const res = await request(app).post("/applications/production").send(body);
 
     expect(res.status).toBe(500);
-    expect(res.body).toEqual({ error: "duplicate key" });
+    expect(res.body).toEqual({ error: "Internal error" });
     expect(invalidate).not.toHaveBeenCalled();
+    expect(log.error).toHaveBeenCalledWith("create application failed", { env: "production", name: "billing", err: expect.any(Error) });
+    expect(log.error).not.toHaveBeenCalledWith("unhandled error", expect.anything());
   });
 });
 
 describe("DELETE /applications/:env/:id", () => {
-  it("remove a aplicação pelo ObjectId, responde 204 e invalida os caches da lista e do /sync", async () => {
+  it("remove a aplicação pelo ObjectId, responde 204, invalida a lista e apaga o último status dela", async () => {
     const res = await request(app).delete(`/applications/production/${ids.billing}`);
 
     expect(res.status).toBe(204);
     expect(res.text).toBe("");
     expect(db.collections.applications_production.deleteOne).toHaveBeenCalledWith({ _id: ids.billing });
+    expect(invalidate).toHaveBeenCalledTimes(1);
     expect(invalidate).toHaveBeenCalledWith("apps:production");
-    expect(invalidate).toHaveBeenCalledWith("sync:production");
-    expect(invalidate).toHaveBeenCalledTimes(2);
+    expect(removeStatuses).toHaveBeenCalledWith("production", [ids.billing.toString()]);
+  });
+
+  it("avisa o agendador para descartar um check dessa aplicação que esteja em andamento", async () => {
+    await request(app).delete(`/applications/production/${ids.billing}`);
+
+    expect(scheduler.forget).toHaveBeenCalledWith("production", ids.billing.toString());
+  });
+
+  it("avisa o agendador logo após a remoção, antes de invalidar o cache e apagar o status", async () => {
+    await request(app).delete(`/applications/production/${ids.billing}`);
+
+    const [forgetAt] = scheduler.forget.mock.invocationCallOrder;
+    expect(forgetAt).toBeLessThan(invalidate.mock.invocationCallOrder[0]);
+    expect(forgetAt).toBeLessThan(removeStatuses.mock.invocationCallOrder[0]);
   });
 
   it("responde 400 para um id que não é um ObjectId válido", async () => {
@@ -367,6 +364,8 @@ describe("DELETE /applications/:env/:id", () => {
     expect(res.status).toBe(404);
     expect(res.body).toEqual({ error: "Application not found" });
     expect(invalidate).not.toHaveBeenCalled();
+    expect(removeStatuses).not.toHaveBeenCalled();
+    expect(scheduler.forget).not.toHaveBeenCalled();
   });
 
   it("responde 500 quando a remoção no Mongo falha", async () => {
@@ -375,7 +374,13 @@ describe("DELETE /applications/:env/:id", () => {
     const res = await request(app).delete(`/applications/production/${ids.billing}`);
 
     expect(res.status).toBe(500);
-    expect(res.body).toEqual({ error: "not primary" });
+    expect(res.body).toEqual({ error: "Internal error" });
+    expect(log.error).toHaveBeenCalledWith("delete application failed", {
+      env: "production",
+      id: ids.billing.toString(),
+      err: expect.any(Error),
+    });
+    expect(scheduler.forget).not.toHaveBeenCalled();
   });
 });
 
@@ -383,9 +388,8 @@ describe("cache da lista de aplicações", () => {
   const cachedList = [
     { id: "cached-1", name: "cacheada", team: "cache", healthCheckUrl: "http://cacheada/health", swaggerUrl: "" },
   ];
-  // Serves the application lists from the "cache"; other keys run their fn.
-  const serveListsFromCache = () =>
-    withCache.mockImplementation((key, ttl, fn) => (key.startsWith("apps:") ? Promise.resolve(cachedList) : fn()));
+  // Serves the application lists from the "cache".
+  const serveListsFromCache = () => withCache.mockImplementation(() => Promise.resolve(cachedList));
 
   it("GET /applications consulta cada ambiente pela chave apps:<env> com o TTL configurado", async () => {
     await request(app).get("/applications");
@@ -404,18 +408,6 @@ describe("cache da lista de aplicações", () => {
     expect(connect).not.toHaveBeenCalled();
   });
 
-  it("POST /:env/sync verifica as URLs de health check da lista em cache, sem consultar o Mongo", async () => {
-    serveListsFromCache();
-    checkHealth.mockImplementation(async a => ({ id: a.id, name: a.name, status: "healthy", latencyMs: 10 }));
-
-    const res = await request(app).post("/applications/production/sync");
-
-    expect(res.body).toEqual([{ id: "cached-1", name: "cacheada", status: "healthy", latencyMs: 10 }]);
-    expect(checkHealth).toHaveBeenCalledWith(expect.objectContaining({ healthCheckUrl: "http://cacheada/health" }), expect.anything());
-    expect(withCache).toHaveBeenCalledWith("apps:production", config.appsCacheTtl, expect.any(Function));
-    expect(connect).not.toHaveBeenCalled();
-  });
-
   it("em cache miss lê a lista do Mongo e a entrega já serializada para ser guardada", async () => {
     await request(app).get("/applications");
 
@@ -425,16 +417,11 @@ describe("cache da lista de aplicações", () => {
     ]);
   });
 
-  it("criar ou remover aplicação invalida só os caches do próprio ambiente", async () => {
+  it("criar ou remover aplicação invalida só o cache da lista do próprio ambiente", async () => {
     await request(app).post("/applications/staging").send({ name: "busca-api", team: "busca", healthCheckUrl: "http://busca/health" });
     await request(app).delete(`/applications/staging/${ids.search}`);
 
-    expect(invalidate.mock.calls.map(([key]) => key)).toEqual([
-      "apps:staging",
-      "sync:staging",
-      "apps:staging",
-      "sync:staging",
-    ]);
+    expect(invalidate.mock.calls.map(([key]) => key)).toEqual(["apps:staging", "apps:staging"]);
   });
 });
 
@@ -471,6 +458,22 @@ describe("middlewares do app", () => {
       status: 200,
       durationMs: expect.any(Number),
     });
+  });
+
+  it("loga uma única linha por request também quando o cliente aborta a conexão (evento close)", async () => {
+    const server = http.createServer(app).listen(0);
+    try {
+      const { port } = server.address();
+      const controller = new AbortController();
+      const res = await fetch(`http://127.0.0.1:${port}/applications/events`, { signal: controller.signal });
+      await res.body.getReader().read(); // the stream is open
+      controller.abort();
+      await waitFor(() => log.info.mock.calls.some(([msg]) => msg === "request completed"));
+    } finally {
+      await new Promise(resolve => server.close(resolve));
+    }
+
+    expect(log.info.mock.calls.filter(([msg]) => msg === "request completed")).toHaveLength(1);
   });
 
   it.each([
