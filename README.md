@@ -15,21 +15,53 @@ Dashboard de monitoramento de saúde de aplicações com visualização orbital.
 
 A metáfora orbital transforma um painel de status convencional em uma visualização espacial construída com D3.js. Planetas verdes indicam aplicações saudáveis, âmbar indicam lentidão (degradado) e vermelhos indicam falha; cinza é uma aplicação ainda não verificada. O sistema suporta múltiplos ambientes (desenvolvimento, homologação e produção), cada um com sua própria constelação de aplicações.
 
-### 🏗️ Arquitetura
+## 🏗️ Arquitetura
 
+**O servidor verifica, o painel só mostra.** O navegador nunca testa as aplicações: ele recebe os resultados prontos da API por uma conexão que fica aberta.
+
+```mermaid
+flowchart LR
+    U(["👤 Navegador<br/>painel com o céu"])
+    F["🌐 Frontend<br/>nginx :80"]
+    A["⚙️ API<br/>Express :3001"]
+    M[("🍃 MongoDB<br/>cadastro das aplicações")]
+    R[("⚡ Redis<br/>cache da lista e último status")]
+    S["🪐 Aplicações monitoradas<br/>healthCheckUrl"]
+
+    U -->|HTTP| F
+    F -->|"/api/* (proxy)"| A
+    A -.->|"SSE: resultados ao vivo"| F
+    F -.-> U
+    A --> M
+    A --> R
+    A -->|"GET a cada 30 s"| S
 ```
-frontend (nginx :80)  ──HTTP + SSE──▶  api (Express :3001)  ──▶  MongoDB  (registro das aplicações)
-                                         └──▶ Redis   (cache da lista + último status e ciclo)
-```
 
-- `frontend/` — página estática servida pelo nginx: marcação em `index.html`, lógica em `script.js`. O nginx encaminha `/api/` para a API.
-- `api/` — REST API Node.js + Express, organizada em `config/`, `routes/`, `controllers/`, `middlewares/`, `services/`, `repositories/`, `validators/` e `utils/`.
+### Como funciona
 
-**Os health checks rodam no servidor, não no navegador.** A cada `HEALTH_CHECK_INTERVAL_S` (padrão 30s) a API verifica todas as aplicações de cada ambiente — com os três ambientes defasados em 10s para não baterem juntos nos serviços monitorados — e publica cada resultado na hora por **Server-Sent Events** (`GET /applications/events`). Todos os painéis abertos recebem o mesmo resultado, então abrir mais abas não gera mais tráfego para as aplicações monitoradas. Ao conectar, o painel recebe um snapshot com o último status de cada aplicação; um reload nunca dispara um check.
+1. **A API agenda os checks.** A cada `HEALTH_CHECK_INTERVAL_S` (padrão 30 s) ela faz um `GET` no `healthCheckUrl` de cada aplicação. Os ambientes rodam defasados (produção em 0 s, homologação em 10 s, desenvolvimento em 20 s) para não baterem juntos nos serviços monitorados.
+2. **Cada resultado é publicado na hora** no stream SSE `GET /applications/events` e guardado no Redis.
+3. **O painel só escuta.** Ao conectar, recebe um snapshot com o último status de cada aplicação; depois, só as mudanças. Recarregar a página nunca dispara um check, e abrir mais abas não gera mais tráfego para as aplicações.
+4. **"Sincronizar" força um ciclo** do ambiente na tela (`POST /applications/:env/sync`, que responde `202`). Os resultados chegam pelo mesmo stream.
 
-Status: `healthy` (2xx), `degraded` (2xx mais lento que `DEGRADED_LATENCY_MS`) ou `unhealthy` (erro HTTP, falha de rede ou timeout).
+### Status
 
-> A API deve rodar com **uma única instância**: o agendador e o envio de eventos ficam em memória, então várias réplicas checariam tudo em dobro.
+| Planeta | Status | Quando |
+|---|---|---|
+| 🟢 verde | `healthy` | Respondeu 2xx em menos de `DEGRADED_LATENCY_MS` (padrão 3 s) |
+| 🟡 âmbar | `degraded` | Respondeu 2xx, mas acima de `DEGRADED_LATENCY_MS` |
+| 🔴 vermelho | `unhealthy` | Erro HTTP, falha de rede ou timeout (`HEALTH_CHECK_TIMEOUT_MS`, padrão 5 s) |
+| ⚪ cinza | — | Ainda não verificada; entra no próximo ciclo do ambiente |
+
+### Estrutura do código
+
+| Pasta | Conteúdo |
+|---|---|
+| `frontend/` | Página estática servida pelo nginx: marcação em `index.html`, lógica em `script.js`. O nginx encaminha `/api/` para a API. |
+| `api/` | REST API Node.js + Express em camadas: `routes/` → `controllers/` → `services/` → `repositories/`, mais `config/`, `middlewares/`, `validators/` e `utils/`. |
+
+> [!WARNING]
+> Rode a API com **uma única instância**. O agendador e o envio de eventos ficam em memória, então várias réplicas checariam cada aplicação mais de uma vez.
 
 ## ✨ Funcionalidades
 
