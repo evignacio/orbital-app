@@ -1,6 +1,6 @@
 {
   "name": "orbital-api",
-  "version": "1.0.0",
+  "version": "2.0.0-beta.1",
   "description": "REST API for Orbital App — serves application registry from MongoDB",
   "main": "src/server.js",
   "scripts": {
