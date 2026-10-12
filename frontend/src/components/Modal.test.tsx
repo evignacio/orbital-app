@@ -130,4 +130,62 @@ describe('Modal', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(gatilho).toHaveFocus();
   });
+
+  it('com dois modais empilhados, Esc fecha só o do topo e Tab fica nele', async () => {
+    const fechaForm = vi.fn();
+    const fechaConfirma = vi.fn();
+    render(
+      <>
+        <Modal title="Formulário" onClose={fechaForm}>
+          <button type="button">Salvar</button>
+          <button type="button">Cancelar form</button>
+        </Modal>
+        <Modal title="Confirmação" size="sm" onClose={fechaConfirma}>
+          <button type="button">Sim</button>
+          <button type="button">Não</button>
+        </Modal>
+      </>,
+    );
+    const sim = screen.getByRole('button', { name: 'Sim' });
+    const nao = screen.getByRole('button', { name: 'Não' });
+    sim.focus();
+    await userEvent.tab();
+    expect(nao).toHaveFocus();
+    await userEvent.tab();
+    expect(sim).toHaveFocus();
+    await userEvent.keyboard('{Escape}');
+    expect(fechaConfirma).toHaveBeenCalledOnce();
+    expect(fechaForm).not.toHaveBeenCalled();
+  });
+
+  it('ao fechar o do topo, o de baixo volta a responder ao Esc', async () => {
+    const fechaForm = vi.fn();
+    function Pilha() {
+      const [confirma, setConfirma] = useState(true);
+      return (
+        <>
+          <Modal title="Formulário" onClose={fechaForm}>
+            <button type="button">Salvar</button>
+          </Modal>
+          {confirma && (
+            <Modal
+              title="Confirmação"
+              size="sm"
+              onClose={() => {
+                setConfirma(false);
+              }}
+            >
+              <button type="button">Sim</button>
+            </Modal>
+          )}
+        </>
+      );
+    }
+    render(<Pilha />);
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog', { name: 'Confirmação' })).toBeNull();
+    expect(fechaForm).not.toHaveBeenCalled();
+    await userEvent.keyboard('{Escape}');
+    expect(fechaForm).toHaveBeenCalledOnce();
+  });
 });

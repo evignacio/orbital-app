@@ -23,6 +23,10 @@ function focusables(root: HTMLElement): HTMLElement[] {
   return Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE));
 }
 
+// Modais abertos, do mais antigo ao mais novo: só o do topo reage a Esc e Tab
+// (uma confirmação sobre o formulário não fecha os dois nem disputa o foco).
+const openModals: object[] = [];
+
 /**
  * Diálogo modal: fundo escurecido, foco preso lá dentro, Esc fecha e o foco volta a
  * quem o abriu. Quem usa renderiza o Modal só enquanto ele está aberto.
@@ -47,13 +51,15 @@ export function Modal({
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
+    const token = {};
+    openModals.push(token);
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     (focusables(dialog)[0] ?? dialog).focus();
 
     // Um Esc que quem está dentro já tratou (stopPropagation, ex.: lista aberta num
     // campo) não chega aqui; o resto fecha o diálogo.
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.defaultPrevented) return;
+      if (e.defaultPrevented || openModals.at(-1) !== token) return;
       if (e.key === 'Escape') {
         e.preventDefault();
         closeRef.current();
@@ -83,6 +89,7 @@ export function Modal({
     document.addEventListener('keydown', onKeyDown);
     return () => {
       document.removeEventListener('keydown', onKeyDown);
+      openModals.splice(openModals.indexOf(token), 1);
       opener?.focus();
     };
   }, []);
