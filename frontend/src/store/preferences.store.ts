@@ -12,6 +12,8 @@ interface PreferencesState {
   env: EnvCode;
   notify: boolean;
   sound: boolean;
+  /** Permissão de notificação negada ou revogada: a tela mostra o aviso. Não persiste. */
+  notifyBlocked: boolean;
 }
 
 interface PreferencesActions {
@@ -19,8 +21,9 @@ interface PreferencesActions {
   setEnv: (env: EnvCode) => void;
   setNotify: (on: boolean) => void;
   setSound: (on: boolean) => void;
+  setNotifyBlocked: (blocked: boolean) => void;
   /** Carga inicial: não grava, só devolve ao estado o que já estava gravado. */
-  hydrate: (prefs: PreferencesState) => void;
+  hydrate: (prefs: Omit<PreferencesState, 'notifyBlocked'>) => void;
 }
 
 export const usePreferencesStore = create<PreferencesState & PreferencesActions>()((set) => ({
@@ -28,6 +31,7 @@ export const usePreferencesStore = create<PreferencesState & PreferencesActions>
   env: DEFAULT_ENV,
   notify: false,
   sound: false,
+  notifyBlocked: false,
 
   setTheme: (theme) => {
     set({ theme });
@@ -44,6 +48,9 @@ export const usePreferencesStore = create<PreferencesState & PreferencesActions>
   setSound: (sound) => {
     set({ sound });
     writeFlag('sound', sound);
+  },
+  setNotifyBlocked: (notifyBlocked) => {
+    set({ notifyBlocked });
   },
   hydrate: (prefs) => {
     set(prefs);
