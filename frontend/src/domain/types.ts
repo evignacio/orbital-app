@@ -113,3 +113,5 @@ export interface ApiValidationError {
   error: string;
   fields: Record<string, string>;
 }
+
+export type ThemeName = 'dark' | 'light';
