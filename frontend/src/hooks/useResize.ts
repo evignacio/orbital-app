@@ -21,7 +21,7 @@ export function useResize(ref: RefObject<HTMLElement | null>, onResize: () => vo
     const observer = new ResizeObserver(() => {
       clearTimeout(timer);
       timer = setTimeout(() => {
-        const size = `${el.clientWidth}x${el.clientHeight}`;
+        const size = `${String(el.clientWidth)}x${String(el.clientHeight)}`;
         if (size === lastSize) return;
         lastSize = size;
         latest.current();

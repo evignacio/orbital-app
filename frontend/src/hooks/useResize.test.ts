@@ -12,7 +12,7 @@ class FakeResizeObserver {
   observe(el: Element) {
     this.observed.push(el);
   }
-  unobserve() {}
+  unobserve = vi.fn();
   disconnect() {
     this.disconnected = true;
   }

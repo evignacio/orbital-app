@@ -13,6 +13,6 @@ export function useDocumentTitle(): void {
 
   useEffect(() => {
     if (apiDown) document.title = `⛈ API inacessível · ${BASE_TITLE}`;
-    else document.title = count ? `(${count}) ⚠ ${BASE_TITLE}` : BASE_TITLE;
+    else document.title = count ? `(${String(count)}) ⚠ ${BASE_TITLE}` : BASE_TITLE;
   }, [apiDown, count]);
 }

@@ -29,25 +29,33 @@ beforeEach(() => {
 describe('useDocumentTitle', () => {
   it('usa o título base quando nada está fora do ar', () => {
     useStatusStore.setState({ status: { a: 'healthy', b: 'degraded' } });
-    renderHook(() => useDocumentTitle());
+    renderHook(() => {
+      useDocumentTitle();
+    });
     expect(document.title).toBe('Orbital - App');
   });
 
   it('conta as apps fora do ar de todos os ambientes', () => {
     useStatusStore.setState({ status: { a: 'unhealthy', b: 'unhealthy', c: 'healthy' } });
-    renderHook(() => useDocumentTitle());
+    renderHook(() => {
+      useDocumentTitle();
+    });
     expect(document.title).toBe('(2) ⚠ Orbital - App');
   });
 
   it('ignora status de apps que não estão mais na lista', () => {
     useStatusStore.setState({ status: { a: 'unhealthy', fantasma: 'unhealthy' } });
-    renderHook(() => useDocumentTitle());
+    renderHook(() => {
+      useDocumentTitle();
+    });
     expect(document.title).toBe('(1) ⚠ Orbital - App');
   });
 
   it('a tempestade vence a contagem', () => {
     useStatusStore.setState({ status: { a: 'unhealthy' } });
-    renderHook(() => useDocumentTitle());
+    renderHook(() => {
+      useDocumentTitle();
+    });
     act(() => {
       useConnectionStore.getState().markApiDown();
     });
@@ -55,7 +63,9 @@ describe('useDocumentTitle', () => {
   });
 
   it('acompanha as mudanças de status', () => {
-    renderHook(() => useDocumentTitle());
+    renderHook(() => {
+      useDocumentTitle();
+    });
     expect(document.title).toBe('Orbital - App');
     act(() => {
       useStatusStore.setState({ status: { c: 'unhealthy' } });
