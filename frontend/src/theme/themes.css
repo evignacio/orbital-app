@@ -1,6 +1,6 @@
 /*
  * Temas do Orbital. O tema é aplicado setando `data-theme` ("dark" | "light") e,
- * enquanto a API está fora (tempestade), `data-storm="on"` no <html>.
+ * enquanto a API está fora (tempestade), `data-storm="on"` e `data-storm-play="running"` no <html>.
  * Valores copiados literalmente de THEMES / STORM_OVERRIDES em legacy/common.js.
  */
 :root[data-theme='dark'] {
@@ -157,12 +157,20 @@
 :root[data-storm='on'] {
   --calm: 0.15;
   --storm-on: 1;
-  --storm-play: running;
 }
 :root:not([data-storm='on']) {
   --calm: 1;
   --storm-on: 0;
+}
+/*
+ * A chuva só pausa depois do fade de saída (STORM_FADE_MS), senão congela enquanto o
+ * céu abre; por isso vem de um atributo próprio, que useTheme atrasa, e não de data-storm.
+ */
+:root {
   --storm-play: paused;
+}
+:root[data-storm-play='running'] {
+  --storm-play: running;
 }
 
 /* Sob o céu fechado do tema claro, os tons de apoio escurecem para manter o contraste. */
@@ -174,4 +182,13 @@
   --up: #0f6b41;
   --down: #9b2233;
   --warn: #7a4d00;
+}
+
+/*
+ * O corpo segue --page-bg do tema (legacy/common.js, applyTheme: body.style.background).
+ * O seletor com [data-theme] vence o `html, body { background }` do index.html, que fica só como
+ * fundo antes de o tema ser aplicado.
+ */
+:root[data-theme] body {
+  background: var(--page-bg);
 }
