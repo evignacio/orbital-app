@@ -4,6 +4,16 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Orbital - App</title>
+    <script>
+      // Tema antes da primeira pintura: o módulo do React só roda depois e daria um
+      // clarão do tema errado. Mesma regra de storage/preferences.ts (só "light" vale).
+      try {
+        document.documentElement.dataset.theme =
+          localStorage.getItem('orbital-theme-v1') === 'light' ? 'light' : 'dark';
+      } catch {
+        document.documentElement.dataset.theme = 'dark';
+      }
+    </script>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/_ds/nocturne-28f61539-545d-4d6c-bf33-6586e9d6e3fe/styles.css" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
