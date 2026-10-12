@@ -183,3 +183,12 @@
   --down: #9b2233;
   --warn: #7a4d00;
 }
+
+/*
+ * O corpo segue --page-bg do tema (legacy/common.js, applyTheme: body.style.background).
+ * O seletor com [data-theme] vence o `html, body { background }` do index.html, que fica só como
+ * fundo antes de o tema ser aplicado.
+ */
+:root[data-theme] body {
+  background: var(--page-bg);
+}
