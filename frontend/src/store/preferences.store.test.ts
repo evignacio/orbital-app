@@ -30,4 +30,16 @@ describe('preferences.store', () => {
     usePreferencesStore.getState().setNotify(false);
     expect(localStorage.getItem('orbital-notify-v1')).toBe('0');
   });
+
+  it('notifyBlocked começa desligado, muda sem persistir e sobrevive ao hydrate', () => {
+    const s = usePreferencesStore.getState();
+    expect(s.notifyBlocked).toBe(false);
+    s.setNotifyBlocked(true);
+    expect(usePreferencesStore.getState().notifyBlocked).toBe(true);
+    expect(localStorage.length).toBe(0);
+    usePreferencesStore
+      .getState()
+      .hydrate({ theme: 'light', env: 'dev', notify: false, sound: true });
+    expect(usePreferencesStore.getState().notifyBlocked).toBe(true);
+  });
 });
