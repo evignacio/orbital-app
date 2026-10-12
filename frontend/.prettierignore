@@ -1,0 +1,7 @@
+legacy
+public
+prototipos
+dist
+node_modules
+package-lock.json
+CLAUDE.md
