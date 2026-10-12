@@ -4,7 +4,8 @@ const schedulerService = require("./scheduler.service");
 
 class SnapshotService {
   // One environment's SSE snapshot: the application list crossed with the last
-  // stored status. Applications never checked go out with null status.
+  // stored status. Applications never checked go out with null status; an app
+  // without orbits (edited straight in Mongo) goes out with [].
   async build(env) {
     const [apps, statuses, cycle] = await Promise.all([
       applicationsRepository.list(env),
@@ -19,6 +20,7 @@ class SnapshotService {
           id: app.id,
           name: app.name,
           env,
+          orbits: Array.isArray(app.orbits) ? app.orbits : [],
           status: last?.status ?? null,
           latencyMs: last?.latencyMs ?? null,
           ...(last?.limitMs !== undefined && { limitMs: last.limitMs }),

@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Galáxia — V3 Disco galáctico</title>
+<link rel="stylesheet" href="../../_ds/nocturne-28f61539-545d-4d6c-bf33-6586e9d6e3fe/styles.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root { --sky-opacity:0; }
+  html, body { margin:0; padding:0; height:100%; background:#161826; overflow:hidden; }
+  * { box-sizing: border-box; }
+  button { font-family: inherit; }
+  :focus-visible { outline:2px solid var(--accent, #9184d9); outline-offset:2px; }
+  @keyframes twinkle { 0%,100% { opacity:.3 } 50% { opacity:1 } }
+  @keyframes pulse { 0%,100% { transform: scale(1); opacity:.9 } 50% { transform: scale(1.06); opacity:1 } }
+</style>
+</head>
+<body>
+<div id="sky" style="position:fixed; inset:0; background:var(--bg); transition:background .4s ease; font-family:'Inter', system-ui, sans-serif">
+  <!-- Via Láctea atravessando o céu + disco da galáxia: desenhados uma vez num canvas. -->
+  <div style="position:absolute; inset:0; opacity:var(--sky-opacity); transition:opacity .5s ease">
+    <canvas id="milky" style="position:absolute; inset:0"></canvas>
+    <canvas id="twinkle" style="position:absolute; inset:0; animation:twinkle 6s ease-in-out infinite; animation-play-state:var(--sky-play)"></canvas>
+  </div>
+  <svg id="galaxy" style="position:absolute; inset:0; width:100%; height:100%"></svg>
+</div>
+<script src="galaxia-comum.js"></script>
+<script>
+const TILT = .4;   // achatamento do disco (ry = r · TILT), como os anéis do app
+let G = null;
+
+function drawSky(W, H) {
+  const ctx = hiDpiCanvas(document.getElementById('milky'), W, H);
+  const tw = hiDpiCanvas(document.getElementById('twinkle'), W, H);
+  const rand = rng(21);
+  // Faixa diagonal: brilho difuso, estrelas densas perto do eixo e faixas de poeira escura.
+  const ang = -0.42, cx = W / 2, cy = H / 2, len = Math.hypot(W, H);
+  const ux = Math.cos(ang), uy = Math.sin(ang), nx = -uy, ny = ux;
+  const band = Math.min(W, H) * .2;
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(ang);
+  let g = ctx.createLinearGradient(0, -band * 1.6, 0, band * 1.6);
+  g.addColorStop(0, 'rgba(145,132,217,0)'); g.addColorStop(.35, 'rgba(160,150,230,.07)');
+  g.addColorStop(.5, 'rgba(225,215,250,.13)'); g.addColorStop(.65, 'rgba(160,150,230,.07)'); g.addColorStop(1, 'rgba(145,132,217,0)');
+  ctx.fillStyle = g; ctx.fillRect(-len / 2, -band * 1.6, len, band * 3.2);
+  ctx.restore();
+  const n = Math.round(W * H / 260);
+  for (let i = 0; i < n; i++) {
+    const along = (rand() - .5) * len, off = (rand() + rand() + rand() - 1.5) / 1.5 * band;
+    const x = cx + ux * along + nx * off, y = cy + uy * along + ny * off;
+    const dust = Math.sin(along / 90 + off / 30) > .55 && Math.abs(off) < band * .35;   // veio de poeira
+    ctx.globalAlpha = (dust ? .08 : .18 + rand() * .5) * (1 - Math.abs(off) / (band * 1.8));
+    ctx.fillStyle = rand() < .3 ? '#cfc9f2' : '#e9e9ed';
+    const s = rand() < .02 ? 1.5 : .5 + rand() * .7;
+    ctx.fillRect(x, y, s, s);
+  }
+  // Estrelas soltas pelo céu; 1 em 4 pisca.
+  for (let i = 0; i < W * H / 4500; i++) {
+    const c = i % 4 ? ctx : tw, r = .3 + rand() * 1.2;
+    c.globalAlpha = .35 + rand() * .6; c.fillStyle = r > 1.2 ? '#cfc9f2' : '#e9e9ed';
+    c.beginPath(); c.arc(rand() * W, rand() * H, r, 0, Math.PI * 2); c.fill();
+  }
+}
+
+function drawCore(g, defs, R) {
+  const core = svgEl('g', {}, g);
+  if (isLight()) {
+    // No claro, o núcleo é um sol: como o núcleo do app de dia.
+    const s = svgEl('radialGradient', { id: 'coreLight', cx: '40%', cy: '38%' }, defs);
+    svgEl('stop', { offset: '0%', 'stop-color': '#fff6dc' }, s);
+    svgEl('stop', { offset: '60%', 'stop-color': '#ffd27a' }, s);
+    svgEl('stop', { offset: '100%', 'stop-color': '#f2a945' }, s);
+    svgEl('circle', { r: R * .1, fill: 'rgba(255,205,120,.25)' }, core);
+    svgEl('circle', { r: R * .06, fill: 'url(#coreLight)' }, core);
+    return core;
+  }
+  // Disco: brilho elíptico em volta do núcleo (gradiente, sem blur).
+  const d = svgEl('radialGradient', { id: 'disk' }, defs);
+  svgEl('stop', { offset: '0%', 'stop-color': '#f3e2ff', 'stop-opacity': '.35' }, d);
+  svgEl('stop', { offset: '30%', 'stop-color': '#9184d9', 'stop-opacity': '.14' }, d);
+  svgEl('stop', { offset: '100%', 'stop-color': '#9184d9', 'stop-opacity': '0' }, d);
+  svgEl('ellipse', { rx: R * 1.05, ry: R * 1.05 * TILT, fill: 'url(#disk)' }, core);
+  const c = svgEl('radialGradient', { id: 'core' }, defs);
+  svgEl('stop', { offset: '0%', 'stop-color': '#fffaf0' }, c);
+  svgEl('stop', { offset: '35%', 'stop-color': '#ffe2be', 'stop-opacity': '.8' }, c);
+  svgEl('stop', { offset: '100%', 'stop-color': '#ffe2be', 'stop-opacity': '0' }, c);
+  const glow = svgEl('ellipse', { rx: R * .12, ry: R * .12 * .75, fill: 'url(#core)' }, core);
+  if (!reducedMotion()) { glow.style.animation = 'pulse 6s ease-in-out infinite'; glow.style.animationPlayState = 'var(--sky-play)'; }
+  return core;
+}
+
+function build() {
+  const svg = document.getElementById('galaxy');
+  svg.innerHTML = '';
+  const W = innerWidth, H = innerHeight;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  const defs = glowDefs(svg);
+  const R = Math.min(W / 2 - 70, (H / 2 - 70) / TILT);
+  const g = svgEl('g', { transform: `translate(${W / 2},${H / 2 + 10})` }, svg);
+  const rings = [.5, .76, 1].map(f => R * f);
+  rings.forEach(r => {
+    const e = svgEl('ellipse', { rx: r, ry: r * TILT, fill: 'none', 'stroke-dasharray': '3 7' }, g);
+    e.style.stroke = 'var(--orbit-ring)';
+  });
+  const back = svgEl('g', {}, g);
+  drawCore(g, defs, R);
+  const front = svgEl('g', {}, g);
+  const k = Math.max(.75, Math.min(1.15, R / 520));
+  // Órbitas maiores vão para os anéis de dentro; fases espalhadas pelo ângulo de ouro.
+  const sorted = [...ORBITS].sort((a, b) => b.apps - a.apps);
+  const nodes = sorted.map((o, i) => {
+    const ring = i < 3 ? 0 : i < 6 ? 1 : 2;
+    const el = drawPlanet(front, o, planetSize(o.apps, k), { onHover: v => { hovered = v ? o.id : null; } });
+    return { o, el, r: rings[ring], phase: i * 2.399, speed: .045 / (1 + ring * .6), front: true };
+  });
+  G = { nodes, back, front };
+  frame(lastT);
+}
+
+let hovered = null, lastT = 0, slow = 1;
+// A galáxia gira devagar; com o mouse sobre uma órbita, desacelera até parar.
+function frame(t) {
+  if (!G) return;
+  const dt = t - lastT; lastT = t;
+  slow += ((hovered ? 0 : 1) - slow) * Math.min(1, dt * 4);
+  for (const n of G.nodes) {
+    n.phase += dt * n.speed * slow;
+    const x = Math.cos(n.phase) * n.r, y = Math.sin(n.phase) * n.r * TILT;
+    // Perspectiva: no fundo do disco fica menor e mais apagado, atrás do núcleo.
+    const depth = (Math.sin(n.phase) + 1) / 2, s = .9 + depth * .15;
+    n.el.setAttribute('transform', `translate(${x.toFixed(1)},${y.toFixed(1)}) scale(${s.toFixed(3)})`);
+    n.el.setAttribute('opacity', (.8 + depth * .2).toFixed(2));
+    const inFront = Math.sin(n.phase) >= -0.15;
+    if (inFront !== n.front) { (inFront ? G.front : G.back).appendChild(n.el); n.front = inFront; }
+  }
+}
+
+function layout() { drawSky(innerWidth, innerHeight); build(); }
+
+mountChrome();
+applyTheme();
+onTheme(build);
+layout();
+animate(frame);
+addEventListener('resize', debounce(layout, 150));
+</script>
+</body>
+</html>

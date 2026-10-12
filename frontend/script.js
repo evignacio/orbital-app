@@ -1,31 +1,13 @@
 // Lógica do componente Orbital. O dc-runtime (support.js) só lê o TEXTO da tag
-// <script data-dc-script> do index.html e o avalia com new Function("DCLogic", …):
+// <script data-dc-script> do painel.html e o avalia com new Function("DCLogic", …):
 // ele ignora src. Por isso este arquivo é um script comum, carregado antes do boot,
 // e a classe sai de uma fábrica que recebe o DCLogic do runtime — a tag do
-// index.html só faz `const Component = createComponent(DCLogic);`.
-const TKEY = 'orbital-theme-v1';
-const AKEY = 'orbital-apps-v1';
-const SKEY = 'orbital-status-v1';
-const NKEY = 'orbital-notify-v1';
-const SNDKEY = 'orbital-sound-v1';
-const LKEY = 'orbital-lastok-v1';
-const COMETKEY = 'orbital-comet-v1';
+// painel.html só faz `const Component = createComponent(DCLogic);`.
+// As constantes e helpers comuns às duas páginas vêm de common.js, e o cadastro
+// de aplicação de app-form.js, ambos carregados antes.
 // Cometa é raro: no máximo COMET_MAX passagens em qualquer janela de 1h.
 const COMET_MAX = 2;
 const COMET_WINDOW = 3600000;
-const API_TIMEOUT = 10000;
-// Status gravado há mais que isso aparece como "último conhecido" até o primeiro ciclo do servidor.
-const STATUS_STALE_MS = 5 * 60000;
-// O d3 vem de CDN: passado esse prazo sem ele, a órbita desiste e avisa.
-const D3_TIMEOUT = 10000;
-// Redimensionar: espera o arrasto parar antes de refazer o esqueleto da órbita.
-const RESIZE_DEBOUNCE_MS = 100;
-// Enquanto o d3 não chega do CDN, confere de novo neste intervalo.
-const D3_POLL_MS = 120;
-// O EventSource reconecta sozinho; só depois deste prazo sem conexão vira tempestade.
-const SSE_DOWN_GRACE_MS = 5000;
-// Reabertura manual quando o EventSource desiste (resposta que não é event-stream, ex.: 502 do nginx).
-const SSE_RETRY_MS = 3000;
 // "Sincronizar" volta ao normal sozinho se o cycle do ambiente não chegar neste prazo.
 const SCAN_MAX_MS = 30000;
 // Cards por página na lista da frota.
@@ -36,8 +18,6 @@ const ALERT_BATCH_MS = 400;
 const STORM_FADE_MS = 1300;
 // A notificação de teste ao ligar os alertas some sozinha depois disso.
 const TEST_NOTIF_MS = 6000;
-// O blur do campo de time espera o onMouseDown de uma sugestão antes de fechar a lista.
-const TEAM_BLUR_MS = 150;
 // Intervalo entre tentativas de cometa: de COMET_WAIT_MIN a COMET_WAIT_MIN + COMET_WAIT_SPREAD.
 const COMET_WAIT_MIN = 20 * 60000;
 const COMET_WAIT_SPREAD = 40 * 60000;
@@ -45,102 +25,8 @@ const COMET_WAIT_SPREAD = 40 * 60000;
 const COMET_RETRY_JITTER = 10 * 60000;
 const CLOUD_BOLT_PATH = 'M156,168H132.53l-14.4,24H144a8,8,0,0,1,6.86,12.12l-24,40a8,8,0,0,1-13.72-8.24L129.87,208H104a8,8,0,0,1-6.86-12.12L113.87,168h-37C48.12,168,24.2,145.07,24,116.36A52.09,52.09,0,0,1,61.35,66.1a4,4,0,0,1,5,4.78A92.48,92.48,0,0,0,64,87.39,8.14,8.14,0,0,0,71.41,96l.6,0a8.18,8.18,0,0,0,8.08-7.72A76,76,0,1,1,156,168Z';
 const BOLT_PATH = 'M213.85,125.46l-112,120a8,8,0,0,1-13.69-7l14.66-73.33L45.19,143.49a8,8,0,0,1-3-13l112-120a8,8,0,0,1,13.69,7L153.18,90.9l57.63,21.61a8,8,0,0,1,3,12.95Z';
-const BASE_TITLE = 'Orbital - App';
-// Tabela única de ambientes: código curto da UI, nome na API/Mongo e rótulo.
-// Tudo o que lista ou traduz ambientes deriva daqui.
-const ENVS = [
-  { code: 'dev', api: 'development', label: 'DESENVOLVIMENTO' },
-  { code: 'hml', api: 'staging', label: 'HOMOLOGAÇÃO' },
-  { code: 'prd', api: 'production', label: 'PRODUÇÃO' }
-];
-const ENV_CODES = ENVS.map(e => e.code);
-const ENV_TO_API = Object.fromEntries(ENVS.map(e => [e.code, e.api]));
-const API_TO_ENV = Object.fromEntries(ENVS.map(e => [e.api, e.code]));
-const DEFAULT_ENV = 'prd';
-function envLabel(code) { return (ENVS.find(e => e.code === code) || {}).label || ''; }
-// Rótulos mono que se repetem: no template entram por {{ }} seguidos do que
-// muda em cada um (cor, padding). Terminam em ';' para aceitar a continuação.
-const MONO_CONTROL = 'font-family:var(--mono); font-size:12px; letter-spacing:.1em;';   // controles da barra do topo
-const MONO_SMALL = 'font-family:var(--mono); font-size:11.5px; letter-spacing:.1em;';   // switches, "Tentar agora"
-const MONO_STAT = 'font-family:var(--mono); font-size:11px; letter-spacing:.18em;';     // NO AR / DEGRADADO / FORA do cabeçalho
-const MONO_EYEBROW = 'font-family:var(--mono); font-size:11px; letter-spacing:.24em;';  // sobretítulos: FROTA, NOVO LANÇAMENTO, REMOVER
-// Relativo: o nginx que serve esta página encaminha /api/ para o container da
-// API, então funciona em qualquer host e sem CORS.
-const API_BASE = '/api';
-
-// Toda chamada à API aborta após API_TIMEOUT, inclusive POST e DELETE.
-function apiSignal() {
-  return window.AbortSignal && AbortSignal.timeout ? AbortSignal.timeout(API_TIMEOUT) : undefined;
-}
-// Qualquer falha (rede, timeout, 5xx do nginx sem a API) vira exceção: é o
-// que acende a tempestade.
-// O erro leva o status HTTP e, quando a API manda, a mensagem do corpo
-// ({ error }), para o cadastro e a remoção mostrarem o motivo.
-async function apiFetch(path, opts = {}) {
-  const r = await fetch(`${API_BASE}${path}`, { ...opts, signal: apiSignal() });
-  if (!r.ok) {
-    let body = null;
-    try { body = await r.json(); } catch (e) {}
-    const err = new Error((body && body.error) || `HTTP ${r.status}`);
-    err.status = r.status;
-    err.body = body;
-    throw err;
-  }
-  return r.status === 204 ? null : r.json();
-}
-function apiErrorMsg(e) {
-  if (e && e.name === 'TimeoutError') return 'a API não respondeu a tempo.';
-  // 502/503/504 vêm do nginx: a API em si está inacessível.
-  if (e && e.status >= 502 && e.status <= 504) return `sem contato com a API (HTTP ${e.status}).`;
-  if (e && e.status) return `a API respondeu ${e.status}${e.message && !/^HTTP \d+$/.test(e.message) ? ` (${e.message})` : ''}.`;
-  return 'sem contato com a API.';
-}
-// Validação do cadastro: as mesmas regras de api/src/validation.js, que
-// continua sendo a autoridade (um 400 dela também vira erro por campo).
-const FIELD_LIMITS = { name: 60, team: 60, url: 2048 };
-const CONTROL_CHARS = /[\u0000-\u001f\u007f]/;
-function urlError(v, required) {
-  if (!v) return required ? 'Informe a URL.' : '';
-  if (v.length > FIELD_LIMITS.url) return `Use no máximo ${FIELD_LIMITS.url} caracteres.`;
-  if (CONTROL_CHARS.test(v)) return 'A URL tem caracteres inválidos.';
-  // O esquema é obrigatório: sem ele, "qualquer" viraria o host de uma URL válida.
-  if (!/^https?:\/\//i.test(v)) return 'A URL deve começar com http:// ou https://';
-  let u;
-  try { u = new URL(v); } catch (e) { return 'URL inválida.'; }
-  if (u.username || u.password) return 'Não inclua usuário ou senha na URL.';
-  return '';
-}
-function textError(v, max, re, format) {
-  if (!v) return 'Campo obrigatório.';
-  if (v.length < 2 || v.length > max) return `Use de 2 a ${max} caracteres.`;
-  if (CONTROL_CHARS.test(v) || !re.test(v)) return format;
-  return '';
-}
-// { value, errors }: value já normalizado (trim), errors
-// só com os campos inválidos.
-function validateAppForm(f) {
-  const value = {
-    name: f.name.trim(),
-    team: f.team.trim(),
-    healthCheckUrl: f.healthCheckUrl.trim(),
-    swaggerUrl: f.swaggerUrl.trim()
-  };
-  const errors = {
-    name: textError(value.name, FIELD_LIMITS.name, /^[A-Za-z0-9][A-Za-z0-9._-]*$/, 'Use letras sem acento, números, ".", "_" ou "-", começando por letra ou número.'),
-    team: textError(value.team, FIELD_LIMITS.team, /^[\p{L}\p{N} ._-]+$/u, 'Use letras, números, espaços, ".", "_" ou "-".'),
-    healthCheckUrl: urlError(value.healthCheckUrl, true),
-    swaggerUrl: urlError(value.swaggerUrl, false)
-  };
-  Object.keys(errors).forEach(k => { if (!errors[k]) delete errors[k]; });
-  return { value, errors };
-}
 // Só http(s) vira link: protege registros antigos, gravados antes da validação.
 function safeHref(v) { return v && /^https?:\/\//i.test(v) ? v : ''; }
-function fieldStyle(err, mono) {
-  return `padding:11px 13px; border-radius:var(--radius-md); border:1px solid ${err ? 'var(--down)' : 'var(--line)'}; background:var(--field); color:var(--ink); font-size:14px; outline:none${mono ? '; font-family:var(--mono)' : ''}`;
-}
-// Só d3-selection + d3-timer são carregados; os dois preenchem window.d3.
-function d3Ready() { return !!(window.d3 && window.d3.select && window.d3.timer); }
 function cloudSvg(scale, fill, shade) {
   return `<svg width="${260 * scale}" height="${104 * scale}" viewBox="0 0 260 104" fill="none">
     <g style="fill:${fill}">
@@ -167,51 +53,10 @@ function appendClouds(sel, specs, fill, shade) {
     .style('animation', d => `drift ${d.dur}s linear ${d.delay}s infinite`)
     .html(d => cloudSvg(d.scale, fill, shade));
 }
-function clockLabel(ts) {
-  const d = new Date(ts);
-  const sameDay = d.toDateString() === new Date().toDateString();
-  return sameDay ? d.toLocaleTimeString('pt-BR') : d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
-}
-function agoLabel(ts) {
-  const min = Math.floor((Date.now() - ts) / 60000);
-  if (min < 1) return 'há menos de 1 min';
-  if (min < 60) return `há ${min} min`;
-  const h = Math.floor(min / 60);
-  return h < 24 ? `há ${h} h` : `há ${Math.floor(h / 24)} d`;
-}
-
-// Fonte única dos status da API, como ENVS para os ambientes: tone é o prefixo
-// das variáveis do THEMES (--up, --up-line, --up-fill), text vai no badge do
-// card e chip no chip de filtro e no contador do cabeçalho. A ordem é a da tela.
-// A cor sai sempre por variável: no SVG, var() funciona em style (fill, stroke
-// e stop-color), não nos atributos de apresentação.
-const STATUS_META = {
-  healthy: { tone: 'up', text: 'NO AR', chip: 'NO AR' },
-  degraded: { tone: 'warn', text: 'DEGRADADO', chip: 'DEGRADADO' },
-  unhealthy: { tone: 'down', text: 'FORA DO AR', chip: 'FORA' }
-};
-// Ainda não checada (status ausente ou desconhecido).
-const IDLE_META = { tone: 'idle', text: 'VERIFICANDO' };
-const STATUSES = Object.keys(STATUS_META);
-// Chips de filtro da lista: [valor de state.filter, rótulo].
-const FILTERS = [['all', 'TODAS'], ...STATUSES.map(s => [s, STATUS_META[s].chip])];
-function statusMeta(s) { return STATUSES.includes(s) ? STATUS_META[s] : IDLE_META; }
-function statusColor(s) { return `var(--${statusMeta(s).tone})`; }
-function statusText(s) { return statusMeta(s).text; }
-function stopEvent(e) { e.stopPropagation(); }
 
 // Fábricas de estilo: só dependem do argumento, por isso ficam fora da classe.
-function envTab(active) {
-  return `font-family:var(--mono); font-size:10px; letter-spacing:.14em; padding:7px 12px; border-radius:var(--radius-sm); cursor:pointer; border:1px solid ${active ? 'var(--accent)' : 'transparent'}; background:${active ? 'var(--accent-tint)' : 'transparent'}; color:${active ? 'var(--accent-soft)' : 'var(--muted)'}`;
-}
 function chip(active) {
   return `font-family:var(--mono); font-size:10.5px; letter-spacing:.14em; padding:6px 11px; border-radius:var(--radius-sm); cursor:pointer; border:1px solid ${active ? 'var(--accent)' : 'var(--line)'}; background:${active ? 'var(--accent-tint)' : 'transparent'}; color:${active ? 'var(--accent-soft)' : 'var(--muted)'}; white-space:nowrap`;
-}
-function swTrack(on) {
-  return `position:relative; width:38px; height:21px; border-radius:11px; flex:none; transition:background .25s ease, border-color .25s ease; border:1px solid ${on ? 'var(--accent)' : 'var(--line)'}; background:${on ? 'var(--accent-tint)' : 'transparent'}`;
-}
-function swKnob(on) {
-  return `position:absolute; top:2px; left:2px; width:15px; height:15px; border-radius:50%; transition:transform .25s cubic-bezier(.3,.8,.3,1), background .25s ease; background:${on ? 'var(--accent)' : 'var(--faint)'}; transform:translateX(${on ? '17px' : '0'})`;
 }
 function navBtn(enabled) {
   return `width:26px; height:24px; display:flex; align-items:center; justify-content:center; border-radius:var(--radius-sm); font-size:15px; line-height:1; border:1px solid var(--line); background:transparent; color:${enabled ? 'var(--accent-soft)' : 'var(--faint)'}; opacity:${enabled ? 1 : .4}; cursor:${enabled ? 'pointer' : 'default'}`;
@@ -221,54 +66,9 @@ function statCard(tone) {
   return `display:flex; align-items:baseline; gap:8px; padding:8px 14px; border:1px solid var(--${tone}-line); border-radius:var(--radius-md); background:var(--${tone}-fill)`;
 }
 
-// O frontend usa os nomes de campo e de status da API; só acrescenta o env
-// (código curto) a cada aplicação. Os status ficam em STATUS_META/STATUSES.
-function fromApi(doc, apiEnv) {
-  return { id: doc.id, env: API_TO_ENV[apiEnv], name: doc.name, team: doc.team, healthCheckUrl: doc.healthCheckUrl, swaggerUrl: doc.swaggerUrl || '' };
-}
-// localStorage gravado antes da troca de vocabulário (nome/time/health/swagger e
-// up/down): convertido na leitura, e regravado no formato novo no próximo save.
-const LEGACY_STATUS = { up: 'healthy', down: 'unhealthy' };
-// Toda app que entra no estado tem env: quem vem do cache sem ele cai no padrão,
-// e daí em diante ninguém precisa de `a.env || DEFAULT_ENV`.
-function migrateApp(a) {
-  if (!a) return a;
-  if (a.name === undefined && a.nome !== undefined) {
-    return { id: a.id, env: a.env || DEFAULT_ENV, name: a.nome, team: a.time, healthCheckUrl: a.health, swaggerUrl: a.swagger || '' };
-  }
-  return a.env ? a : { ...a, env: DEFAULT_ENV };
-}
-function migrateStatus(map) {
-  return Object.fromEntries(Object.entries(map).map(([id, s]) => [id, LEGACY_STATUS[s] || s]).filter(([, s]) => STATUSES.includes(s)));
-}
-// Tudo o que a montagem lê do localStorage, já convertido. Uma leitura que falha
-// (modo privado, JSON corrompido) deixa o resto com os valores padrão.
-// notifyAllowed: o alerta salvo só vale se o navegador ainda der permissão.
-function readLocalCache(notifyAllowed) {
-  const cache = { theme: 'dark', apps: [], status: {}, statusTs: 0, prefs: {} };
-  try {
-    const theme = localStorage.getItem(TKEY); if (theme === 'light' || theme === 'dark') cache.theme = theme;
-    const apps = localStorage.getItem(AKEY); if (apps) cache.apps = (JSON.parse(apps) || []).map(migrateApp);
-    const saved = localStorage.getItem(SKEY);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      // Formato atual { status, ts }; o antigo era o mapa puro, sem data (conta como antigo).
-      if (parsed && parsed.status && typeof parsed.status === 'object') { cache.status = parsed.status; cache.statusTs = parsed.ts || 0; }
-      else if (parsed && typeof parsed === 'object') cache.status = parsed;
-    }
-    if (localStorage.getItem(SNDKEY) === '1') cache.prefs.sound = true;
-    if (localStorage.getItem(NKEY) === '1' && notifyAllowed) cache.prefs.notify = true;
-    const lastOk = parseInt(localStorage.getItem(LKEY), 10); if (lastOk) cache.prefs.lastOk = lastOk;
-  } catch (e) {}
-  return cache;
-}
-// Formulário de cadastro vazio, já no ambiente indicado.
-function emptyForm(env) {
-  return { name: '', team: '', swaggerUrl: '', healthCheckUrl: '', env };
-}
-// Corpo JSON de um evento SSE; ilegível vira null e o handler ignora.
-function parseEvent(e) {
-  try { return JSON.parse(e.data); } catch (err) { return null; }
+// ?orbita=<chave> filtra o painel.
+function orbitParam() {
+  try { return orbitKey(new URLSearchParams(location.search).get('orbita') || ''); } catch (e) { return ''; }
 }
 // Só o horário ("14:32:05"): o ícone de relógio e o tooltip dizem o que ele é.
 // Antes do primeiro ciclo do ambiente, aguardando.
@@ -276,82 +76,13 @@ function cycleLabel(checkedAt) {
   return checkedAt ? new Date(checkedAt).toLocaleTimeString('pt-BR') : 'AGUARDANDO SERVIDOR';
 }
 
-const THEMES = {
-  dark: {
-    '--bg': 'radial-gradient(120% 80% at 50% 0%, var(--color-neutral-800) 0%, var(--color-neutral-900) 45%, var(--color-bg) 100%)',
-    '--ink': 'var(--color-text)', '--muted': 'var(--color-neutral-300)', '--faint': 'var(--color-neutral-500)',
-    '--line': 'color-mix(in srgb, var(--color-text) 14%, transparent)',
-    '--surface': 'color-mix(in srgb, var(--color-text) 5%, transparent)',
-    '--panel': 'linear-gradient(180deg, color-mix(in srgb, var(--color-text) 5%, transparent), color-mix(in srgb, var(--color-bg) 50%, transparent))',
-    '--dialog': 'var(--color-neutral-900)', '--field': 'var(--color-bg)',
-    '--accent': 'var(--color-accent)', '--accent-soft': 'var(--color-accent-200)',
-    '--accent-tint': 'color-mix(in srgb, var(--color-accent) 14%, transparent)',
-    '--halo': 'color-mix(in srgb, var(--color-accent) 16%, transparent)',
-    '--scrim': 'color-mix(in srgb, var(--color-bg) 75%, transparent)',
-    '--up': '#6fd39b', '--up-line': 'rgba(111,211,155,.35)', '--up-fill': 'rgba(111,211,155,.08)',
-    '--down': '#e8808c', '--down-line': 'rgba(232,128,140,.32)', '--down-fill': 'rgba(232,128,140,.08)',
-    '--warn': '#e6b450', '--warn-line': 'rgba(230,180,80,.34)', '--warn-fill': 'rgba(230,180,80,.08)',
-    '--fab-bg': 'color-mix(in srgb, var(--color-accent) 16%, transparent)',
-    '--fab-glow': '0 0 0 1px color-mix(in srgb, var(--color-accent) 45%, transparent), 0 0 12px color-mix(in srgb, var(--color-accent) 40%, transparent), 0 0 26px color-mix(in srgb, var(--color-accent) 18%, transparent)',
-    '--elev-md': 'var(--shadow-md)', '--elev-lg': 'var(--shadow-lg)',
-    '--star-opacity': '1', '--cloud-opacity': '0', '--stars-play': 'running', '--clouds-play': 'paused',
-    '--storm': '#f0c064', '--storm-line': 'rgba(240,192,100,.4)', '--storm-fill': 'rgba(240,192,100,.09)',
-    '--storm-sky': 'linear-gradient(180deg, rgba(8,9,16,.88) 0%, rgba(18,19,30,.7) 50%, rgba(22,24,38,.5) 100%)',
-    '--storm-cloud': '#2a2c3e', '--storm-cloud-shade': '#12131c', '--storm-clouds-opacity': '0',
-    '--comet-opacity': '1', '--comet-head': '#f6f4ff', '--comet-tail': 'rgba(183,174,232,.75)',
-    '--storm-rain': 'rgba(180,190,230,.45)', '--storm-flash': 'rgba(215,220,255,.2)',
-    '--stale': '#7a7a92', '--idle': '#6e6e86',
-    '--orbit-ring': 'color-mix(in srgb, var(--color-text) 14%, transparent)',
-    '--planet-edge': 'rgba(255,255,255,.35)', '--planet-edge-sel': '#ffffff',
-    '--planet-shine': 'rgba(255,255,255,.35)', '--planet-label': '#c9c6e0',
-    '--sel-line': 'color-mix(in srgb, var(--color-accent) 55%, transparent)',
-    '--sel-fill': 'color-mix(in srgb, var(--color-accent) 10%, transparent)',
-    '--page-bg': 'var(--color-bg)',
-    '--mono': "'JetBrains Mono', monospace"
-  },
-  light: {
-    '--bg': 'linear-gradient(180deg, #bcdcf5 0%, #d6e9f8 40%, #eef4fb 78%, #f6f9fd 100%)',
-    '--ink': '#16263a', '--muted': '#4c6480', '--faint': '#7d94ad',
-    '--line': 'rgba(22,38,58,.14)', '--surface': 'rgba(255,255,255,.55)',
-    '--panel': 'linear-gradient(180deg, rgba(255,255,255,.78), rgba(226,240,251,.55))',
-    '--dialog': 'rgba(252,253,255,.98)', '--field': '#ffffff',
-    '--accent': '#3d74b8', '--accent-soft': '#255291', '--accent-tint': 'rgba(61,116,184,.12)',
-    '--halo': 'rgba(255,205,120,.45)', '--scrim': 'rgba(40,62,88,.34)',
-    '--up': '#1c8a58', '--up-line': 'rgba(28,138,88,.34)', '--up-fill': 'rgba(28,138,88,.08)',
-    '--down': '#c0384a', '--down-line': 'rgba(192,56,74,.3)', '--down-fill': 'rgba(192,56,74,.07)',
-    '--warn': '#9c6400', '--warn-line': 'rgba(156,100,0,.32)', '--warn-fill': 'rgba(156,100,0,.07)',
-    '--fab-bg': 'rgba(61,116,184,.14)', '--fab-glow': '0 0 0 1px rgba(61,116,184,.35), 0 0 12px rgba(61,116,184,.3), 0 0 24px rgba(61,116,184,.14)',
-    '--elev-md': '0 8px 24px rgba(40,70,105,.16)', '--elev-lg': '0 30px 70px rgba(40,70,105,.24)',
-    '--star-opacity': '0', '--cloud-opacity': '1', '--stars-play': 'paused', '--clouds-play': 'running',
-    '--storm': '#9a5f00', '--storm-line': 'rgba(154,95,0,.38)', '--storm-fill': 'rgba(255,214,140,.32)',
-    '--storm-sky': 'linear-gradient(180deg, rgba(112,124,142,.9) 0%, rgba(160,169,183,.84) 40%, rgba(204,209,217,.8) 100%)',
-    '--storm-cloud': '#6c7788', '--storm-cloud-shade': '#4a5463', '--storm-clouds-opacity': '1',
-    '--comet-opacity': '0', '--comet-head': '#ffffff', '--comet-tail': 'rgba(255,255,255,.7)',
-    '--storm-rain': 'rgba(30,45,70,.4)', '--storm-flash': 'rgba(255,255,255,.55)',
-    '--stale': '#8494a8', '--idle': '#7d94ad',
-    '--orbit-ring': 'rgba(22,60,100,.22)',
-    '--planet-edge': 'rgba(22,38,58,.2)', '--planet-edge-sel': '#255291',
-    '--planet-shine': 'rgba(255,255,255,.5)', '--planet-label': '#1c3550',
-    '--sel-line': 'rgba(61,116,184,.55)', '--sel-fill': 'rgba(61,116,184,.1)',
-    '--page-bg': '#bcdcf5',
-    '--mono': "'JetBrains Mono', monospace"
-  }
-};
-
-// Sob o céu fechado do tema claro, os tons de apoio perdem contraste:
-// escurecem enquanto a tempestade durar e voltam aos valores de THEMES depois.
-const STORM_OVERRIDES = {
-  dark: {},
-  light: { '--muted': '#25364b', '--faint': '#3a4d66', '--accent': '#1d4a86', '--accent-soft': '#173d70', '--up': '#0f6b41', '--down': '#9b2233', '--warn': '#7a4d00' }
-};
-
 function createComponent(DCLogic) {
-  return class Component extends DCLogic {
+  return withAppForm(class Component extends DCLogic {
     state = {
-      apps: [], status: {}, formOpen: false, scanning: false, selectedId: null, pendingRemoveId: null, theme: 'dark', query: '', filter: 'all', page: 0, env: DEFAULT_ENV, cycles: {}, teamDropOpen: false,
+      apps: [], status: {}, orbit: '', scanning: false, selectedId: null, pendingRemoveId: null, theme: 'dark', query: '', filter: 'all', page: 0, env: DEFAULT_ENV, cycles: {},
       notify: false, sound: false, notifyOpen: false, notifyBlocked: false, apiDown: false, lastOk: null,
-      staleEnvs: [], submitting: false, formError: '', formErrors: {}, removing: false, removeError: '', d3Failed: false,
-      form: emptyForm(DEFAULT_ENV)
+      staleEnvs: [], removing: false, removeError: '', d3Failed: false,
+      ...appFormState(DEFAULT_ENV)
     };
 
     async componentDidMount() {
@@ -369,7 +100,11 @@ function createComponent(DCLogic) {
       this.onReturn = () => { if (!this.isAway()) this.dismissAlerts(); };
       document.addEventListener('visibilitychange', this.onReturn);
       window.addEventListener('focus', this.onReturn);
-      this.setState({ ...prefs, apps, status, theme, staleEnvs }, () => { this.applyTheme(); this.waitForD3(); this.connectEvents(); this.scheduleComet(); this.updateTitle(); });
+      const orbit = orbitParam();
+      // O ambiente escolhido sobrevive ao reload; um código que não existe mais cai no padrão.
+      let env = DEFAULT_ENV;
+      try { const saved = localStorage.getItem(EKEY); if (ENV_CODES.includes(saved)) env = saved; } catch (e) {}
+      this.setState({ ...prefs, apps, status, theme, staleEnvs, orbit, env, form: this.blankForm(env, apps, orbit) }, () => { this.applyTheme(); this.waitForD3(); this.connectEvents(); this.scheduleComet(); this.updateTitle(); });
       if (!(await this.loadApps())) this.markApiDown();
     }
 
@@ -677,7 +412,19 @@ function createComponent(DCLogic) {
       setTimeout(() => this.waitForD3(), D3_POLL_MS);
     }
     redraw() { if (d3Ready() && this.orbitEl && !this.state.d3Failed) this.drawOrbits(); }
-    envApps() { return this.appsIn(this.state.env); }
+    // O ambiente na tela, e só a órbita do ?orbita= quando houver. appsIn() fica com o
+    // ambiente inteiro: é com ele que snapshot e cycle conferem se a lista está em dia.
+    envApps() {
+      const { orbit } = this.state;
+      const apps = this.appsIn(this.state.env);
+      return orbit ? apps.filter(a => inOrbit(a, orbit)) : apps;
+    }
+    // A órbita do filtro, com o nome na grafia das apps; sem app nela ainda, a própria chave.
+    currentOrbit(apps = this.state.apps) {
+      const { orbit } = this.state;
+      if (!orbit) return null;
+      return collectOrbits(apps).find(o => o.key === orbit) || { key: orbit, name: orbit };
+    }
     // O que a lista e a órbita mostram: o ambiente na tela, pela busca e pelo filtro de status.
     visibleApps() {
       const q = (this.state.query || '').trim().toLowerCase();
@@ -685,7 +432,11 @@ function createComponent(DCLogic) {
       const st = this.state.status;
       return this.envApps().filter(a => (f === 'all' || st[a.id] === f) && (!q || (a.name + ' ' + a.team).toLowerCase().includes(q)));
     }
-    setEnv(env) { this.setState({ env, page: 0, selectedId: null }, () => this.redraw()); }
+    setEnv(env) {
+      this.saveEnv(env);
+      this.setState({ env, page: 0, selectedId: null }, () => this.redraw());
+    }
+    saveEnv(env) { try { localStorage.setItem(EKEY, env); } catch (e) {} }
     select(id, fromOrbit) {
       const next = { selectedId: id };
       // Os planetas saem do mesmo visibleApps() da lista: o clicado está nela, só falta a página.
@@ -834,27 +585,7 @@ function createComponent(DCLogic) {
           .style('font', '500 10px var(--mono)').style('letter-spacing', '.2em').text('SEM SINAL');
         return;
       }
-      if (light) {
-        const grad = defs.append('radialGradient').attr('id', 'coreSun');
-        grad.append('stop').attr('offset', '0%').attr('stop-color', '#fff3d6');
-        grad.append('stop').attr('offset', '100%').attr('stop-color', '#f0a83c');
-        g.append('circle').attr('r', 34).attr('fill', 'rgba(240,168,60,.14)');
-        g.append('g').selectAll('line').data(Array.from({ length: 12 }, (_, i) => i)).join('line')
-          .attr('x1', d => Math.cos(d * Math.PI / 6) * 21).attr('y1', d => Math.sin(d * Math.PI / 6) * 21)
-          .attr('x2', d => Math.cos(d * Math.PI / 6) * 28).attr('y2', d => Math.sin(d * Math.PI / 6) * 28)
-          .attr('stroke', '#e8a53c').attr('stroke-width', 1.6).attr('stroke-linecap', 'round').attr('opacity', .7);
-        g.append('circle').attr('r', 17).attr('fill', 'url(#coreSun)').attr('filter', 'url(#oglow)');
-        return;
-      }
-      const grad = defs.append('radialGradient').attr('id', 'coreMoon').attr('cx', '35%').attr('cy', '32%');
-      grad.append('stop').attr('offset', '0%').attr('stop-color', '#f4f3fb');
-      grad.append('stop').attr('offset', '100%').attr('stop-color', '#b9b6cf');
-      g.append('circle').attr('r', 33).attr('fill', 'rgba(199,192,238,.09)');
-      g.append('circle').attr('r', 17).attr('fill', 'url(#coreMoon)').attr('filter', 'url(#oglow)');
-      const craters = [[-5, -4, 3.2], [4.5, 2.5, 4.2], [-2, 7, 2], [7, -6, 2]];
-      g.selectAll('circle.crater').data(craters).join('circle').attr('class', 'crater')
-        .attr('cx', d => d[0]).attr('cy', d => d[1]).attr('r', d => d[2])
-        .attr('fill', '#9e9ab8').attr('opacity', .45);
+      appendOrbitCore(g, defs, light, 'oglow');
     }
 
     // Esqueleto da órbita: só é refeito quando muda o que ele desenha (tema,
@@ -1058,42 +789,22 @@ function createComponent(DCLogic) {
       this.commitApps(this.state.apps.filter(x => x.id !== id), { removing: false, pendingRemoveId: null });
     };
 
-    // Cadastro: POST na API; a lista só ganha a aplicação com o id devolvido.
-    submitForm = async e => {
-      e.preventDefault();
-      // Duplo clique / Enter repetido: um envio por vez.
-      if (this.submitBusy) return;
-      const f = this.state.form;
-      const { value: payload, errors } = validateAppForm(f);
-      if (Object.keys(errors).length) { this.setState({ formErrors: errors, formError: '' }); return; }
-      const apiEnv = ENV_TO_API[f.env];
-      // Flag de instância: o setState não é síncrono e o segundo clique chegaria antes.
-      this.submitBusy = true;
-      this.setState({ submitting: true, formError: '', formErrors: {} });
-      let created, failure = null;
-      try {
-        created = await apiFetch(`/applications/${apiEnv}`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-      } catch (err) { failure = err; }
-      finally { this.submitBusy = false; }
-      if (failure) {
-        // 400 com { fields }: a API recusou campos que passaram aqui; mostra no campo.
-        const fields = failure.status === 400 && failure.body && failure.body.fields;
-        if (fields && typeof fields === 'object') this.setState({ submitting: false, formErrors: fields, formError: 'A API recusou os dados: revise os campos marcados.' });
-        else this.setState({ submitting: false, formError: `Não foi possível cadastrar: ${apiErrorMsg(failure)}` });
-        return;
-      }
-      // Sem id não há como listar (nem remover depois): trata como falha.
-      if (!created || !created.id) { this.setState({ submitting: false, formError: 'Não foi possível cadastrar: a API não devolveu o id da aplicação.' }); return; }
-      const app = fromApi(created, apiEnv);
-      const envChanged = app.env !== this.state.env;
-      this.commitApps([...this.state.apps.filter(x => x.id !== app.id), app],
-        { submitting: false, formError: '', formErrors: {}, formOpen: false, env: app.env, form: emptyForm(app.env) },
-        envChanged);
-      // A app nova entra no próximo ciclo do servidor; não há check imediato.
-    };
+    // Cadastro feito (app-form.js): a app entra na lista e a tela vai para o ambiente dela.
+    onAppCreated(app, done) {
+      this.saveEnv(app.env);
+      this.commitApps([...this.state.apps.filter(x => x.id !== app.id), app], { ...done, env: app.env }, app.env !== this.state.env);
+    }
+
+    // Edição feita (app-form.js): a app é trocada no mesmo lugar da lista. Com URL de
+    // health check nova a API apaga o último status, então aqui ela volta a "sem check".
+    onAppUpdated(app, done) {
+      const old = this.state.apps.find(x => x.id === app.id);
+      const apps = old ? this.state.apps.map(x => x.id === app.id ? app : x) : [...this.state.apps, app];
+      if (!old || old.healthCheckUrl === app.healthCheckUrl) { this.commitApps(apps, done); return; }
+      const { [app.id]: _, ...status } = this.state.status;
+      this.downSeen.delete(app.id);
+      this.setState({ status }, () => this.commitApps(apps, done));
+    }
 
     // O template enxerga um objeto plano só: renderVals junta grupos menores,
     // um por região da tela. Refs e handlers fixos são campos da classe.
@@ -1193,7 +904,10 @@ function createComponent(DCLogic) {
       const apps = this.envApps();
       const stale = this.isStale();
       const count = s => apps.filter(a => status[a.id] === s).length;
+      const orbit = this.currentOrbit();
       return {
+        pageTitle: orbit ? orbit.name : 'Órbita de Aplicações',
+        pageEyebrow: orbit ? 'Órbita' : 'Todas as órbitas',
         // Argumento só por closure: cada botão leva o próprio onClick.
         envTabs: ENVS.map(({ code, label }) => ({ label, style: envTab(env === code), onClick: () => this.setEnv(code) })),
         // Um contador por status, na ordem e com os rótulos de STATUS_META.
@@ -1235,6 +949,8 @@ function createComponent(DCLogic) {
     emptyMsg(appCount, apiDown) {
       if (appCount > 0) return 'Nenhuma aplicação corresponde ao filtro.';
       if (apiDown) return 'Não foi possível carregar as aplicações. Tentando reconectar…';
+      const orbit = this.currentOrbit();
+      if (orbit) return `Nenhuma aplicação da órbita ${orbit.name} neste ambiente. Use o botão + para lançar uma.`;
       return 'Nenhuma aplicação em órbita ainda. Use o botão + para lançar a primeira.';
     }
 
@@ -1258,6 +974,7 @@ function createComponent(DCLogic) {
         swaggerUrl: href || undefined,
         swaggerStyle: `display:inline-flex; align-items:center; gap:6px; padding:5px 11px; border-radius:var(--radius-sm); text-decoration:none; letter-spacing:.1em; font-size:11px; border:1px solid ${href ? 'var(--accent)' : 'var(--line)'}; color:${href ? 'var(--accent-soft)' : 'var(--faint)'}; ${href ? '' : 'opacity:.45; pointer-events:none;'}`,
         select: () => this.select(a.id),
+        edit: e => { e.stopPropagation(); this.editApp(a); },
         remove: e => { e.stopPropagation(); this.setState({ pendingRemoveId: a.id }); }
       };
     }
@@ -1278,57 +995,5 @@ function createComponent(DCLogic) {
         confirmRemove: this.confirmRemove
       };
     }
-
-    // Modal de cadastro.
-    formVals() {
-      const { form, formOpen, submitting, formError, formErrors } = this.state;
-      const setF = k => e => this.setFormField(k, e.target.value);
-      // Por campo: a mensagem, a flag do sc-if, o estilo do input e aria-invalid.
-      // O template lê por caminho: {{ fields.name.err }}, {{ fields.team.style }}…
-      const field = (k, mono) => {
-        const err = formErrors[k] || '';
-        return { err, has: !!err, style: fieldStyle(err, mono), invalid: err ? 'true' : 'false' };
-      };
-      return {
-        formOpen,
-        openForm: () => this.setState({ formOpen: true, formError: '', formErrors: {} }),
-        closeForm: () => { if (!this.state.submitting) this.setState({ formOpen: false, formError: '', formErrors: {} }); },
-        fields: { name: field('name'), team: field('team'), swaggerUrl: field('swaggerUrl', true), healthCheckUrl: field('healthCheckUrl', true) },
-        nameMax: FIELD_LIMITS.name, teamMax: FIELD_LIMITS.team, urlMax: FIELD_LIMITS.url,
-        fieldErrStyle: 'font-size:12px; line-height:1.4; color:var(--down)',
-        submitting,
-        hasFormError: !!formError,
-        formError,
-        submitLabel: submitting ? 'Lançando…' : 'Lançar em órbita',
-        submitStyle: `flex:1.4; padding:12px; border-radius:var(--radius-md); border:1px solid var(--accent); background:var(--accent-tint); color:var(--accent-soft); font-size:14px; font-weight:500; cursor:${submitting ? 'wait' : 'pointer'}; opacity:${submitting ? .6 : 1}`,
-        formName: form.name, formTeam: form.team, formSwaggerUrl: form.swaggerUrl, formHealthCheckUrl: form.healthCheckUrl,
-        onName: setF('name'), onSwaggerUrl: setF('swaggerUrl'), onHealthCheckUrl: setF('healthCheckUrl'),
-        formEnvs: ENVS.map(({ code, label }) => ({ label, style: envTab(form.env === code), onClick: () => this.setState({ form: { ...this.state.form, env: code } }) })),
-        submit: this.submitForm,
-        ...this.teamVals()
-      };
-    }
-
-    // Campo de time com sugestões tiradas das aplicações já cadastradas.
-    teamVals() {
-      const tq = (this.state.form.team || '').trim().toLowerCase();
-      const allTeams = [...new Set(this.state.apps.map(a => a.team).filter(Boolean))].sort();
-      const teamSuggestions = (tq ? allTeams.filter(t => t.toLowerCase().includes(tq)) : allTeams)
-        .filter(t => t.toLowerCase() !== tq)
-        .map(name => ({ name, select: () => this.setFormField('team', name, { teamDropOpen: false }) }));
-      return {
-        teamSuggestions,
-        teamDropOpen: this.state.teamDropOpen && teamSuggestions.length > 0,
-        onTeam: e => this.setFormField('team', e.target.value, { teamDropOpen: true }),
-        onTeamFocus: () => this.setState({ teamDropOpen: true }),
-        onTeamBlur: () => setTimeout(() => this.setState({ teamDropOpen: false }), TEAM_BLUR_MS)
-      };
-    }
-
-    // Mudar um campo do cadastro limpa o erro dele: a mensagem só volta no próximo
-    // envio. extra vai no mesmo setState (ex.: abrir ou fechar as sugestões de time).
-    setFormField(k, value, extra = {}) {
-      this.setState({ form: { ...this.state.form, [k]: value }, formErrors: { ...this.state.formErrors, [k]: '' }, ...extra });
-    }
-  };
+  });
 }

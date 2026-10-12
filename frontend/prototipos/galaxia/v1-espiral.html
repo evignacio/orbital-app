@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Galáxia — V1 Espiral</title>
+<link rel="stylesheet" href="../../_ds/nocturne-28f61539-545d-4d6c-bf33-6586e9d6e3fe/styles.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root { --sky-opacity:0; }
+  html, body { margin:0; padding:0; height:100%; background:#161826; overflow:hidden; }
+  * { box-sizing: border-box; }
+  button { font-family: inherit; }
+  :focus-visible { outline:2px solid var(--accent, #9184d9); outline-offset:2px; }
+  @keyframes spin { to { transform: rotate(360deg) } }
+  @keyframes unspin { to { transform: rotate(-360deg) } }
+  @keyframes twinkle { 0%,100% { opacity:.25 } 50% { opacity:1 } }
+</style>
+</head>
+<body>
+<div id="sky" style="position:fixed; inset:0; background:var(--bg); transition:background .4s ease; font-family:'Inter', system-ui, sans-serif">
+  <!-- Estrelas de fundo: um canvas parado e um que pisca (uma animação para todas). -->
+  <canvas id="starsStatic" style="position:absolute; inset:0; opacity:var(--sky-opacity); transition:opacity .4s ease"></canvas>
+  <div style="position:absolute; inset:0; opacity:var(--sky-opacity)"><canvas id="starsTwinkle" style="position:absolute; inset:0; animation:twinkle 6s ease-in-out infinite; animation-play-state:var(--sky-play)"></canvas></div>
+  <!-- O disco gira inteiro pelo compositor; cada órbita contra-gira para o rótulo ficar de pé. -->
+  <div id="disc" style="position:absolute; left:50%; top:50%; animation:spin 720s linear infinite; animation-play-state:var(--spin-play, running)">
+    <canvas id="spiral" style="position:absolute; left:0; top:0"></canvas>
+    <div id="orbits" style="position:absolute; left:0; top:0"></div>
+  </div>
+</div>
+<script src="galaxia-comum.js"></script>
+<script>
+const ARMS = 2, TURNS = 1.55;
+// Ponto do braço `arm` na fração t (0 = núcleo, 1 = borda), raio R.
+function armPoint(arm, t, R) {
+  const a = arm * (Math.PI * 2 / ARMS) + t * TURNS * Math.PI * 2;
+  const r = R * (0.06 + 0.94 * Math.pow(t, 0.85));
+  return [Math.cos(a) * r, Math.sin(a) * r, a];
+}
+function gauss(rand) { return (rand() + rand() + rand() - 1.5) / 1.5; }
+
+let D = 0;
+function layout() {
+  const W = innerWidth, H = innerHeight;
+  D = Math.min(W, H) * (W < 640 ? 1.05 : 0.94);
+  const disc = document.getElementById('disc');
+  disc.style.width = D + 'px'; disc.style.height = D + 'px';
+  disc.style.marginLeft = -D / 2 + 'px'; disc.style.marginTop = -D / 2 + 'px';
+  drawBackground(W, H);
+  drawSpiral();
+  placeOrbits();
+}
+
+function drawBackground(W, H) {
+  const rand = rng(7);
+  const a = hiDpiCanvas(document.getElementById('starsStatic'), W, H);
+  const b = hiDpiCanvas(document.getElementById('starsTwinkle'), W, H);
+  const n = Math.round(W * H / 5200);
+  for (let i = 0; i < n; i++) {
+    const ctx = i % 4 === 0 ? b : a;
+    const r = rand() * 1.3 + .3;
+    ctx.globalAlpha = .35 + rand() * .55;
+    ctx.fillStyle = r > 1.3 ? '#cfc9f2' : '#e9e9ed';
+    ctx.beginPath(); ctx.arc(rand() * W, rand() * H, r, 0, Math.PI * 2); ctx.fill();
+  }
+}
+
+// Desenhado uma vez por tamanho/tema; depois só o disco gira.
+function drawSpiral() {
+  const ctx = hiDpiCanvas(document.getElementById('spiral'), D, D);
+  const R = D / 2;
+  ctx.translate(R, R);
+  if (isLight()) {
+    // Sem estrelas no claro: os braços viram trilhas tracejadas, como os anéis do app.
+    ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--orbit-ring').trim() || 'rgba(22,60,100,.22)';
+    ctx.lineWidth = 1.2; ctx.setLineDash([3, 7]);
+    for (let arm = 0; arm < ARMS; arm++) {
+      ctx.beginPath();
+      for (let t = 0.02; t <= 0.98; t += 0.005) { const [x, y] = armPoint(arm, t, R); t === 0.02 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); }
+      ctx.stroke();
+    }
+    return;
+  }
+  // Brilho difuso do disco e núcleo.
+  let g = ctx.createRadialGradient(0, 0, 0, 0, 0, R);
+  g.addColorStop(0, 'rgba(255,236,205,.55)'); g.addColorStop(.08, 'rgba(230,205,255,.22)');
+  g.addColorStop(.35, 'rgba(145,132,217,.08)'); g.addColorStop(1, 'rgba(145,132,217,0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, R, 0, Math.PI * 2); ctx.fill();
+  // Brilho dos braços: discos suaves ao longo de cada braço.
+  for (let arm = 0; arm < ARMS; arm++) {
+    for (let t = 0.04; t <= 0.8; t += 0.018) {
+      const [x, y] = armPoint(arm, t, R), rr = R * (0.05 + 0.1 * t);
+      const ag = ctx.createRadialGradient(x, y, 0, x, y, rr);
+      ag.addColorStop(0, `rgba(${t < .3 ? '240,215,235' : '160,145,235'},${0.075 * Math.pow(1 - t, 1.4)})`); ag.addColorStop(1, 'rgba(160,145,235,0)');
+      ctx.fillStyle = ag; ctx.beginPath(); ctx.arc(x, y, rr, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+  const rand = rng(42);
+  const total = Math.round(Math.min(9000, D * 9));
+  for (let i = 0; i < total; i++) {
+    const arm = i % ARMS, t = Math.pow(rand(), 0.75);
+    const [x, y, a] = armPoint(arm, t, R);
+    const spread = R * (0.03 + 0.15 * t);
+    const off = gauss(rand) * spread, along = gauss(rand) * spread * .6;
+    const px = x + Math.cos(a + Math.PI / 2) * off + Math.cos(a) * along;
+    const py = y + Math.sin(a + Math.PI / 2) * off + Math.sin(a) * along;
+    const warm = t < .25 && rand() < .7;
+    ctx.globalAlpha = (1 - t * .55) * (.35 + rand() * .6);
+    ctx.fillStyle = warm ? '#f6e7c9' : rand() < .25 ? '#b5abfc' : '#e7e5fe';
+    const s = rand() < .04 ? 1.6 : .4 + rand() * .8;
+    ctx.fillRect(px - s / 2, py - s / 2, s, s);
+  }
+  // Poeira entre os braços.
+  for (let i = 0; i < total * .35; i++) {
+    const a = rand() * Math.PI * 2, r = R * Math.sqrt(rand());
+    ctx.globalAlpha = .12 + rand() * .2; ctx.fillStyle = '#cfd3e5';
+    ctx.fillRect(Math.cos(a) * r, Math.sin(a) * r, .6, .6);
+  }
+  ctx.globalAlpha = 1;
+  g = ctx.createRadialGradient(0, 0, 0, 0, 0, R * .09);
+  g.addColorStop(0, 'rgba(255,250,240,.95)'); g.addColorStop(.4, 'rgba(255,226,190,.5)'); g.addColorStop(1, 'rgba(255,226,190,0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, R * .09, 0, Math.PI * 2); ctx.fill();
+}
+
+function placeOrbits() {
+  const host = document.getElementById('orbits');
+  host.innerHTML = '';
+  const R = D / 2, n = ORBITS.length, k = D < 560 ? .78 : 1;
+  ORBITS.forEach((o, i) => {
+    const arm = i % ARMS;
+    const t = 0.3 + (Math.floor(i / ARMS) / Math.max(1, Math.ceil(n / ARMS) - 1)) * 0.62;
+    const [x, y] = armPoint(arm, t, R);
+    const size = planetSize(o.apps, k), box = (size + 60) * 2;
+    const wrap = document.createElement('div');
+    wrap.style.cssText = `position:absolute; left:${R + x - box / 2}px; top:${R + y - box / 2}px; width:${box}px; height:${box}px; animation:unspin 720s linear infinite; animation-play-state:var(--spin-play, running); pointer-events:none`;
+    const svg = svgEl('svg', { viewBox: `${-box / 2} ${-box / 2} ${box} ${box}`, width: box, height: box, overflow: 'visible' }, wrap);
+    glowDefs(svg);
+    const node = drawPlanet(svg, o, size, { onHover: v => document.documentElement.style.setProperty('--spin-play', v ? 'paused' : 'running') });
+    node.style.pointerEvents = 'auto';
+    host.appendChild(wrap);
+  });
+}
+
+mountChrome();
+applyTheme();
+onTheme(() => drawSpiral());
+if (reducedMotion()) document.documentElement.style.setProperty('--spin-play', 'paused');
+layout();
+addEventListener('resize', debounce(layout, 150));
+</script>
+</body>
+</html>

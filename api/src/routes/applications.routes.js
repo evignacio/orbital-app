@@ -16,6 +16,11 @@ router.post(
   "/:env",
   asyncRoute("create application failed", req => ({ env: req.params.env, name: req.body.name.trim() }), applicationsController.create)
 );
+// update only reaches the handler's awaits after validation passed, so name is an accepted string.
+router.put(
+  "/:env/:id",
+  asyncRoute("update application failed", req => ({ env: req.params.env, id: req.params.id, name: req.body.name.trim() }), applicationsController.update)
+);
 router.delete(
   "/:env/:id",
   asyncRoute("delete application failed", req => ({ env: req.params.env, id: req.params.id }), applicationsController.remove)

@@ -13,7 +13,7 @@ Dashboard de monitoramento de saúde de aplicações com visualização orbital.
 
 ## 🌌 Conceito
 
-A metáfora orbital transforma um painel de status convencional em uma visualização espacial construída com D3.js. Planetas verdes indicam aplicações saudáveis, âmbar indicam lentidão (degradado) e vermelhos indicam falha; cinza é uma aplicação ainda não verificada. O sistema suporta múltiplos ambientes (desenvolvimento, homologação e produção), cada um com sua própria constelação de aplicações.
+A metáfora orbital transforma um painel de status convencional em uma visualização espacial construída com D3.js. Planetas verdes indicam aplicações saudáveis, âmbar indicam lentidão (degradado) e vermelhos indicam falha; cinza é uma aplicação ainda não verificada. O sistema suporta múltiplos ambientes (desenvolvimento, homologação e produção), cada um com sua própria constelação de aplicações, e agrupa as aplicações em **órbitas**: a home é uma galáxia em que cada órbita é um planeta, e uma aplicação pode estar em várias órbitas.
 
 ## 🏗️ Arquitetura
 
@@ -57,7 +57,7 @@ flowchart LR
 
 | Pasta | Conteúdo |
 |---|---|
-| `frontend/` | Página estática servida pelo nginx: marcação em `index.html`, lógica em `script.js`. O nginx encaminha `/api/` para a API. |
+| `frontend/` | Páginas estáticas servidas pelo nginx: a galáxia (`index.html` + `galaxy.js`) e o painel (`painel.html` + `script.js`), com o que é comum em `common.js`. O nginx encaminha `/api/` para a API. |
 | `api/` | REST API Node.js + Express em camadas: `routes/` → `controllers/` → `services/` → `repositories/`, mais `config/`, `middlewares/`, `validators/` e `utils/`. |
 
 > [!WARNING]
@@ -65,11 +65,12 @@ flowchart LR
 
 ## ✨ Funcionalidades
 
+- 🌌 **Galáxia de órbitas** — a home mostra cada órbita como um planeta, com a quantidade de aplicações e quantas estão fora ou degradadas; clicar abre o painel filtrado por ela
 - 🔭 **Visualização orbital** — aplicações como planetas animados em D3.js; a cor reflete o status atual
 - 🌍 **Multi-ambiente** — alternância entre Desenvolvimento, Homologação e Produção
 - ⏱️ **Health check automático no servidor** — ciclos a cada `HEALTH_CHECK_INTERVAL_S`, com resultados em tempo real via SSE
 - 📡 **Sincronização manual** — botão Sincronizar força um ciclo imediato do ambiente na tela
-- ➕ **Cadastro de aplicações** — formulário para adicionar nome, time, ambiente, URL de health check e Swagger
+- ➕ **Cadastro de aplicações** — formulário para adicionar nome, time, ambiente, órbitas (escolhidas ou criadas na hora), URL de health check e Swagger
 - 🗑️ **Remoção de aplicações** — exclusão com confirmação diretamente no card
 - 🔍 **Seleção pela órbita** — clique em um planeta para destacar o card da aplicação (com o link do Swagger)
 - 🔎 **Filtros e busca** — filtre por status (no ar / degradado / fora) e busque por nome ou time
@@ -102,6 +103,9 @@ docker compose -f docker-compose.local.yml up -d --build
 | 🔴 Redis     | localhost:6379             | Cache e último status   |
 
 > O banco é populado automaticamente com dados de exemplo na primeira inicialização. Nas reinicializações seguintes os dados persistem no volume `mongo_data`.
+>
+> Banco criado antes das órbitas? O `mongo-add-orbits.js` coloca na órbita "Dream team" toda aplicação que ainda não tem `orbits`:
+> `docker compose -f docker-compose.local.yml exec -T mongo mongosh orbital < mongo-add-orbits.js` e depois apague as chaves `orbital:apps:*` do Redis.
 
 ---
 
@@ -181,10 +185,11 @@ Um valor inválido (ex.: `HEALTH_CHECK_INTERVAL_S=abc`) impede a API de subir, c
 | `GET`  | `/applications`               | Lista todas as aplicações              |
 | `GET`  | `/applications/events`        | Stream SSE com os status dos três ambientes (`?changes=true` só envia mudanças) |
 | `POST` | `/applications/:env/sync`     | Força um ciclo de health check (202); o resultado chega pelo SSE |
-| `POST` | `/applications/:env`          | Cadastra uma aplicação                 |
+| `POST` | `/applications/:env`          | Cadastra uma aplicação (`name`, `team`, `healthCheckUrl`, `swaggerUrl` opcional e `orbits`, lista de 1 a 10 nomes) |
+| `PUT`    | `/applications/:env/:id`    | Altera uma aplicação                   |
 | `DELETE` | `/applications/:env/:id`    | Remove uma aplicação                   |
 
-Ambientes válidos: `development`, `staging`, `production`. Não há endpoint de edição: alterar uma aplicação existente exige editar o Mongo (e esperar o `APPS_CACHE_TTL` ou apagar a chave `orbital:apps:<env>` no Redis).
+Ambientes válidos: `development`, `staging`, `production`. O `PUT` recebe os mesmos campos do cadastro e substitui os da aplicação; o ambiente não muda. Se a URL do health check mudar, o último status é descartado e a aplicação volta a "não verificada" até o próximo ciclo. No painel, a edição abre pelo lápis de cada card.
 
 ### 🧪 Testes
 

@@ -41,7 +41,7 @@ beforeEach(async () => {
   listApps.mockImplementation(async env =>
     env === "production"
       ? [
-          { id: "p1", name: "billing", team: "pagamentos", healthCheckUrl: "http://billing/health", swaggerUrl: "" },
+          { id: "p1", name: "billing", team: "pagamentos", healthCheckUrl: "http://billing/health", swaggerUrl: "", orbits: ["Financeiro", "Pagamentos"] },
           { id: "p2", name: "auth", team: "identidade", healthCheckUrl: "http://auth/health", swaggerUrl: "" },
         ]
       : []
@@ -127,7 +127,7 @@ describe("GET /applications/events", () => {
     ]);
   });
 
-  it("cruza a lista de apps com o último status, e usa null para app nunca verificada", async () => {
+  it("cruza a lista de apps com o último status, usa null para app nunca verificada e [] para app sem órbitas", async () => {
     const stream = await connect();
     await stream.wait(() => snapshotsReceived(stream.text) === 3);
 
@@ -135,8 +135,8 @@ describe("GET /applications/events", () => {
     expect(production).toEqual({
       env: "production",
       apps: [
-        { id: "p1", name: "billing", env: "production", status: "degraded", latencyMs: 3412, limitMs: 3000, checkedAt: "2026-10-05T13:59:30.000Z" },
-        { id: "p2", name: "auth", env: "production", status: null, latencyMs: null, checkedAt: null },
+        { id: "p1", name: "billing", env: "production", orbits: ["Financeiro", "Pagamentos"], status: "degraded", latencyMs: 3412, limitMs: 3000, checkedAt: "2026-10-05T13:59:30.000Z" },
+        { id: "p2", name: "auth", env: "production", orbits: [], status: null, latencyMs: null, checkedAt: null },
       ],
       cycle,
       nextCheckAt: next.production,

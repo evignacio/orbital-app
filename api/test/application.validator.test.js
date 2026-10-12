@@ -10,13 +10,14 @@ const valid = {
   team: "Pagamentos",
   healthCheckUrl: "https://checkout.interno/actuator/health",
   swaggerUrl: "https://checkout.interno/swagger-ui.html",
+  orbits: ["Financeiro", "Pagamentos"],
 };
 
 // Errors for `valid` with `patch` applied.
 const errorsFor = patch => validateApplication({ ...valid, ...patch }).errors;
 
 describe("validateApplication", () => {
-  it("aceita um corpo válido e devolve os quatro campos sem erros", () => {
+  it("aceita um corpo válido e devolve os cinco campos sem erros", () => {
     expect(validateApplication(valid)).toEqual({ value: valid, errors: {} });
   });
 
@@ -26,6 +27,7 @@ describe("validateApplication", () => {
       team: " Pagamentos  ",
       healthCheckUrl: " https://checkout.interno/health ",
       swaggerUrl: "  https://checkout.interno/docs\t".replace("\t", " "),
+      orbits: [" Financeiro "],
     });
 
     expect(errors).toEqual({});
@@ -34,13 +36,14 @@ describe("validateApplication", () => {
       team: "Pagamentos",
       healthCheckUrl: "https://checkout.interno/health",
       swaggerUrl: "https://checkout.interno/docs",
+      orbits: ["Financeiro"],
     });
   });
 
   it("descarta campos que não fazem parte da aplicação", () => {
     const { value } = validateApplication({ ...valid, admin: true, _id: "x", $where: "1" });
 
-    expect(Object.keys(value).sort()).toEqual(["healthCheckUrl", "name", "swaggerUrl", "team"]);
+    expect(Object.keys(value).sort()).toEqual(["healthCheckUrl", "name", "orbits", "swaggerUrl", "team"]);
   });
 
   it("usa swaggerUrl vazio quando ele é omitido, nulo ou só espaços", () => {
@@ -60,7 +63,7 @@ describe("validateApplication", () => {
   });
 
   it("reporta todos os campos inválidos de uma vez", () => {
-    expect(Object.keys(validateApplication({}).errors).sort()).toEqual(["healthCheckUrl", "name", "team"]);
+    expect(Object.keys(validateApplication({}).errors).sort()).toEqual(["healthCheckUrl", "name", "orbits", "team"]);
   });
 
   describe("tipos (injeção de operadores do Mongo)", () => {
@@ -129,6 +132,51 @@ describe("validateApplication", () => {
         [field]: `${field} must not contain control characters`,
       });
     }
+  });
+
+  describe("orbits", () => {
+    it("exige ao menos uma órbita", () => {
+      expect(errorsFor({ orbits: undefined })).toEqual({ orbits: "orbits is required" });
+      expect(errorsFor({ orbits: null })).toEqual({ orbits: "orbits is required" });
+      expect(errorsFor({ orbits: [] })).toEqual({ orbits: "orbits is required" });
+    });
+
+    it.each([
+      ["texto solto", "Financeiro"],
+      ["objeto com operador", { $in: ["Financeiro"] }],
+      ["número dentro da lista", ["Financeiro", 42]],
+      ["operador dentro da lista", [{ $gt: "" }]],
+      ["lista aninhada", [["Financeiro"]]],
+    ])("rejeita %s", (_, orbits) => {
+      expect(errorsFor({ orbits })).toEqual({ orbits: "orbits must be an array of strings" });
+    });
+
+    it("aceita acentos, dígitos, espaços, '.', '_' e '-'", () => {
+      expect(errorsFor({ orbits: ["Integrações", "Dream team", "squad_2.0-b"] })).toEqual({});
+    });
+
+    it("rejeita órbita com caractere fora do formato, de controle ou fora do tamanho", () => {
+      expect(errorsFor({ orbits: ["<b>Dados</b>"] }).orbits).toMatch(/may contain only/);
+      expect(errorsFor({ orbits: ["Dados\n"] })).toEqual({ orbits: "orbits must not contain control characters" });
+      expect(errorsFor({ orbits: ["D"] }).orbits).toMatch(/between/);
+      expect(errorsFor({ orbits: ["   "] }).orbits).toMatch(/between/);
+      expect(errorsFor({ orbits: ["D".repeat(LIMITS.orbitMax + 1)] }).orbits).toMatch(/between/);
+      expect(errorsFor({ orbits: ["D".repeat(LIMITS.orbitMax)] })).toEqual({});
+    });
+
+    it("remove espaços das pontas e descarta repetidas (sem acento, caixa ou espaço), mantendo a primeira grafia", () => {
+      const { value, errors } = validateApplication({ ...valid, orbits: [" Integrações ", "integracoes", "Dream team", "DREAM-TEAM", "Dados"] });
+
+      expect(errors).toEqual({});
+      expect(value.orbits).toEqual(["Integrações", "Dream team", "Dados"]);
+    });
+
+    it("limita a quantidade de órbitas, contando só as distintas", () => {
+      const many = n => Array.from({ length: n }, (_, i) => `Orbita ${i}`);
+      expect(errorsFor({ orbits: many(LIMITS.orbitsMax) })).toEqual({});
+      expect(errorsFor({ orbits: [...many(LIMITS.orbitsMax), "orbita 0"] })).toEqual({});
+      expect(errorsFor({ orbits: many(LIMITS.orbitsMax + 1) })).toEqual({ orbits: `orbits must have at most ${LIMITS.orbitsMax} items` });
+    });
   });
 
   describe("URLs", () => {

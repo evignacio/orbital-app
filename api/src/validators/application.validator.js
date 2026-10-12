@@ -3,7 +3,7 @@
 // database. URLs are limited to http/https because swaggerUrl ends up as a
 // link href in the UI (no javascript:) and healthCheckUrl is fetched here.
 
-const LIMITS = { nameMin: 2, nameMax: 60, teamMin: 2, teamMax: 60, urlMax: 2048 };
+const LIMITS = { nameMin: 2, nameMax: 60, teamMin: 2, teamMax: 60, urlMax: 2048, orbitMin: 2, orbitMax: 40, orbitsMax: 10 };
 
 const NAME_RE = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 const TEAM_RE = /^[\p{L}\p{N} ._-]+$/u;
@@ -45,6 +45,39 @@ function checkUrl(raw, field, { required }) {
   return { value };
 }
 
+// Identity of an orbit: no accents, lowercase, spaces as "-". Two spellings with
+// the same key are the same orbit ("Integrações" = "integracoes"). The frontend's
+// orbitKey() is the same function and uses the key in ?orbita=.
+function orbitKey(name) {
+  return name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().replace(/\s+/g, "-");
+}
+
+// 1..orbitsMax orbit names, each one a team-like text. Duplicates (same
+// orbitKey) are dropped, keeping the first spelling.
+function checkOrbits(raw, limits) {
+  if (raw === undefined || raw === null) return { error: "orbits is required" };
+  if (!Array.isArray(raw)) return { error: "orbits must be an array of strings" };
+  const value = [];
+  const seen = new Set();
+  for (const item of raw) {
+    if (typeof item !== "string") return { error: "orbits must be an array of strings" };
+    if (CONTROL_RE.test(item)) return { error: "orbits must not contain control characters" };
+    const name = item.trim();
+    if (name.length < limits.orbitMin || name.length > limits.orbitMax) {
+      return { error: `each orbit must be between ${limits.orbitMin} and ${limits.orbitMax} characters` };
+    }
+    if (!TEAM_RE.test(name)) return { error: "orbits may contain only letters, digits, spaces, '.', '_' and '-'" };
+    const key = orbitKey(name);
+    if (!seen.has(key)) {
+      seen.add(key);
+      value.push(name);
+    }
+  }
+  if (value.length === 0) return { error: "orbits is required" };
+  if (value.length > limits.orbitsMax) return { error: `orbits must have at most ${limits.orbitsMax} items` };
+  return { value };
+}
+
 class ApplicationValidator {
   constructor() {
     this.LIMITS = LIMITS;
@@ -67,6 +100,7 @@ class ApplicationValidator {
       }),
       healthCheckUrl: checkUrl(body.healthCheckUrl, "healthCheckUrl", { required: true }),
       swaggerUrl: checkUrl(body.swaggerUrl, "swaggerUrl", { required: false }),
+      orbits: checkOrbits(body.orbits, this.LIMITS),
     };
     const value = {};
     const errors = {};

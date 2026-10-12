@@ -10,24 +10,28 @@ db.applications_development.insertMany([
     team: "Pagamentos",
     healthCheckUrl: "https://petstore.swagger.io/v2/swagger.json",
     swaggerUrl: "",
+    orbits: ["Dream team"],
   },
   {
     name: "catalogo-service",
     team: "Produtos",
     healthCheckUrl: "https://httpbin.org/status/200",
     swaggerUrl: "https://petstore.swagger.io/",
+    orbits: ["Dream team"],
   },
   {
     name: "notificacoes-worker",
     team: "Engajamento",
     healthCheckUrl: "https://dev-notificacoes.interno/health",
     swaggerUrl: "",
+    orbits: ["Dream team"],
   },
   {
     name: "auth-gateway",
     team: "Plataforma",
     healthCheckUrl: "https://httpbin.org/status/204",
     swaggerUrl: "https://petstore.swagger.io/",
+    orbits: ["Dream team"],
   },
 ]);
 
@@ -37,24 +41,28 @@ db.applications_staging.insertMany([
     team: "Plataforma",
     healthCheckUrl: "https://servico-inexistente-xyz.internal/health",
     swaggerUrl: "https://petstore.swagger.io/",
+    orbits: ["Dream team"],
   },
   {
     name: "checkout-api",
     team: "Pagamentos",
     healthCheckUrl: "https://httpbin.org/status/200",
     swaggerUrl: "https://petstore.swagger.io/",
+    orbits: ["Dream team"],
   },
   {
     name: "catalogo-service",
     team: "Produtos",
     healthCheckUrl: "https://hml-catalogo.interno/actuator/health",
     swaggerUrl: "",
+    orbits: ["Dream team"],
   },
   {
     name: "relatorios-api",
     team: "Dados",
     healthCheckUrl: "https://httpbin.org/status/200",
     swaggerUrl: "https://petstore.swagger.io/",
+    orbits: ["Dream team"],
   },
 ]);
 
@@ -64,12 +72,14 @@ db.applications_production.insertMany([
     team: "Pagamentos",
     healthCheckUrl: "https://petstore.swagger.io/v2/swagger.json",
     swaggerUrl: "https://petstore.swagger.io/",
+    orbits: ["Dream team"],
   },
   {
     name: "catalogo-service",
     team: "Produtos",
     healthCheckUrl: "https://httpbin.org/status/200",
     swaggerUrl: "",
+    orbits: ["Dream team"],
   },
 ]);
 

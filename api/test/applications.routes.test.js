@@ -42,6 +42,8 @@ function fakeDb(data = {}) {
         find: jest.fn(() => ({ toArray: async () => data[name] || [] })),
         insertOne: jest.fn(async () => ({ insertedId: new ObjectId("64b0000000000000000000ff") })),
         deleteOne: jest.fn(async () => ({ deletedCount: 1 })),
+        // returnDocument "before": the stored document, as the driver (v6) returns it.
+        findOneAndUpdate: jest.fn(async ({ _id }) => (data[name] || []).find(d => d._id.equals(_id)) ?? null),
       };
       return collections[name];
     }),
@@ -187,7 +189,7 @@ describe("POST /applications/:env/sync", () => {
 });
 
 describe("POST /applications/:env", () => {
-  const body = { name: "billing", team: "pagamentos", healthCheckUrl: "http://billing/health", swaggerUrl: "http://billing/docs" };
+  const body = { name: "billing", team: "pagamentos", healthCheckUrl: "http://billing/health", swaggerUrl: "http://billing/docs", orbits: ["Financeiro"] };
 
   it("cria a aplicação, responde 201 com o id gerado e invalida o cache da lista do ambiente", async () => {
     const res = await request(app).post("/applications/production").send(body);
@@ -219,23 +221,23 @@ describe("POST /applications/:env", () => {
     expect(res.status).toBe(400);
     expect(res.body).toEqual({
       error: "Invalid application",
-      fields: { team: "team is required", healthCheckUrl: "healthCheckUrl is required" },
+      fields: { team: "team is required", healthCheckUrl: "healthCheckUrl is required", orbits: "orbits is required" },
     });
     expect(log.warn).toHaveBeenCalledWith("create application rejected: invalid fields", {
       env: "production",
-      fields: ["team", "healthCheckUrl"],
+      fields: ["team", "healthCheckUrl", "orbits"],
     });
     expect(connect).not.toHaveBeenCalled();
   });
 
   it("grava os valores sem os espaços nas pontas", async () => {
-    const padded = { name: " billing ", team: " pagamentos ", healthCheckUrl: " http://billing/health ", swaggerUrl: " " };
+    const padded = { name: " billing ", team: " pagamentos ", healthCheckUrl: " http://billing/health ", swaggerUrl: " ", orbits: [" Financeiro ", "financeiro"] };
 
     const res = await request(app).post("/applications/production").send(padded);
 
     expect(res.status).toBe(201);
     expect(db.collections.applications_production.insertOne).toHaveBeenCalledWith({
-      name: "billing", team: "pagamentos", healthCheckUrl: "http://billing/health", swaggerUrl: "",
+      name: "billing", team: "pagamentos", healthCheckUrl: "http://billing/health", swaggerUrl: "", orbits: ["Financeiro"],
     });
   });
 
@@ -247,6 +249,20 @@ describe("POST /applications/:env", () => {
     expect(res.status).toBe(400);
     expect(res.body.fields).toEqual({ name: "name must be a string", team: "team must be a string" });
     expect(connect).not.toHaveBeenCalled();
+  });
+
+  it("rejeita orbits que não é uma lista de strings, sem gravar nada", async () => {
+    const res = await request(app).post("/applications/production").send({ ...body, orbits: [{ $gt: "" }] });
+
+    expect(res.status).toBe(400);
+    expect(res.body.fields).toEqual({ orbits: "orbits must be an array of strings" });
+    expect(connect).not.toHaveBeenCalled();
+  });
+
+  it("registra as órbitas no log da criação", async () => {
+    await request(app).post("/applications/production").send(body);
+
+    expect(log.info).toHaveBeenCalledWith("application created", expect.objectContaining({ orbits: ["Financeiro"] }));
   });
 
   it("rejeita swaggerUrl com javascript:, que viraria o href do link no card", async () => {
@@ -312,6 +328,89 @@ describe("POST /applications/:env", () => {
     expect(invalidate).not.toHaveBeenCalled();
     expect(log.error).toHaveBeenCalledWith("create application failed", { env: "production", name: "billing", err: expect.any(Error) });
     expect(log.error).not.toHaveBeenCalledWith("unhandled error", expect.anything());
+  });
+});
+
+describe("PUT /applications/:env/:id", () => {
+  const body = { name: "billing-api", team: "pagamentos", healthCheckUrl: "http://billing/health", swaggerUrl: "http://billing/docs", orbits: ["Financeiro"] };
+
+  it("altera a aplicação pelo ObjectId, responde 200 com ela atualizada e invalida a lista do ambiente", async () => {
+    const res = await request(app).put(`/applications/production/${ids.billing}`).send(body);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ id: ids.billing.toString(), ...body });
+    expect(db.collections.applications_production.findOneAndUpdate).toHaveBeenCalledWith(
+      { _id: ids.billing },
+      { $set: body },
+      { returnDocument: "before" }
+    );
+    expect(invalidate).toHaveBeenCalledTimes(1);
+    expect(invalidate).toHaveBeenCalledWith("apps:production");
+  });
+
+  it("mantém o último status quando a URL do health check não muda", async () => {
+    await request(app).put(`/applications/production/${ids.billing}`).send(body);
+
+    expect(removeStatuses).not.toHaveBeenCalled();
+    expect(scheduler.forget).not.toHaveBeenCalled();
+  });
+
+  it("com URL de health check nova, descarta o check em andamento e apaga o último status", async () => {
+    const res = await request(app).put(`/applications/production/${ids.billing}`).send({ ...body, healthCheckUrl: "http://billing-v2/health" });
+
+    expect(res.status).toBe(200);
+    expect(scheduler.forget).toHaveBeenCalledWith("production", ids.billing.toString());
+    expect(removeStatuses).toHaveBeenCalledWith("production", [ids.billing.toString()]);
+    expect(scheduler.forget.mock.invocationCallOrder[0]).toBeLessThan(invalidate.mock.invocationCallOrder[0]);
+  });
+
+  it("grava só os campos conhecidos, descartando campos extras do corpo", async () => {
+    await request(app).put(`/applications/production/${ids.billing}`).send({ ...body, _id: "x", env: "staging" });
+
+    expect(db.collections.applications_production.findOneAndUpdate).toHaveBeenCalledWith(
+      expect.anything(), { $set: body }, expect.anything()
+    );
+  });
+
+  it("responde 400 com os campos inválidos, sem tocar no Mongo", async () => {
+    const res = await request(app).put(`/applications/production/${ids.billing}`).send({ ...body, healthCheckUrl: "javascript:alert(1)", orbits: [] });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe("Invalid application");
+    expect(Object.keys(res.body.fields).sort()).toEqual(["healthCheckUrl", "orbits"]);
+    expect(connect).not.toHaveBeenCalled();
+    expect(log.warn).toHaveBeenCalledWith("update application rejected: invalid fields", {
+      env: "production", id: ids.billing.toString(), fields: expect.arrayContaining(["healthCheckUrl", "orbits"]),
+    });
+  });
+
+  it("responde 400 para um id que não é um ObjectId válido", async () => {
+    const res = await request(app).put("/applications/production/aaaaaaaaaaaa").send(body);
+
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: "Invalid id format" });
+    expect(connect).not.toHaveBeenCalled();
+  });
+
+  it("responde 404 e não invalida o cache quando a aplicação não existe no ambiente", async () => {
+    const res = await request(app).put(`/applications/staging/${ids.billing}`).send(body);
+
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ error: "Application not found" });
+    expect(invalidate).not.toHaveBeenCalled();
+    expect(removeStatuses).not.toHaveBeenCalled();
+  });
+
+  it("responde 500 quando a alteração no Mongo falha", async () => {
+    db.collection("applications_production").findOneAndUpdate.mockRejectedValue(new Error("not primary"));
+
+    const res = await request(app).put(`/applications/production/${ids.billing}`).send(body);
+
+    expect(res.status).toBe(500);
+    expect(res.body).toEqual({ error: "Internal error" });
+    expect(log.error).toHaveBeenCalledWith("update application failed", {
+      env: "production", id: ids.billing.toString(), name: "billing-api", err: expect.any(Error),
+    });
   });
 });
 
@@ -418,7 +517,7 @@ describe("cache da lista de aplicações", () => {
   });
 
   it("criar ou remover aplicação invalida só o cache da lista do próprio ambiente", async () => {
-    await request(app).post("/applications/staging").send({ name: "busca-api", team: "busca", healthCheckUrl: "http://busca/health" });
+    await request(app).post("/applications/staging").send({ name: "busca-api", team: "busca", healthCheckUrl: "http://busca/health", orbits: ["Busca"] });
     await request(app).delete(`/applications/staging/${ids.search}`);
 
     expect(invalidate.mock.calls.map(([key]) => key)).toEqual(["apps:staging", "apps:staging"]);
@@ -430,7 +529,7 @@ describe("middlewares do app", () => {
     const res = await request(app).get("/applications").set("Origin", "http://localhost");
 
     expect(res.headers["access-control-allow-origin"]).toBe("http://localhost");
-    expect(res.headers["access-control-allow-methods"]).toBe("GET, POST, DELETE, OPTIONS");
+    expect(res.headers["access-control-allow-methods"]).toBe("GET, POST, PUT, DELETE, OPTIONS");
     expect(res.headers["access-control-allow-headers"]).toBe("Content-Type");
     expect(res.headers.vary).toContain("Origin");
   });

@@ -40,6 +40,24 @@ class ApplicationsRepository {
     return { id: insertedId.toString(), ...doc };
   }
 
+  // Replaces the (already validated) fields of the application by id (24 hex
+  // chars, validated by the caller). Returns { before, after } — both serialized —
+  // or null when nothing matched, leaving the cache untouched. onUpdated runs
+  // synchronously right after the write, like remove()'s onDeleted.
+  async update(env, id, doc, { onUpdated } = {}) {
+    const db = await connect();
+    const before = await db.collection(this.toCollection(env)).findOneAndUpdate(
+      { _id: new ObjectId(id) },
+      { $set: { ...doc } },
+      { returnDocument: "before" }
+    );
+    if (!before) return null;
+    const previous = this.serialize(before);
+    onUpdated?.(previous);
+    await this.invalidate(env);
+    return { before: previous, after: { ...previous, ...doc } };
+  }
+
   // Removes the application by id (24 hex chars, validated by the caller).
   // Returns false when nothing matched, leaving the cache untouched. onDeleted
   // runs synchronously right after the delete, before any other await, so the

@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Galáxia — V2 Nebulosa</title>
+<link rel="stylesheet" href="../../_ds/nocturne-28f61539-545d-4d6c-bf33-6586e9d6e3fe/styles.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root { --sky-opacity:0; }
+  html, body { margin:0; padding:0; height:100%; background:#161826; overflow:hidden; }
+  * { box-sizing: border-box; }
+  button { font-family: inherit; }
+  :focus-visible { outline:2px solid var(--accent, #9184d9); outline-offset:2px; }
+  @keyframes twinkle { 0%,100% { opacity:.2 } 50% { opacity:1 } }
+  @keyframes nebula { from { transform: translate3d(-2%, -1%, 0) scale(1) } to { transform: translate3d(2%, 1.5%, 0) scale(1.06) } }
+  @keyframes bob { 0%,100% { transform: translateY(-3px) } 50% { transform: translateY(3px) } }
+</style>
+</head>
+<body>
+<div id="sky" style="position:fixed; inset:0; background:var(--bg); transition:background .4s ease; font-family:'Inter', system-ui, sans-serif">
+  <!-- Céu: nebulosas (gradientes, sem blur) e 3 camadas de estrelas com paralaxe ao mover o mouse. -->
+  <div id="space" style="position:absolute; inset:-40px; opacity:var(--sky-opacity); transition:opacity .4s ease">
+    <div data-depth="6" style="position:absolute; inset:0; will-change:transform">
+      <div style="position:absolute; left:-10%; top:-15%; width:70%; height:75%; background:radial-gradient(closest-side, rgba(145,132,217,.30), rgba(145,132,217,.10) 55%, transparent); animation:nebula 70s ease-in-out infinite alternate; animation-play-state:var(--sky-play)"></div>
+      <div style="position:absolute; right:-12%; top:20%; width:65%; height:80%; background:radial-gradient(closest-side, rgba(90,150,200,.20), rgba(90,150,200,.07) 55%, transparent); animation:nebula 90s ease-in-out -30s infinite alternate-reverse; animation-play-state:var(--sky-play)"></div>
+      <div style="position:absolute; left:20%; bottom:-25%; width:60%; height:60%; background:radial-gradient(closest-side, rgba(232,128,180,.14), rgba(232,128,180,.05) 55%, transparent); animation:nebula 110s ease-in-out -60s infinite alternate; animation-play-state:var(--sky-play)"></div>
+    </div>
+    <canvas data-depth="10" id="starsFar" style="position:absolute; inset:0; will-change:transform"></canvas>
+    <div data-depth="18" style="position:absolute; inset:0; will-change:transform"><canvas id="starsMid" style="position:absolute; inset:0; animation:twinkle 7s ease-in-out infinite; animation-play-state:var(--sky-play)"></canvas></div>
+    <div data-depth="28" style="position:absolute; inset:0; will-change:transform"><canvas id="starsNear" style="position:absolute; inset:0; animation:twinkle 5s ease-in-out -2s infinite; animation-play-state:var(--sky-play)"></canvas></div>
+  </div>
+  <svg id="map" style="position:absolute; inset:0; width:100%; height:100%; overflow:visible"></svg>
+</div>
+<script src="galaxia-comum.js"></script>
+<script>
+// Cada aplicação vira um satélite pequeno; a cor mostra a quem o problema pertence.
+function satellites(o) {
+  const n = Math.min(o.apps, 10), out = Array(n).fill(o.status ? 'healthy' : null);
+  if (o.status === 'degraded') out[0] = 'degraded';
+  if (o.status === 'unhealthy') { out[0] = 'unhealthy'; if (n > 4) out[3] = 'degraded'; }
+  return out;
+}
+
+const W0 = () => innerWidth, H0 = () => innerHeight;
+let sats = [];
+
+function drawStars() {
+  const W = W0() + 80, H = H0() + 80, rand = rng(11);
+  [['starsFar', 1 / 3000, .3, .9], ['starsMid', 1 / 9000, .5, 1.3], ['starsNear', 1 / 22000, .9, 1.9]].forEach(([id, dens, rMin, rMax]) => {
+    const ctx = hiDpiCanvas(document.getElementById(id), W, H);
+    const n = Math.round(W * H * dens);
+    for (let i = 0; i < n; i++) {
+      const r = rMin + rand() * (rMax - rMin);
+      ctx.globalAlpha = .35 + rand() * .6;
+      ctx.fillStyle = rand() < .2 ? '#cfc9f2' : '#e9e9ed';
+      ctx.beginPath(); ctx.arc(rand() * W, rand() * H, r, 0, Math.PI * 2); ctx.fill();
+    }
+  });
+}
+
+// Grade orgânica: células com deslocamento aleatório (determinístico), linhas alternadas.
+function positions(W, H, n) {
+  const portrait = W < H;
+  const cols = portrait ? 2 : W > 1200 ? 4 : 3;
+  const rows = Math.ceil(n / cols);
+  const padX = W * .07, padTop = 70, padBottom = 90;
+  const cw = (W - padX * 2) / cols, ch = (H - padTop - padBottom) / rows;
+  const rand = rng(3), pts = [];
+  for (let i = 0; i < n; i++) {
+    const row = Math.floor(i / cols), col = i % cols;
+    const inRow = Math.min(cols, n - row * cols);
+    const shift = (cols - inRow) * cw / 2 + (row % 2 ? cw * (portrait ? .12 : .25) : -cw * (portrait ? .06 : .1));
+    const x = padX + shift + cw * (col + .5) + (rand() - .5) * cw * .35;
+    // Rótulo inteiro dentro da tela, mesmo com o deslocamento da linha.
+    pts.push([Math.min(W - 64, Math.max(64, x)), padTop + ch * (row + .5) + (rand() - .5) * ch * .3]);
+  }
+  return pts;
+}
+
+function drawMap() {
+  const svg = document.getElementById('map');
+  svg.innerHTML = '';
+  const W = W0(), H = H0();
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  glowDefs(svg);
+  const k = Math.min(1, Math.max(.7, Math.min(W, H) / 820));
+  sats = [];
+  positions(W, H, ORBITS.length).forEach(([x, y], i) => {
+    const o = ORBITS[i], size = planetSize(o.apps, k * 1.2);
+    const rx = size + 34 * k, ry = rx * .42;
+    const sys = svgEl('g', { transform: `translate(${x},${y})` }, svg);
+    // Flutua de leve, cada sistema no seu ritmo.
+    const float = svgEl('g', {}, sys);
+    float.style.animation = `bob ${7 + (i % 4) * 1.3}s ease-in-out ${-i * 1.7}s infinite`;
+    float.style.animationPlayState = 'var(--spin-play, running)';
+    const ring = svgEl('ellipse', { rx, ry, fill: 'none', 'stroke-dasharray': '3 7' }, float);
+    ring.style.stroke = 'var(--orbit-ring)';
+    const back = svgEl('g', {}, float);          // satélites atrás do planeta
+    const node = drawPlanet(float, o, size, { onHover: v => { hovered = v ? o.id : null; } });
+    node.querySelectorAll('text').forEach(t => t.setAttribute('y', +t.getAttribute('y') + ry * .6));
+    const front = svgEl('g', {}, float);         // satélites na frente
+    satellites(o).forEach((st, j, all) => {
+      const c = svgEl('circle', { r: 3.2 * k }, front);
+      c.style.fill = statusColor(st);
+      sats.push({ c, back, front, rx, ry, id: o.id, phase: j / all.length * Math.PI * 2, speed: .35 / (1 + size / 40) });
+    });
+  });
+  frame(lastT);
+}
+
+let hovered = null, lastT = 0, offsets = {};
+// Um único laço move todos os satélites; o do sistema sob o mouse para.
+function frame(t) {
+  const dt = t - lastT; lastT = t;
+  for (const s of sats) {
+    if (s.id !== hovered) offsets[s.id + s.phase] = (offsets[s.id + s.phase] || 0) + dt * s.speed;
+    const a = s.phase + (offsets[s.id + s.phase] || 0);
+    const sin = Math.sin(a), behind = sin < 0;
+    s.c.setAttribute('cx', (Math.cos(a) * s.rx).toFixed(1));
+    s.c.setAttribute('cy', (sin * s.ry).toFixed(1));
+    s.c.setAttribute('opacity', behind ? .45 : 1);
+    const parent = behind ? s.back : s.front;
+    if (s.c.parentNode !== parent) parent.appendChild(s.c);
+  }
+}
+
+// Paralaxe: só transform nas camadas, aplicado no próximo quadro.
+function parallax() {
+  if (reducedMotion()) return;
+  const layers = [...document.querySelectorAll('[data-depth]')];
+  let px = 0, py = 0, queued = false;
+  addEventListener('pointermove', e => {
+    px = e.clientX / innerWidth - .5; py = e.clientY / innerHeight - .5;
+    if (queued || isLight()) return; queued = true;
+    requestAnimationFrame(() => { queued = false; layers.forEach(l => { const d = +l.dataset.depth; l.style.transform = `translate3d(${-px * d}px, ${-py * d}px, 0)`; }); });
+  });
+}
+
+mountChrome();
+applyTheme();
+if (reducedMotion()) document.documentElement.style.setProperty('--spin-play', 'paused');
+drawStars();
+drawMap();
+parallax();
+animate(frame);
+addEventListener('resize', debounce(() => { drawStars(); drawMap(); }, 150));
+</script>
+</body>
+</html>

@@ -28,8 +28,38 @@ class ApplicationsController {
     }
 
     const created = await applicationsRepository.create(env, doc);
-    req.log.info("application created", { env, id: created.id, name: doc.name, team: doc.team, healthCheckUrl: doc.healthCheckUrl });
+    req.log.info("application created", { env, id: created.id, name: doc.name, team: doc.team, orbits: doc.orbits, healthCheckUrl: doc.healthCheckUrl });
     res.status(201).json(created);
+  };
+
+  // Full replacement of the editable fields (same rules as create); the
+  // environment is part of the path and cannot change.
+  update = async (req, res) => {
+    const { env, id } = req.params;
+    if (!applicationValidator.isValidObjectId(id)) {
+      req.log.warn("update application rejected: invalid id", { env, id });
+      return res.status(400).json({ error: "Invalid id format" });
+    }
+    const { value: doc, errors } = applicationValidator.validate(req.body);
+    const invalid = Object.keys(errors);
+    if (invalid.length > 0) {
+      req.log.warn("update application rejected: invalid fields", { env, id, fields: invalid });
+      return res.status(400).json({ error: "Invalid application", fields: errors });
+    }
+
+    // A new health check URL makes the stored status (and a check of the old URL
+    // already in flight) meaningless: the app goes back to "not checked yet".
+    const urlChanged = previous => previous.healthCheckUrl !== doc.healthCheckUrl;
+    const result = await applicationsRepository.update(env, id, doc, {
+      onUpdated: previous => { if (urlChanged(previous)) schedulerService.forget(env, id); }
+    });
+    if (!result) {
+      req.log.warn("update application: not found", { env, id });
+      return res.status(404).json({ error: "Application not found" });
+    }
+    if (urlChanged(result.before)) await statusRepository.removeStatuses(env, [id]);
+    req.log.info("application updated", { env, id, name: doc.name, team: doc.team, orbits: doc.orbits, healthCheckUrl: doc.healthCheckUrl });
+    res.json(result.after);
   };
 
   remove = async (req, res) => {
