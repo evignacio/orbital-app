@@ -1,0 +1,111 @@
+@keyframes floatUp {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes flicker {
+  0%,
+  88%,
+  100% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 0.25;
+  }
+  92% {
+    opacity: 1;
+  }
+  94% {
+    opacity: 0.45;
+  }
+}
+
+/* O tom escolhe o trio de variáveis (cor, linha, preenchimento) do tema. */
+.storm {
+  --tone: var(--storm);
+  --tone-line: var(--storm-line);
+  --tone-fill: var(--storm-fill);
+}
+
+.warn {
+  --tone: var(--warn);
+  --tone-line: var(--warn-line);
+  --tone-fill: var(--warn-fill);
+}
+
+.down {
+  --tone: var(--down);
+  --tone-line: var(--down-line);
+  --tone-fill: var(--down-fill);
+}
+
+.banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  margin: -8px 0 22px;
+  padding: 12px 16px;
+  border: 1px solid var(--tone-line);
+  border-radius: var(--radius-md);
+  background: var(--tone-fill);
+  box-shadow: var(--elev-md);
+  animation: floatUp 0.3s ease;
+}
+
+.icon {
+  flex: none;
+  color: var(--tone);
+  animation: flicker 4s linear infinite;
+}
+
+.text {
+  flex: 1;
+  min-width: 220px;
+}
+
+.title {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  color: var(--tone);
+}
+
+.message {
+  margin-top: 5px;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--ink);
+  text-wrap: pretty;
+}
+
+.action {
+  padding: 7px 13px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--tone-line);
+  background: transparent;
+  color: var(--tone);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.action:hover:not(:disabled) {
+  background: var(--tone-fill);
+  border-color: var(--tone);
+}
+
+.action:focus-visible {
+  outline: 2px solid var(--tone);
+  outline-offset: 2px;
+}
+
+.action:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
