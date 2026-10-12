@@ -261,4 +261,42 @@ describe('useEventStream', () => {
     expect(FakeEventSource.instances).toHaveLength(1);
     expect(useConnectionStore.getState().apiDown).toBe(false);
   });
+
+  it('reconnectIfClosed reabre na hora um stream CLOSED, sem esperar o retry', () => {
+    const { result } = renderHook(() => useEventStream());
+    const first = FakeEventSource.last();
+    act(() => {
+      first.close();
+      first.onerror?.(new Event('error'));
+    });
+    act(() => {
+      result.current.reconnectIfClosed();
+    });
+    expect(FakeEventSource.instances).toHaveLength(2);
+    expect(first.readyState).toBe(FakeEventSource.CLOSED);
+    // O retry pendente foi cancelado: não abre um terceiro.
+    act(() => {
+      vi.advanceTimersByTime(SSE_RETRY_MS * 2);
+    });
+    expect(FakeEventSource.instances).toHaveLength(2);
+  });
+
+  it('reconnectIfClosed não faz nada com o stream aberto ou reconectando sozinho', () => {
+    const { result } = renderHook(() => useEventStream());
+    const es = FakeEventSource.last();
+    act(() => {
+      es.emitOpen();
+      result.current.reconnectIfClosed();
+      es.emitError();
+      result.current.reconnectIfClosed();
+    });
+    expect(FakeEventSource.instances).toHaveLength(1);
+  });
+
+  it('reconnectIfClosed é estável entre renders', () => {
+    const { result, rerender } = renderHook(() => useEventStream());
+    const antes = result.current.reconnectIfClosed;
+    rerender();
+    expect(result.current.reconnectIfClosed).toBe(antes);
+  });
 });

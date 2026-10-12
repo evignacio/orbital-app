@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { openEventStream, type ServerEvent } from '../api/events';
 import { SSE_DOWN_GRACE_MS, SSE_RETRY_MS } from '../domain/constants';
 import { useAppsStore } from '../store/apps.store';
@@ -10,6 +10,11 @@ export interface UseEventStreamOptions {
   onFell?: (hits: EventOutcome['fell']) => void;
   /** Só na primeira queda da API (a tempestade acendeu agora), para o alerta. */
   onApiDown?: () => void;
+}
+
+export interface EventStreamControls {
+  /** Reabre o stream na hora se o navegador o deu como CLOSED; fora disso não faz nada. */
+  reconnectIfClosed: () => void;
 }
 
 function apply(event: ServerEvent): EventOutcome {
@@ -28,12 +33,18 @@ function apply(event: ServerEvent): EventOutcome {
 // Liga o stream SSE às stores: o servidor faz os checks e aqui só se escuta. Montar
 // uma vez no app inteiro; o duplo mount do StrictMode fecha o primeiro stream e os
 // timers antes de abrir o segundo.
-export function useEventStream(options: UseEventStreamOptions = {}): void {
+export function useEventStream(options: UseEventStreamOptions = {}): EventStreamControls {
   // Os callbacks mudam a cada render; o efeito não pode recriar o stream por isso.
   const callbacks = useRef(options);
   useEffect(() => {
     callbacks.current = options;
   });
+
+  // Preenchido pelo efeito do stream; o legado (checkAll) reabria o stream CLOSED ao sincronizar.
+  const reconnect = useRef<() => void>(() => undefined);
+  const reconnectIfClosed = useCallback(() => {
+    reconnect.current();
+  }, []);
 
   useEffect(() => {
     let closeStream: (() => void) | null = null;
@@ -42,6 +53,7 @@ export function useEventStream(options: UseEventStreamOptions = {}): void {
     // O openEventStream não expõe o readyState; o que importa na graça é só se a
     // conexão voltou a abrir desde o último erro.
     let open = false;
+    let closed = false;
 
     const clearGrace = () => {
       if (graceTimer) clearTimeout(graceTimer);
@@ -63,14 +75,16 @@ export function useEventStream(options: UseEventStreamOptions = {}): void {
       clearRetry();
       closeStream?.();
       open = false;
+      closed = false;
       closeStream = openEventStream({
         onEvent,
         onOpen: () => {
           open = true;
           clearGrace();
         },
-        onError: (closed) => {
+        onError: (isClosed) => {
           open = false;
+          closed = isClosed;
           // Dentro do prazo de graça, quedas curtas (deploy, reinício) não acendem a tempestade.
           graceTimer ??= setTimeout(() => {
             graceTimer = null;
@@ -79,7 +93,7 @@ export function useEventStream(options: UseEventStreamOptions = {}): void {
             }
           }, SSE_DOWN_GRACE_MS);
           // CLOSED: o navegador desistiu (ex.: 502 do nginx sem a API) e não reconecta sozinho.
-          if (closed) {
+          if (isClosed) {
             clearRetry();
             retryTimer = setTimeout(connect, SSE_RETRY_MS);
           }
@@ -87,12 +101,18 @@ export function useEventStream(options: UseEventStreamOptions = {}): void {
       });
     };
 
+    reconnect.current = () => {
+      if (closed) connect();
+    };
     connect();
     return () => {
+      reconnect.current = () => undefined;
       clearGrace();
       clearRetry();
       closeStream?.();
       closeStream = null;
     };
   }, []);
+
+  return { reconnectIfClosed };
 }
