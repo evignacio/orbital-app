@@ -35,6 +35,15 @@ export function useTheme() {
     };
   }, [apiDown]);
 
+  // Só ao desmontar: trocar apiDown não pode limpar os atributos, senão o fade da chuva se perde.
+  useEffect(() => {
+    const root = document.documentElement;
+    return () => {
+      delete root.dataset.storm;
+      delete root.dataset.stormPlay;
+    };
+  }, []);
+
   const toggleTheme = useCallback(() => {
     setTheme(usePreferencesStore.getState().theme === 'dark' ? 'light' : 'dark');
   }, [setTheme]);

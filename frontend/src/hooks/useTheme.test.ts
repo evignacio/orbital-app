@@ -104,4 +104,14 @@ describe('useTheme', () => {
     unmount();
     expect(vi.getTimerCount()).toBe(0);
   });
+
+  it('remove os atributos da tempestade do <html> ao desmontar', () => {
+    const { unmount } = renderHook(() => useTheme());
+    act(() => {
+      useConnectionStore.getState().markApiDown();
+    });
+    unmount();
+    expect(html.dataset.storm).toBeUndefined();
+    expect(html.dataset.stormPlay).toBeUndefined();
+  });
 });
