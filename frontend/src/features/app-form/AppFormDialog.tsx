@@ -40,15 +40,17 @@ export function AppFormDialog(props: AppFormDialogProps) {
     <Modal
       title={ctl.isEditing ? 'Editar aplicação' : 'Adicionar aplicação'}
       eyebrow={ctl.isEditing ? 'AJUSTE DE ROTA' : 'NOVO LANÇAMENTO'}
+      initialFocus="dialog"
+      headerAction={
+        <button type="button" aria-label="Fechar" className={styles.close} onClick={ctl.close}>
+          ✕
+        </button>
+      }
       onClose={ctl.close}
     >
       <div className={styles.body}>
         <AppForm ctl={ctl} />
       </div>
-      {/* Depois dos campos no DOM: o foco inicial do Modal cai no nome, não no ✕. */}
-      <button type="button" aria-label="Fechar" className={styles.close} onClick={ctl.close}>
-        ✕
-      </button>
     </Modal>
   );
 }

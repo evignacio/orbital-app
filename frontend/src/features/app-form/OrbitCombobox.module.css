@@ -76,6 +76,11 @@
   outline: none;
 }
 
+/* O contorno de foco é da caixa do combobox, não do input interno (como no legado). */
+.input:focus-visible {
+  outline: none;
+}
+
 .caret {
   font-size: 10px;
   color: var(--faint);

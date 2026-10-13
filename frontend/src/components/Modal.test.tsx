@@ -121,6 +121,27 @@ describe('Modal', () => {
     expect(remover).toHaveFocus();
   });
 
+  it('com initialFocus="dialog" o foco abre no diálogo e o headerAction vem antes do título', async () => {
+    render(
+      <Modal
+        title="Formulário"
+        initialFocus="dialog"
+        headerAction={<button type="button">Fechar</button>}
+        onClose={vi.fn()}
+      >
+        <button type="button">Salvar</button>
+      </Modal>,
+    );
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toHaveFocus();
+    const fechar = screen.getByRole('button', { name: 'Fechar' });
+    const titulo = screen.getByRole('heading', { name: 'Formulário' });
+    expect(fechar.compareDocumentPosition(titulo) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // O Tab a partir do diálogo entra pelo primeiro controle, o ✕.
+    await userEvent.tab();
+    expect(fechar).toHaveFocus();
+  });
+
   it('devolve o foco ao elemento que abriu ao fechar', async () => {
     render(<ComGatilho />);
     const gatilho = screen.getByRole('button', { name: 'Abrir' });

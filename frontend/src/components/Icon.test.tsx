@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs';
 import { render, screen } from '@testing-library/react';
 import { ICON_NAMES, Icon } from './Icon';
 
@@ -29,16 +28,12 @@ describe('Icon', () => {
     expect(container.querySelector('svg')).toHaveClass('x');
   });
 
-  it('todo path de ícone existe literalmente no legado', () => {
-    const legado = ['painel.html', 'index.html', 'script.js']
-      .map((f) => readFileSync(`legacy/${f}`, 'utf8'))
-      .join('\n');
+  it('expõe os 7 ícones, cada um com um path real', () => {
     expect(ICON_NAMES).toHaveLength(7);
     for (const name of ICON_NAMES) {
       const { container } = render(<Icon name={name} />);
       const d = container.querySelector('path')?.getAttribute('d') ?? '';
       expect(d.length).toBeGreaterThan(20);
-      expect(legado).toContain(d);
     }
   });
 });

@@ -12,6 +12,16 @@ interface ModalProps {
   size?: 'sm' | 'md';
   /** Clicar no fundo também fecha (o formulário não, para não perder o que foi digitado). */
   dismissOnBackdrop?: boolean;
+  /**
+   * Controle do canto do cabeçalho (o ✕ do formulário), renderizado antes do título para
+   * a ordem do Tab e do leitor de tela ser a do legado. Quem usa o posiciona (absolute).
+   */
+  headerAction?: ReactNode;
+  /**
+   * Onde o foco cai ao abrir: no primeiro controle (confirmações) ou no próprio diálogo,
+   * sem anel visível, como o formulário do legado, que não foca nada.
+   */
+  initialFocus?: 'first' | 'dialog';
   onClose: () => void;
   children: ReactNode;
 }
@@ -37,6 +47,8 @@ export function Modal({
   eyebrowTone = 'accent',
   size = 'md',
   dismissOnBackdrop = false,
+  headerAction,
+  initialFocus = 'first',
   onClose,
   children,
 }: ModalProps) {
@@ -54,7 +66,7 @@ export function Modal({
     const token = {};
     openModals.push(token);
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    (focusables(dialog)[0] ?? dialog).focus();
+    (initialFocus === 'dialog' ? dialog : (focusables(dialog)[0] ?? dialog)).focus();
 
     // Um Esc que quem está dentro já tratou (stopPropagation, ex.: lista aberta num
     // campo) não chega aqui; o resto fecha o diálogo.
@@ -92,6 +104,8 @@ export function Modal({
       openModals.splice(openModals.indexOf(token), 1);
       opener?.focus();
     };
+    // Só o foco inicial no mount: trocar a prop depois não deve mexer no foco.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const onBackdrop = (e: MouseEvent<HTMLDivElement>) => {
@@ -108,8 +122,9 @@ export function Modal({
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className={styles.dialog}
+        className={[styles.dialog, headerAction ? styles.hasAction : ''].join(' ')}
       >
+        {headerAction}
         {eyebrow && (
           <div
             className={[mono.eyebrow, eyebrowTone === 'down' ? styles.down : styles.accent].join(
