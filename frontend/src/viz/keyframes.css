@@ -1,0 +1,31 @@
+/*
+ * Animações globais do desenho d3 (painel.html <style>). O d3 escreve o nome no
+ * style inline (`animation: twinkle …`), então os keyframes não podem passar pelo
+ * escopo dos CSS Modules. Quem desenha importa este arquivo.
+ */
+@keyframes twinkle {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes flicker {
+  0%,
+  88%,
+  100% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 0.25;
+  }
+  92% {
+    opacity: 1;
+  }
+  94% {
+    opacity: 0.45;
+  }
+}
