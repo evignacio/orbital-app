@@ -1,4 +1,5 @@
 import { Icon } from '@/components/Icon';
+import { ThemeSwitch } from '@/components/ThemeSwitch';
 import type { EnvCode } from '@/domain/types';
 import { useConnectionStore } from '@/store/connection.store';
 import { usePreferencesStore } from '@/store/preferences.store';
@@ -36,21 +37,7 @@ export function Toolbar({ env, onSync }: ToolbarProps) {
 
   return (
     <>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={light}
-        title="Alternar tema"
-        className={styles.theme}
-        onClick={toggleTheme}
-      >
-        <span className={styles.track} data-on={light}>
-          <span className={styles.knob} data-on={light} />
-        </span>
-        <span className={[mono.control, styles.themeLabel].join(' ')}>
-          {light ? 'LIGHT' : 'DARK'}
-        </span>
-      </button>
+      <ThemeSwitch light={light} onToggle={toggleTheme} />
       <button type="button" className={[mono.control, styles.sync].join(' ')} onClick={onSync}>
         {scanning ? 'Sincronizando…' : 'Sincronizar'}
       </button>
