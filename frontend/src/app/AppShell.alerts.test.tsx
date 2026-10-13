@@ -70,8 +70,6 @@ function fall() {
   });
 }
 
-const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
 beforeEach(() => {
   useAppsStore.setState(useAppsStore.getInitialState());
   useStatusStore.setState(useStatusStore.getInitialState());
@@ -90,6 +88,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
@@ -107,8 +106,11 @@ describe('AppShell: alertas só no painel', () => {
   it('na galáxia (/), a queda atualiza o status mas não alerta', async () => {
     renderAt('/');
     await screen.findByText('1 apps');
+    vi.useFakeTimers();
     fall();
-    await wait(ALERT_BATCH_MS + 100);
+    act(() => {
+      vi.advanceTimersByTime(ALERT_BATCH_MS + 100);
+    });
     expect(FakeNotification.titles).toEqual([]);
     expect(useStatusStore.getState().status.a).toBe('unhealthy');
     // A queda foi vista: ao abrir o painel ela não alerta de novo.
@@ -118,9 +120,12 @@ describe('AppShell: alertas só no painel', () => {
   it('lote enfileirado na /painel não sai se a página virou a galáxia antes do flush', async () => {
     const router = renderAt('/painel');
     await screen.findByText('1 apps');
+    vi.useFakeTimers();
     fall();
     await act(() => router.navigate('/'));
-    await wait(ALERT_BATCH_MS + 100);
+    act(() => {
+      vi.advanceTimersByTime(ALERT_BATCH_MS + 100);
+    });
     expect(FakeNotification.titles).toEqual([]);
   });
 

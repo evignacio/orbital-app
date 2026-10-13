@@ -2,6 +2,23 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { StatusMap } from '../domain/types';
 import { drawOrbits, type PanelOrbitScene, type PanelPlanets } from './panel-orbits';
 
+// O relógio do d3-timer é capturado na importação e escapa dos timers falsos: troca-se
+// o timer por um que guarda o callback, e o teste dá os quadros na mão.
+const timers = vi.hoisted(() => ({
+  ticks: [] as (() => void)[],
+  stopped: 0,
+}));
+vi.mock('d3-timer', () => ({
+  timer: (cb: () => void) => {
+    timers.ticks.push(cb);
+    return {
+      stop: () => {
+        timers.stopped += 1;
+      },
+    };
+  },
+}));
+
 const PLANETS = [
   { id: 'a', name: 'checkout-api' },
   { id: 'b', name: 'billing-api' },
@@ -18,12 +35,11 @@ function planets(over: Partial<PanelPlanets> = {}): PanelPlanets {
   return { planets: PLANETS, status: {}, selectedId: null, stale: false, ...over };
 }
 
-function wait(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 let el: HTMLDivElement;
 afterEach(() => {
+  vi.useRealTimers();
+  timers.ticks.length = 0;
+  timers.stopped = 0;
   el.remove();
 });
 
@@ -129,25 +145,27 @@ describe('drawOrbits', () => {
     orbit.destroy();
   });
 
-  it('os planetas giram e a limpeza para o timer e remove o svg', async () => {
+  it('os planetas giram e a limpeza para o timer e remove o svg', () => {
+    vi.useFakeTimers();
     const orbit = drawOrbits(mount(), scene({ t0: Date.now() - 1000 }), planets());
     const g = planetEls()[0];
     const before = g?.getAttribute('transform');
-    await wait(80);
+    vi.advanceTimersByTime(80);
+    timers.ticks.forEach((tick) => {
+      tick();
+    });
     expect(g?.getAttribute('transform')).not.toBe(before);
     orbit.destroy();
+    expect(timers.stopped).toBe(1);
     expect(el.querySelector('svg')).toBeNull();
-    const after = g?.getAttribute('transform');
-    await wait(80);
-    expect(g?.getAttribute('transform')).toBe(after);
   });
 
-  it('movimento reduzido: planetas parados na posição inicial', async () => {
+  it('movimento reduzido: planetas parados na posição inicial', () => {
     const orbit = drawOrbits(mount(), scene({ still: true }), planets());
     const g = planetEls()[0];
     expect(g?.getAttribute('transform')).toMatch(/^translate\(/);
     const before = g?.getAttribute('transform');
-    await wait(80);
+    expect(timers.ticks).toHaveLength(0);
     expect(g?.getAttribute('transform')).toBe(before);
     orbit.destroy();
   });
