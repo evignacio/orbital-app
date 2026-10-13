@@ -70,12 +70,14 @@ export function updateApplication(
   id: string,
   data: ApplicationInput,
 ): Promise<Application> {
-  return save('PUT', env, `/applications/${ENV_TO_API[env]}/${id}`, data);
+  return save('PUT', env, `/applications/${ENV_TO_API[env]}/${encodeURIComponent(id)}`, data);
 }
 
 /** Lança ApiError; o 404 (já removida em outra aba) fica para quem chama decidir. */
 export async function removeApplication(env: EnvCode, id: string): Promise<void> {
-  await apiFetch<null>(`/applications/${ENV_TO_API[env]}/${id}`, { method: 'DELETE' });
+  await apiFetch<null>(`/applications/${ENV_TO_API[env]}/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
 }
 
 // Pede ao servidor um ciclo agora (202). O resultado chega pelo stream.

@@ -116,6 +116,15 @@ describe('updateApplication', () => {
     );
     expect(app.env).toBe('prd');
   });
+
+  it('codifica o id no caminho', async () => {
+    const fetchMock = stubFetch(jsonResponse(doc));
+    await updateApplication('prd', 'a/b?c', input);
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/applications/production/a%2Fb%3Fc',
+      expect.objectContaining({ method: 'PUT' }),
+    );
+  });
 });
 
 describe('removeApplication', () => {
@@ -124,6 +133,15 @@ describe('removeApplication', () => {
     await expect(removeApplication('dev', 'a1')).resolves.toBeUndefined();
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/applications/development/a1',
+      expect.objectContaining({ method: 'DELETE' }),
+    );
+  });
+
+  it('codifica o id no caminho', async () => {
+    const fetchMock = stubFetch(new Response(null, { status: 204 }));
+    await removeApplication('dev', 'a/b?c');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/applications/development/a%2Fb%3Fc',
       expect.objectContaining({ method: 'DELETE' }),
     );
   });
