@@ -1,3 +1,5 @@
+import { useEffect, useRef } from 'react';
+import { drawStars } from '@/viz/stars';
 import styles from './SkyLayers.module.css';
 
 /**
@@ -8,9 +10,17 @@ import styles from './SkyLayers.module.css';
  * tempestade) e 3.9 (cometa). Lê tema/tempestade das stores; não recebe props.
  */
 export function SkyLayers() {
+  const starsRef = useRef<HTMLDivElement>(null);
+
+  // Desenhadas uma vez: o tema só muda a opacidade da camada e pausa o piscar (--stars-play).
+  useEffect(() => {
+    const el = starsRef.current;
+    return el ? drawStars(el) : undefined;
+  }, []);
+
   return (
     <>
-      <div className={styles.stars} />
+      <div ref={starsRef} className={styles.stars} />
       <div className={styles.clouds} />
       <div className={styles.halo} />
       <div className={styles.storm} />

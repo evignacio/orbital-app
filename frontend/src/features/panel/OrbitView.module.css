@@ -4,3 +4,18 @@
   min-height: 0;
   display: flex;
 }
+
+/* Dica do rodapé (orbitHintStyle, legacy/script.js skyVals). A section tem position:relative. */
+.hint {
+  position: absolute;
+  left: 18px;
+  bottom: 14px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  color: var(--faint);
+}
+
+.hint[data-storm] {
+  color: var(--storm);
+}
