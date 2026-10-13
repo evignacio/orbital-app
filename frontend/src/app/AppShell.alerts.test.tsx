@@ -54,6 +54,7 @@ function renderAt(path: string) {
     { initialEntries: [path] },
   );
   render(<RouterProvider router={router} />);
+  return router;
 }
 
 function fall() {
@@ -84,7 +85,8 @@ beforeEach(() => {
   );
   // Fora de foco: é quando os alertas saem.
   vi.spyOn(document, 'hasFocus').mockReturnValue(false);
-  localStorage.setItem('orbital-notify-v1', '1');
+  // A hidratação é do main.tsx: aqui as notificações são ligadas direto na store.
+  usePreferencesStore.setState({ notify: true });
 });
 
 afterEach(() => {
@@ -111,6 +113,15 @@ describe('AppShell: alertas só no painel', () => {
     expect(useStatusStore.getState().status.a).toBe('unhealthy');
     // A queda foi vista: ao abrir o painel ela não alerta de novo.
     expect(useStatusStore.getState().downSeen.has('a')).toBe(true);
+  });
+
+  it('lote enfileirado na /painel não sai se a página virou a galáxia antes do flush', async () => {
+    const router = renderAt('/painel');
+    await screen.findByText('1 apps');
+    fall();
+    await act(() => router.navigate('/'));
+    await wait(ALERT_BATCH_MS + 100);
+    expect(FakeNotification.titles).toEqual([]);
   });
 
   it('a API caindo na galáxia não alerta', async () => {
