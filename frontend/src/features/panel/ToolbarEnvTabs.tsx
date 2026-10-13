@@ -1,5 +1,6 @@
 import { ENVS } from '@/domain/environments';
 import type { EnvCode } from '@/domain/types';
+import styles from './ToolbarEnvTabs.module.css';
 
 export interface ToolbarEnvTabsProps {
   env: EnvCode;
@@ -9,8 +10,7 @@ export interface ToolbarEnvTabsProps {
 
 /**
  * Abas de ambiente do cabeçalho (painel.html ~136, envTab()). Renderiza só os
- * botões: o contêiner #envTabs (borda, fundo, @media) é da PanelPage. Stub da F3a;
- * a F3b implementa o visual.
+ * botões: o contêiner #envTabs (borda, fundo, @media) é da PanelPage.
  */
 export function ToolbarEnvTabs({ env, onChange }: ToolbarEnvTabsProps) {
   return (
@@ -20,6 +20,7 @@ export function ToolbarEnvTabs({ env, onChange }: ToolbarEnvTabsProps) {
           key={code}
           type="button"
           aria-pressed={env === code}
+          className={styles.tab}
           onClick={() => {
             onChange(code);
           }}
