@@ -1,6 +1,6 @@
 import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router';
+import { createMemoryRouter, MemoryRouter, RouterProvider } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Application } from '@/domain/types';
 import { EventStreamContext } from '@/hooks/EventStreamContext';
@@ -69,11 +69,28 @@ describe('PanelPage', () => {
     ).toBeInTheDocument();
   });
 
-  it('o link Galáxia volta para / num <a> comum (a galáxia ainda é legada)', () => {
-    renderPage('/painel?orbita=dream-team');
+  it('o link Galáxia navega para / pelo roteador, sem recarregar a página', async () => {
+    const router = createMemoryRouter(
+      [
+        {
+          path: '/painel',
+          element: (
+            <EventStreamContext value={{ reconnectIfClosed: vi.fn() }}>
+              <PanelPage />
+            </EventStreamContext>
+          ),
+        },
+        { path: '/', element: <p>galáxia</p> },
+      ],
+      { initialEntries: ['/painel?orbita=dream-team'] },
+    );
+    render(<RouterProvider router={router} />);
     const link = screen.getByRole('link', { name: /Galáxia/ });
     expect(link).toHaveAttribute('href', '/');
     expect(link).toHaveAttribute('title', 'Voltar à galáxia');
+    await userEvent.click(link);
+    expect(router.state.location.pathname).toBe('/');
+    expect(screen.getByText('galáxia')).toBeInTheDocument();
   });
 
   it('as abas de ambiente trocam o ambiente da tela e persistem', async () => {

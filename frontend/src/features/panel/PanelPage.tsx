@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from 'react';
+import { Link } from 'react-router';
 import { Icon } from '@/components/Icon';
 import { AppFormDialog } from '@/features/app-form/AppFormDialog';
 import { AppList } from './AppList';
@@ -66,10 +67,10 @@ export function PanelPage() {
         <header className={styles.headerRow}>
           <div>
             <div className={styles.nav}>
-              <a href="/" title="Voltar à galáxia" className={styles.back}>
+              <Link to="/" title="Voltar à galáxia" className={styles.back}>
                 <Icon name="arrow-left" size={14} />
                 Galáxia
-              </a>
+              </Link>
               <span className={styles.eyebrow}>{currentOrbit ? 'Órbita' : 'Todas as órbitas'}</span>
             </div>
             <div className={styles.envTabs}>
