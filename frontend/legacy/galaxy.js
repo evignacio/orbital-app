@@ -441,7 +441,7 @@ function createComponent(DCLogic) {
       if (this.leaving || !this.fxEl) return;
       this.leaving = true;
       const W = this.W, H = this.H, light = this.state.theme === 'light';
-      const go = () => { location.href = `painel.html?orbita=${encodeURIComponent(d.key)}`; };
+      const go = () => { location.href = `/painel?orbita=${encodeURIComponent(d.key)}`; };
       if (reducedMotion()) { this.veilAt(0, 120); setTimeout(go, 130); return; }
       const r = rng(13), parts = [];
       (this.orbData || []).filter(o => o !== d).forEach(o => {
