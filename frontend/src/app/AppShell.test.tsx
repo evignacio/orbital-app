@@ -4,7 +4,8 @@ import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FakeEventSource } from '../../test/setup';
 import { AppShell } from '@/app/AppShell';
-import { DiagnosticPage } from '@/features/panel/DiagnosticPage';
+import { statusText } from '@/domain/status';
+import { useEventStreamControls } from '@/hooks/EventStreamContext';
 import * as cache from '@/storage/cache';
 import { useAppsStore } from '@/store/apps.store';
 import { useConnectionStore } from '@/store/connection.store';
@@ -29,9 +30,40 @@ function apiResponse(): Response {
 
 const fetchMock = vi.fn();
 
+// Página mínima sob o AppShell: cada linha lê só o seu status (seletor por item).
+function StatusRow({ id, name }: { id: string; name: string }) {
+  const status = useStatusStore((s) => s.status[id]);
+  return (
+    <li>
+      {name}: {statusText(status)}
+    </li>
+  );
+}
+
+function ProbePage() {
+  const apps = useAppsStore((s) => s.apps);
+  const apiDown = useConnectionStore((s) => s.apiDown);
+  const { reconnectIfClosed } = useEventStreamControls();
+  return (
+    <main>
+      <p>API: {apiDown ? 'inacessível' : 'no ar'}</p>
+      {apiDown && (
+        <button type="button" onClick={reconnectIfClosed}>
+          Tentar agora
+        </button>
+      )}
+      <ul>
+        {apps.map((a) => (
+          <StatusRow key={a.id} id={a.id} name={a.name} />
+        ))}
+      </ul>
+    </main>
+  );
+}
+
 function renderShell(strict = false) {
   const router = createMemoryRouter(
-    [{ element: <AppShell />, children: [{ path: '/painel', element: <DiagnosticPage /> }] }],
+    [{ element: <AppShell />, children: [{ path: '/painel', element: <ProbePage /> }] }],
     { initialEntries: ['/painel'] },
   );
   const tree = <RouterProvider router={router} />;
@@ -64,7 +96,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('AppShell com a página de diagnóstico', () => {
+describe('AppShell', () => {
   it('carrega a lista e mostra o status do snapshot', async () => {
     renderShell();
     await appsLoaded();

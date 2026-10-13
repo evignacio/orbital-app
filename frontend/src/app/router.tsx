@@ -1,15 +1,12 @@
 import { createBrowserRouter } from 'react-router';
 import { AppShell } from '@/app/AppShell';
-import { DiagnosticPage } from '@/features/panel/DiagnosticPage';
+import { PanelPage } from '@/features/panel/PanelPage';
 
-// Provisório: a galáxia (/) e o painel (/painel) chegam nas fases F3 e F4; até lá
-// as duas rotas mostram a página de diagnóstico.
+// Só o painel por enquanto: até o corte da F4 a galáxia (/) é a legada, servida
+// pelo nginx fora da SPA (o "← Galáxia" do painel é um <a href="/"> comum).
 export const router = createBrowserRouter([
   {
     element: <AppShell />,
-    children: [
-      { path: '/', element: <DiagnosticPage /> },
-      { path: '/painel', element: <DiagnosticPage /> },
-    ],
+    children: [{ path: '/painel', element: <PanelPage /> }],
   },
 ]);
