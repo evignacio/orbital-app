@@ -32,7 +32,9 @@ describe('planetNodes', () => {
 
   it('distribui em 4 anéis, com raio, achatamento, fase, velocidade e tamanho do legado', () => {
     const nodes = planetNodes(planets, 100);
-    expect(nodes.map((n) => n.r)).toEqual([34, 56, 78, 100, 34].map((r) => expect.closeTo(r, 9)));
+    [34, 56, 78, 100, 34].forEach((r, i) => {
+      expect(nodes[i]?.r).toBeCloseTo(r, 9);
+    });
     nodes.forEach((n) => {
       expect(n.ry).toBeCloseTo(n.r * ORBIT_TILT);
     });
