@@ -1,14 +1,15 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { StrictMode } from 'react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Application } from '@/domain/types';
 import { EventStreamContext } from '@/hooks/EventStreamContext';
 import { useAppsStore } from '@/store/apps.store';
 import { useConnectionStore } from '@/store/connection.store';
 import { usePreferencesStore } from '@/store/preferences.store';
 import { useStatusStore } from '@/store/status.store';
+import { ENTER_MS } from '@/viz/galaxy-layout';
 import { GalaxyPage } from './GalaxyPage';
 
 const app = (id: string, orbits: string[]): Application => ({
@@ -70,10 +71,17 @@ beforeEach(() => {
   useConnectionStore.setState(useConnectionStore.getInitialState());
   usePreferencesStore.setState(usePreferencesStore.getInitialState());
   reconnectIfClosed.mockClear();
+  // O jsdom não tem canvas 2D (e reclama no console); a sucção roda igual sem contexto.
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null);
   vi.stubGlobal(
     'fetch',
     vi.fn(() => Promise.reject(new Error('sem rede no teste'))),
   );
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
 });
 
 describe('GalaxyPage', () => {
@@ -176,10 +184,22 @@ describe('GalaxyPage', () => {
 
   it('clicar numa órbita abre o painel dela; voltar remonta a galáxia limpa', async () => {
     useAppsStore.setState({ apps: APPS });
+    vi.useFakeTimers({
+      toFake: [
+        'setTimeout',
+        'clearTimeout',
+        'requestAnimationFrame',
+        'cancelAnimationFrame',
+        'performance',
+      ],
+    });
     const router = renderGalaxy();
-    await userEvent.click(screen.getByRole('link', { name: 'Abrir a órbita Dream team' }));
-    // A sucção leva ENTER_MS (900ms) antes de navegar: folga sobre o 1s padrão do findBy.
-    expect(await screen.findByText('painel aberto', {}, { timeout: 3000 })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('link', { name: 'Abrir a órbita Dream team' }));
+    // A navegação só acontece no fim da sucção.
+    act(() => {
+      vi.advanceTimersByTime(ENTER_MS + 50);
+    });
+    expect(screen.getByText('painel aberto')).toBeInTheDocument();
     expect(router.state.location.search).toBe('?orbita=dream-team');
     await act(() => router.navigate(-1));
     const orbs = [...document.querySelectorAll<SVGGElement>('g.orb')];
