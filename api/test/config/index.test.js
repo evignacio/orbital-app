@@ -1,9 +1,9 @@
-const { loadFresh } = require("./helpers");
+const { loadFresh } = require("../helpers");
 
 // Keeps api/.env out of the tests: only the variables each test sets count.
 jest.mock("dotenv", () => ({ config: jest.fn() }));
 
-const loadConfig = env => loadFresh(env, () => require("../src/config"));
+const loadConfig = env => loadFresh(env, () => require("../../src/config"));
 
 describe("config", () => {
   it("aplica os valores padrão quando nenhuma variável de ambiente está definida", () => {

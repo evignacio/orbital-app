@@ -1,4 +1,4 @@
-const events = require("../src/services/events.service");
+const events = require("../../src/services/events.service");
 
 const fakeRes = () => ({ write: jest.fn(), end: jest.fn() });
 

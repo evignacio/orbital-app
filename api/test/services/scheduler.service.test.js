@@ -1,4 +1,4 @@
-const { loadFresh, fakeLogger } = require("./helpers");
+const { loadFresh, fakeLogger } = require("../helpers");
 
 jest.mock("dotenv", () => ({ config: jest.fn() }));
 
@@ -33,17 +33,17 @@ beforeEach(() => {
       publish: jest.fn(),
       checkHealth: jest.fn(async app => healthy(app)),
     };
-    jest.doMock("../src/utils/logger", () => mocks.log);
-    jest.doMock("../src/repositories/applications.repository", () => ({ list: mocks.listApps }));
-    jest.doMock("../src/repositories/status.repository", () => ({
+    jest.doMock("../../src/utils/logger", () => mocks.log);
+    jest.doMock("../../src/repositories/applications.repository", () => ({ list: mocks.listApps }));
+    jest.doMock("../../src/repositories/status.repository", () => ({
       getStatuses: mocks.getStatuses,
       setStatus: mocks.setStatus,
       removeStatuses: mocks.removeStatuses,
       setCycle: mocks.setCycle,
     }));
-    jest.doMock("../src/services/events.service", () => ({ publish: mocks.publish }));
-    jest.doMock("../src/services/health-check.service", () => ({ check: mocks.checkHealth }));
-    return { scheduler: require("../src/services/scheduler.service"), mocks };
+    jest.doMock("../../src/services/events.service", () => ({ publish: mocks.publish }));
+    jest.doMock("../../src/services/health-check.service", () => ({ check: mocks.checkHealth }));
+    return { scheduler: require("../../src/services/scheduler.service"), mocks };
   }));
 });
 

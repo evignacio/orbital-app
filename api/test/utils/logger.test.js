@@ -1,4 +1,4 @@
-const { loadFresh } = require("./helpers");
+const { loadFresh } = require("../helpers");
 
 let stdout;
 let stderr;
@@ -8,7 +8,7 @@ beforeEach(() => {
   stderr = jest.spyOn(process.stderr, "write").mockImplementation(() => true);
 });
 
-const loadLogger = (env = {}) => loadFresh(env, () => require("../src/utils/logger"));
+const loadLogger = (env = {}) => loadFresh(env, () => require("../../src/utils/logger"));
 
 // Parses every line written to a stream spy.
 const lines = spy => spy.mock.calls.map(([chunk]) => JSON.parse(chunk));

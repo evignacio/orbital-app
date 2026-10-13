@@ -3,28 +3,28 @@ const request = require("supertest");
 const { ObjectId } = require("mongodb");
 
 jest.mock("dotenv", () => ({ config: jest.fn() }));
-jest.mock("../src/utils/logger", () => require("./helpers").fakeLogger());
-jest.mock("../src/config/database", () => ({ connect: jest.fn() }));
+jest.mock("../../src/utils/logger", () => require("../helpers").fakeLogger());
+jest.mock("../../src/config/database", () => ({ connect: jest.fn() }));
 // withCache runs the check straight away; caching has its own tests.
-jest.mock("../src/utils/cache", () => ({
+jest.mock("../../src/utils/cache", () => ({
   withCache: jest.fn((key, ttl, fn) => fn()),
   invalidate: jest.fn(),
 }));
-jest.mock("../src/repositories/status.repository", () => ({
+jest.mock("../../src/repositories/status.repository", () => ({
   getStatuses: jest.fn(),
   getCycle: jest.fn(),
   removeStatuses: jest.fn(),
 }));
 // The scheduler has its own tests; the routes only call force().
-jest.mock("../src/services/scheduler.service", () => ({ force: jest.fn(), forget: jest.fn(), nextCheckAt: jest.fn() }));
+jest.mock("../../src/services/scheduler.service", () => ({ force: jest.fn(), forget: jest.fn(), nextCheckAt: jest.fn() }));
 
-const app = require("../src/app");
-const config = require("../src/config");
-const log = require("../src/utils/logger");
-const { connect } = require("../src/config/database");
-const { withCache, invalidate } = require("../src/utils/cache");
-const { getStatuses, getCycle, removeStatuses } = require("../src/repositories/status.repository");
-const scheduler = require("../src/services/scheduler.service");
+const app = require("../../src/app");
+const config = require("../../src/config");
+const log = require("../../src/utils/logger");
+const { connect } = require("../../src/config/database");
+const { withCache, invalidate } = require("../../src/utils/cache");
+const { getStatuses, getCycle, removeStatuses } = require("../../src/repositories/status.repository");
+const scheduler = require("../../src/services/scheduler.service");
 
 const ids = {
   billing: new ObjectId("64b000000000000000000001"),

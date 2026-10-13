@@ -2,12 +2,12 @@ const http = require("http");
 const request = require("supertest");
 
 jest.mock("dotenv", () => ({ config: jest.fn() }));
-jest.mock("../src/utils/logger", () => require("./helpers").fakeLogger());
-jest.mock("../src/config/database", () => ({ connect: jest.fn() }));
+jest.mock("../../src/utils/logger", () => require("../helpers").fakeLogger());
+jest.mock("../../src/config/database", () => ({ connect: jest.fn() }));
 // The repository exports a class instance: spreading it would not copy the
 // prototype methods, so the real ones are bound to the actual instance.
-jest.mock("../src/repositories/applications.repository", () => {
-  const actual = jest.requireActual("../src/repositories/applications.repository");
+jest.mock("../../src/repositories/applications.repository", () => {
+  const actual = jest.requireActual("../../src/repositories/applications.repository");
   return {
     toCollection: actual.toCollection.bind(actual),
     serialize: actual.serialize.bind(actual),
@@ -17,15 +17,15 @@ jest.mock("../src/repositories/applications.repository", () => {
     invalidate: jest.fn(),
   };
 });
-jest.mock("../src/repositories/status.repository", () => ({ getStatuses: jest.fn(), getCycle: jest.fn(), removeStatuses: jest.fn() }));
-jest.mock("../src/services/scheduler.service", () => ({ force: jest.fn(), forget: jest.fn(), nextCheckAt: jest.fn() }));
+jest.mock("../../src/repositories/status.repository", () => ({ getStatuses: jest.fn(), getCycle: jest.fn(), removeStatuses: jest.fn() }));
+jest.mock("../../src/services/scheduler.service", () => ({ force: jest.fn(), forget: jest.fn(), nextCheckAt: jest.fn() }));
 
-const app = require("../src/app");
-const log = require("../src/utils/logger");
-const events = require("../src/services/events.service");
-const { list: listApps } = require("../src/repositories/applications.repository");
-const { getStatuses, getCycle } = require("../src/repositories/status.repository");
-const scheduler = require("../src/services/scheduler.service");
+const app = require("../../src/app");
+const log = require("../../src/utils/logger");
+const events = require("../../src/services/events.service");
+const { list: listApps } = require("../../src/repositories/applications.repository");
+const { getStatuses, getCycle } = require("../../src/repositories/status.repository");
+const scheduler = require("../../src/services/scheduler.service");
 
 const next = { development: "2026-10-05T14:00:20.000Z", staging: "2026-10-05T14:00:10.000Z", production: "2026-10-05T14:00:00.000Z" };
 const cycle = { env: "production", trigger: "scheduled", checked: 2, changed: 0 };

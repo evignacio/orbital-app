@@ -1,7 +1,7 @@
-jest.mock("../src/utils/cache", () => ({ withRedis: jest.fn() }));
+jest.mock("../../src/utils/cache", () => ({ withRedis: jest.fn() }));
 
-const { withRedis } = require("../src/utils/cache");
-const store = require("../src/repositories/status.repository");
+const { withRedis } = require("../../src/utils/cache");
+const store = require("../../src/repositories/status.repository");
 
 // Redis double: withRedis runs fn against it, like the real one.
 const redis = {

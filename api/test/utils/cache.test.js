@@ -1,7 +1,7 @@
-const { loadFresh } = require("./helpers");
+const { loadFresh } = require("../helpers");
 
 jest.mock("dotenv", () => ({ config: jest.fn() }));
-jest.mock("../src/utils/logger", () => require("./helpers").fakeLogger());
+jest.mock("../../src/utils/logger", () => require("../helpers").fakeLogger());
 
 // In-memory stand-in for ioredis. The commands are shared by every instance so
 // a test can script them before cache.js creates its (lazy) client.
@@ -35,9 +35,9 @@ let log;
 
 beforeEach(() => {
   ({ cache, Redis, log } = loadFresh({ REDIS_URL: "redis://redis:6379" }, () => ({
-    cache: require("../src/utils/cache"),
+    cache: require("../../src/utils/cache"),
     Redis: require("ioredis"),
-    log: require("../src/utils/logger"),
+    log: require("../../src/utils/logger"),
   })));
 });
 

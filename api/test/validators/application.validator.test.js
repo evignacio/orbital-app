@@ -1,4 +1,4 @@
-const applicationValidator = require("../src/validators/application.validator");
+const applicationValidator = require("../../src/validators/application.validator");
 
 // Called through the instance: the methods are class methods and may use this.
 const validateApplication = body => applicationValidator.validate(body);
