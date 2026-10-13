@@ -1,6 +1,9 @@
 # 🪐 Orbital
 
 ![Node.js](https://img.shields.io/badge/Node.js-339933?style=flat&logo=node.js&logoColor=white)
+![React](https://img.shields.io/badge/React-61DAFB?style=flat&logo=react&logoColor=black)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-646CFF?style=flat&logo=vite&logoColor=white)
 ![Express](https://img.shields.io/badge/Express-000000?style=flat&logo=express&logoColor=white)
 ![MongoDB](https://img.shields.io/badge/MongoDB-47A248?style=flat&logo=mongodb&logoColor=white)
 ![Redis](https://img.shields.io/badge/Redis-DC382D?style=flat&logo=redis&logoColor=white)
@@ -22,7 +25,7 @@ A metáfora orbital transforma um painel de status convencional em uma visualiza
 ```mermaid
 flowchart LR
     U(["👤 Navegador<br/>painel com o céu"])
-    F["🌐 Frontend<br/>nginx :80"]
+    F["🌐 Frontend<br/>SPA React servida pelo nginx :80"]
     A["⚙️ API<br/>Express :3001"]
     M[("🍃 MongoDB<br/>cadastro das aplicações")]
     R[("⚡ Redis<br/>cache da lista e último status")]
@@ -57,7 +60,7 @@ flowchart LR
 
 | Pasta | Conteúdo |
 |---|---|
-| `frontend/` | Páginas estáticas servidas pelo nginx: a galáxia (`index.html` + `galaxy.js`) e o painel (`painel.html` + `script.js`), com o que é comum em `common.js`. O nginx encaminha `/api/` para a API. |
+| `frontend/` | SPA em React + TypeScript, buildada com o Vite e servida pelo nginx: a galáxia em `/` e o painel em `/painel` (React Router), com o estado em stores Zustand. Em `src/`: `domain/` (regras puras), `api/`, `storage/`, `store/`, `hooks/`, `viz/` (desenho com d3 e canvas), `components/` e `features/` (galáxia, painel e formulário). O nginx entrega o `index.html` para as rotas da SPA e encaminha `/api/` para a API. |
 | `api/` | REST API Node.js + Express em camadas: `routes/` → `controllers/` → `services/` → `repositories/`, mais `config/`, `middlewares/`, `validators/` e `utils/`. |
 
 > [!WARNING]
@@ -153,7 +156,15 @@ npm run dev
 
 **Frontend:**
 
-Não há etapa de build, mas o frontend chama a API por caminho relativo (`/api/...`), então **não funciona aberto via `file://`**. Ele precisa ser servido pelo nginx do container, que encaminha `/api/` para o serviço `api`. Para ver uma alteração, rebuilde só o frontend (é rápido, só copia os arquivos estáticos):
+O frontend chama a API por caminho relativo (`/api/...`). Em desenvolvimento, o servidor do Vite encaminha `/api` para a API em `http://localhost:3001` e recarrega a tela a cada alteração:
+
+```bash
+cd frontend
+npm install
+npm run dev        # http://localhost:5173
+```
+
+Outros comandos: `npm run typecheck`, `npm run lint`, `npm test` e `npm run build` (gera `dist/`). Para ver a alteração no container (porta 80), rebuilde só o frontend — a imagem roda o build e serve o `dist/` com o nginx:
 
 ```bash
 docker compose -f docker-compose.local.yml up -d --build frontend
@@ -199,4 +210,11 @@ Testes unitários da API com Jest + Supertest, sem precisar de Mongo, Redis ou r
 cd api
 npm test
 npm run test:coverage
+```
+
+Testes do frontend com Vitest + Testing Library (jsdom, com um `EventSource` falso para o stream SSE), sem precisar da API:
+
+```bash
+cd frontend
+npm test
 ```
