@@ -1,0 +1,57 @@
+/* Coluna da frota (legacy/painel.html ~182–237). O contêiner #listCol é da PanelPage. */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-left: 2px;
+}
+
+.total {
+  color: var(--faint);
+}
+
+.shown {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--faint);
+}
+
+.search {
+  padding: 9px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--line);
+  background: var(--field);
+  color: var(--ink);
+  font-size: 13.5px;
+  outline: none;
+}
+
+.search:focus {
+  border-color: var(--accent);
+}
+
+.filterRow {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.cards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 2px 6px 8px 2px;
+  margin-right: -4px;
+}
+
+.empty {
+  padding: 26px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-md);
+  color: var(--muted);
+  font-size: 14px;
+  text-align: center;
+}

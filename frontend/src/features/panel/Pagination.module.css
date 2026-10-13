@@ -1,0 +1,40 @@
+.pagination {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.nav {
+  width: 26px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  font-size: 15px;
+  line-height: 1;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--accent-soft);
+  cursor: pointer;
+}
+
+.nav[aria-disabled='true'] {
+  color: var(--faint);
+  opacity: 0.4;
+  cursor: default;
+}
+
+.nav:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.label {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  color: var(--faint);
+  white-space: nowrap;
+}

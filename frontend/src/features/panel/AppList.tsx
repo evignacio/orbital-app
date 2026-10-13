@@ -1,6 +1,11 @@
-import type { ReactNode } from 'react';
+import { useCallback, useEffect, useRef, type ReactNode } from 'react';
 import type { Orbit } from '@/domain/orbits';
 import type { Application } from '@/domain/types';
+import { useConnectionStore } from '@/store/connection.store';
+import mono from '@/theme/mono.module.css';
+import { AppCard } from './AppCard';
+import styles from './AppList.module.css';
+import { Pagination } from './Pagination';
 
 export interface AppListProps {
   /** Ambiente da tela ∩ órbita: "FROTA · N APLICAÇÕES" e as mensagens de vazio. */
@@ -31,26 +36,99 @@ export interface AppListProps {
   stale: boolean;
 }
 
+// Lista vazia: falha de carga, ambiente sem aplicações ou filtro sem resultado.
+function emptyMsg(appCount: number, apiDown: boolean, orbit: Orbit | null): string {
+  if (appCount > 0) return 'Nenhuma aplicação corresponde ao filtro.';
+  if (apiDown) return 'Não foi possível carregar as aplicações. Tentando reconectar…';
+  if (orbit) {
+    return `Nenhuma aplicação da órbita ${orbit.name} neste ambiente. Use o botão + para lançar uma.`;
+  }
+  return 'Nenhuma aplicação em órbita ainda. Use o botão + para lançar a primeira.';
+}
+
 /**
  * Coluna da frota (painel.html ~182–237): cabeçalho, busca, filtros + paginação,
  * cards e vazio. Renderiza o conteúdo: a <section> #listCol (sticky, @media) é da
- * PanelPage. Stub da F3a; a F3c implementa.
+ * PanelPage.
  */
-export function AppList({ pagedApps, filters, onSelect }: AppListProps) {
+export function AppList({
+  envApps,
+  visibleApps,
+  pagedApps,
+  page,
+  pageCount,
+  onPageChange,
+  query,
+  onQueryChange,
+  filters,
+  selectedId,
+  onSelect,
+  onEdit,
+  onRemove,
+  currentOrbit,
+  stale,
+}: AppListProps) {
+  const apiDown = useConnectionStore((s) => s.apiDown);
+
+  // Os callbacks da página mudam de identidade a cada render dela (a cada status, com
+  // filtro ativo). Os cards memoizados recebem versões estáveis que leem o ref.
+  const latest = useRef({ onSelect, onEdit, onRemove });
+  useEffect(() => {
+    latest.current = { onSelect, onEdit, onRemove };
+  });
+  const select = useCallback((id: string) => {
+    latest.current.onSelect(id);
+  }, []);
+  const edit = useCallback((app: Application) => {
+    latest.current.onEdit(app);
+  }, []);
+  const remove = useCallback((id: string) => {
+    latest.current.onRemove(id);
+  }, []);
+
+  const total = envApps.length;
+  const shown =
+    visibleApps.length === total ? '' : `${String(visibleApps.length)} DE ${String(total)}`;
+
   return (
     <>
-      <div>{filters}</div>
-      {pagedApps.map((a) => (
-        <button
-          key={a.id}
-          type="button"
-          onClick={() => {
-            onSelect(a.id);
-          }}
-        >
-          {a.name}
-        </button>
-      ))}
+      <div className={styles.header}>
+        <span className={[mono.eyebrow, styles.total].join(' ')}>
+          {`FROTA · ${String(total)} ${total === 1 ? 'APLICAÇÃO' : 'APLICAÇÕES'}`}
+        </span>
+        <span className={styles.shown}>{shown}</span>
+      </div>
+
+      <input
+        className={styles.search}
+        value={query}
+        onChange={(e) => {
+          onQueryChange(e.target.value);
+        }}
+        placeholder="Buscar por nome ou time…"
+      />
+
+      <div className={styles.filterRow}>
+        {filters}
+        <Pagination page={page} pageCount={pageCount} onChange={onPageChange} />
+      </div>
+
+      <div className={styles.cards}>
+        {pagedApps.map((a) => (
+          <AppCard
+            key={a.id}
+            app={a}
+            selected={selectedId === a.id}
+            stale={stale}
+            onSelect={select}
+            onEdit={edit}
+            onRemove={remove}
+          />
+        ))}
+        {visibleApps.length === 0 && (
+          <div className={styles.empty}>{emptyMsg(total, apiDown, currentOrbit)}</div>
+        )}
+      </div>
     </>
   );
 }
