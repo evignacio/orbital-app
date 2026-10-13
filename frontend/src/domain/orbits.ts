@@ -15,7 +15,7 @@ export interface OrbitWithApps extends Orbit {
 export function orbitKey(name: string | null | undefined): string {
   return (name ?? '')
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
+    .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .trim()
     .replace(/\s+/g, '-');
