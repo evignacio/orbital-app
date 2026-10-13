@@ -44,7 +44,7 @@ const zones = Object.entries({
 });
 
 export default tseslint.config(
-  { ignores: ['legacy', 'dist', 'prototipos', 'public', 'node_modules'] },
+  { ignores: ['dist', 'prototipos', 'public', 'node_modules'] },
   js.configs.recommended,
   ...tseslint.configs.strictTypeChecked,
   ...tseslint.configs.stylisticTypeChecked,
