@@ -84,3 +84,16 @@
     top: 14px;
   }
 }
+
+/* A galáxia legada cortava toda animação e transição com movimento reduzido
+   (index.html <helmet>); aqui só dentro da página, para não mudar o painel. */
+@media (prefers-reduced-motion: reduce) {
+  .root,
+  .root *,
+  .root *::before,
+  .root *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
