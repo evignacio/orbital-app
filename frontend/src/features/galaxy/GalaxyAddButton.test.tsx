@@ -28,12 +28,12 @@ afterEach(() => {
 const open = () => userEvent.click(screen.getByRole('button', { name: 'Adicionar aplicação' }));
 
 describe('GalaxyAddButton', () => {
-  it('abre o formulário no ambiente salvo e fecha pelo ✕', async () => {
+  it('abre o formulário em PRODUÇÃO (o legado ignora o ambiente salvo) e fecha pelo ✕', async () => {
     render(<GalaxyAddButton />);
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     await open();
     expect(screen.getByRole('dialog', { name: 'Adicionar aplicação' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'HOMOLOGAÇÃO' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: 'PRODUÇÃO' })).toHaveAttribute(
       'aria-pressed',
       'true',
     );

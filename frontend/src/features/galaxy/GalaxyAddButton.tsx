@@ -1,8 +1,8 @@
 import { useState } from 'react';
+import { DEFAULT_ENV } from '@/domain/environments';
 import type { Application } from '@/domain/types';
 import { AppFormDialog } from '@/features/app-form/AppFormDialog';
 import { useAppsStore } from '@/store/apps.store';
-import { usePreferencesStore } from '@/store/preferences.store';
 import styles from './GalaxyAddButton.module.css';
 
 // onAppCreated do legado (galaxy.js ~502): a app entra na lista e, se trouxer uma
@@ -25,7 +25,6 @@ function onUpdated(): void {
  */
 export function GalaxyAddButton() {
   const [open, setOpen] = useState(false);
-  const env = usePreferencesStore((s) => s.env);
   return (
     <>
       <button
@@ -42,7 +41,7 @@ export function GalaxyAddButton() {
       <AppFormDialog
         open={open}
         editing={null}
-        initialEnv={env}
+        initialEnv={DEFAULT_ENV}
         initialOrbit={null}
         onClose={() => {
           setOpen(false);
