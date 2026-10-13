@@ -2,6 +2,8 @@ import { useMemo } from 'react';
 import { STATUS_META, STATUSES } from '@/domain/status';
 import type { Application } from '@/domain/types';
 import { useStatusStore } from '@/store/status.store';
+import mono from '@/theme/mono.module.css';
+import styles from './StatsBar.module.css';
 
 export interface StatsBarProps {
   /** envApps: ambiente da tela ∩ órbita (headerVals ~904). */
@@ -11,7 +13,7 @@ export interface StatsBarProps {
 /**
  * Contadores por status do cabeçalho (painel.html ~148, statCard()). Renderiza só
  * os cartões: o contêiner #statsRow (opacidade e title "Dados desatualizados"
- * quando stale, @media) é da PanelPage. Stub da F3a; a F3b implementa o visual.
+ * quando stale, @media) é da PanelPage. No legado não são clicáveis.
  */
 export function StatsBar({ apps }: StatsBarProps) {
   const status = useStatusStore((s) => s.status);
@@ -22,8 +24,11 @@ export function StatsBar({ apps }: StatsBarProps) {
   return (
     <>
       {counts.map(([s, count]) => (
-        <div key={s}>
-          <span>{STATUS_META[s].chip}</span> <span>{count}</span>
+        <div key={s} className={styles.card} data-tone={STATUS_META[s].tone}>
+          <span className={[mono.stat, styles.label].join(' ')}>{STATUS_META[s].chip}</span>
+          <span className={styles.count} data-testid="stat-count">
+            {count}
+          </span>
         </div>
       ))}
     </>

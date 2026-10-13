@@ -1,0 +1,64 @@
+/* Sino e popover de alertas (legacy/painel.html ~108–125). */
+.wrap {
+  position: relative;
+}
+
+.bell {
+  display: flex;
+  align-items: center;
+  padding: 4px 6px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.bell[data-active='true'] {
+  color: var(--accent-soft);
+}
+
+.bell:hover {
+  color: var(--accent-soft);
+}
+
+.popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 21;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  padding: 13px 15px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--dialog);
+  box-shadow: var(--elev-md);
+  animation: floatUp 0.16s ease;
+}
+
+@keyframes floatUp {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.blocked {
+  max-width: 200px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--down);
+}
+
+.hint {
+  max-width: 200px;
+  font-size: 10.5px;
+  line-height: 1.45;
+  color: var(--faint);
+  text-align: left;
+}
