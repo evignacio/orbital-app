@@ -1,5 +1,8 @@
 import { Modal } from '@/components/Modal';
 import type { Application, EnvCode } from '@/domain/types';
+import { AppForm } from './AppForm';
+import styles from './AppFormDialog.module.css';
+import { useAppForm } from './useAppForm';
 
 export interface AppFormDialogProps {
   /**
@@ -9,7 +12,11 @@ export interface AppFormDialogProps {
   open: boolean;
   /** App em edição (PUT, ambiente travado no dela); null é cadastro novo (POST). */
   editing: Application | null;
-  /** Ambiente inicial de um cadastro novo (o da tela, no painel). */
+  /**
+   * Ambiente do primeiro cadastro (o da tela, no painel). Depois o form guarda o
+   * dele: o próximo cadastro em branco nasce no ambiente do último envio ou edição,
+   * como o blankForm(form.env) do legado.
+   */
   initialEnv: EnvCode;
   /** Nome da órbita pré-selecionada num cadastro novo (blankForm); null sem órbita. */
   initialOrbit: string | null;
@@ -23,19 +30,24 @@ export interface AppFormDialogProps {
 
 /**
  * Modal de cadastro/edição de aplicação (painel.html ~239–340, legacy/app-form.js),
- * reaproveitado pela galáxia na F4: nada aqui é do painel. A lista de apps (times e
- * órbitas sugeridos) vem de useAppsStore. Stub da F3a; a F3d implementa.
+ * reaproveitado pela galáxia: nada aqui é do painel. A lista de apps (times e órbitas
+ * sugeridos) vem de useAppsStore. O fundo não fecha, para não perder o que foi digitado.
  */
-export function AppFormDialog({ open, editing, onClose }: AppFormDialogProps) {
-  if (!open) return null;
+export function AppFormDialog(props: AppFormDialogProps) {
+  const ctl = useAppForm(props);
+  if (!props.open) return null;
   return (
     <Modal
-      title={editing ? 'Editar aplicação' : 'Adicionar aplicação'}
-      eyebrow={editing ? 'AJUSTE DE ROTA' : 'NOVO LANÇAMENTO'}
-      onClose={onClose}
+      title={ctl.isEditing ? 'Editar aplicação' : 'Adicionar aplicação'}
+      eyebrow={ctl.isEditing ? 'AJUSTE DE ROTA' : 'NOVO LANÇAMENTO'}
+      onClose={ctl.close}
     >
-      <button type="button" onClick={onClose}>
-        Cancelar
+      <div className={styles.body}>
+        <AppForm ctl={ctl} />
+      </div>
+      {/* Depois dos campos no DOM: o foco inicial do Modal cai no nome, não no ✕. */}
+      <button type="button" aria-label="Fechar" className={styles.close} onClick={ctl.close}>
+        ✕
       </button>
     </Modal>
   );

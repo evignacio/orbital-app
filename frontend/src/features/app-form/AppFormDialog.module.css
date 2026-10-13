@@ -1,0 +1,33 @@
+/*
+ * O Modal desenha eyebrow e título no tamanho da confirmação. O formulário do legado
+ * (painel.html ~243) tem o título maior, o ✕ à direita do cabeçalho e 20px até o
+ * primeiro campo: o diálogo que contém .body ganha esses ajustes sem mexer no Modal.
+ */
+:global([role='dialog']):has(> .body) {
+  position: relative;
+}
+
+:global([role='dialog']):has(> .body) > h2 {
+  margin-top: 8px;
+  font-size: 22px;
+  /* espaço do ✕ (32px) mais o gap de 16px do cabeçalho do legado */
+  padding-right: 48px;
+}
+
+.body {
+  margin-top: 20px;
+}
+
+.close {
+  position: absolute;
+  top: var(--dialog-pad);
+  right: var(--dialog-pad);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--muted);
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: 15px;
+}

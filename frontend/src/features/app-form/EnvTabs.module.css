@@ -1,0 +1,32 @@
+.tabs {
+  display: flex;
+  gap: 6px;
+}
+
+/* envTab() do legado. */
+.tab {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  padding: 7px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+}
+
+.active {
+  border-color: var(--accent);
+  background: var(--accent-tint);
+  color: var(--accent-soft);
+}
+
+.locked {
+  cursor: default;
+}
+
+.hint {
+  font-size: 12px;
+  color: var(--faint);
+}

@@ -44,6 +44,11 @@ interface StatusActions {
   applyCycle: (msg: CycleMsg, apps: readonly Application[]) => EventOutcome;
   /** Lista nova: status e downSeen ficam só com os ids que seguem nela. */
   pruneTo: (ids: ReadonlySet<string>) => void;
+  /**
+   * Esquece o status de uma app (e a queda já alertada): ela volta a "não verificado".
+   * A edição com URL de health check nova pede isso, porque a API apaga o último status.
+   */
+  forget: (id: string) => void;
   /** Carga inicial: não grava, só devolve ao estado o que já estava no cache. */
   hydrate: (init: Pick<StatusState, 'status' | 'ts' | 'staleEnvs' | 'downSeen'>) => void;
 }
@@ -131,6 +136,16 @@ export const useStatusStore = create<StatusState & StatusActions>()((set, get) =
       const kept = pruneToKnown(s.status, s.downSeen, ids);
       set(kept);
       writeStatusCache(kept.status, s.ts);
+    },
+    forget: (id) => {
+      const s = get();
+      const status = { ...s.status };
+      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete -- mapa por id, cópia local
+      delete status[id];
+      const downSeen = new Set(s.downSeen);
+      downSeen.delete(id);
+      set({ status, downSeen });
+      writeStatusCache(status, s.ts);
     },
     hydrate: (init) => {
       set(init);
