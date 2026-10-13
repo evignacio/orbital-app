@@ -1,0 +1,26 @@
+.wrap {
+  position: relative;
+}
+
+.list {
+  max-height: 180px;
+}
+
+.suggestion {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 9px 13px;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+  font-size: 14px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.suggestion:hover {
+  background: var(--accent-tint);
+  color: var(--accent-soft);
+}

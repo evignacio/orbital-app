@@ -1,0 +1,139 @@
+.anchor {
+  position: relative;
+}
+
+/* orbitBoxStyle do legado: a borda acende com a lista aberta; o erro vence. */
+.box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-height: 46px;
+  padding: 6px 8px;
+  border-radius: var(--radius-md);
+  background: var(--field);
+  cursor: text;
+  border: 1px solid var(--line);
+}
+
+.open {
+  border-color: var(--accent);
+}
+
+.invalid {
+  border-color: var(--down);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 3px 3px 9px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-tint);
+  border: 1px solid var(--line);
+  font-size: 12.5px;
+  color: var(--ink);
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.newDot {
+  border: 1px dashed var(--accent);
+}
+
+.chipRemove {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 10px;
+  border-radius: var(--radius-sm);
+}
+
+.chipRemove:hover {
+  color: var(--ink);
+}
+
+.input {
+  flex: 1;
+  min-width: 140px;
+  padding: 5px 2px;
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  font-size: 14px;
+  outline: none;
+}
+
+.caret {
+  font-size: 10px;
+  color: var(--faint);
+  padding: 0 4px;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 210px;
+  padding: 4px;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 13.5px;
+  text-align: left;
+  background: transparent;
+  color: var(--muted);
+}
+
+.on {
+  color: var(--ink);
+}
+
+.create {
+  color: var(--accent-soft);
+}
+
+.hi {
+  background: var(--accent-tint);
+}
+
+.optionLabel {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.optionHint {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--faint);
+}
+
+.empty {
+  padding: 9px 10px;
+  font-size: 13px;
+  color: var(--faint);
+}

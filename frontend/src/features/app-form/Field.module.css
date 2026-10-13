@@ -1,0 +1,61 @@
+/* Peças comuns dos campos do cadastro (legacy/painel.html ~250–330, fieldStyle em app-form.js). */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.required {
+  color: var(--down);
+}
+
+.optional {
+  color: var(--faint);
+}
+
+.input {
+  padding: 11px 13px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--line);
+  background: var(--field);
+  color: var(--ink);
+  font-size: 14px;
+  outline: none;
+}
+
+.mono {
+  font-family: var(--mono);
+}
+
+.invalid {
+  border-color: var(--down);
+}
+
+.input:focus {
+  border-color: var(--accent);
+}
+
+.error {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--down);
+}
+
+/* Lista de sugestões aberta sob o campo (time e órbitas). */
+.dropdown {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  right: 0;
+  z-index: 200;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-md);
+  background: var(--dialog);
+  box-shadow: var(--elev-md);
+  overflow-y: auto;
+}
