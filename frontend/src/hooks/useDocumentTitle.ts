@@ -7,9 +7,9 @@ import { useStatusStore } from '../store/status.store';
 /** Título da aba: tempestade, contagem de apps fora do ar (todos os ambientes) ou o nome base. */
 export function useDocumentTitle(): void {
   const apiDown = useConnectionStore((s) => s.apiDown);
-  const status = useStatusStore((s) => s.status);
   const apps = useAppsStore((s) => s.apps);
-  const count = apps.filter((a) => status[a.id] === 'unhealthy').length;
+  // O seletor devolve só o número: o AppShell não renderiza a cada evento de status.
+  const count = useStatusStore((s) => apps.filter((a) => s.status[a.id] === 'unhealthy').length);
 
   useEffect(() => {
     if (apiDown) document.title = `⛈ API inacessível · ${BASE_TITLE}`;

@@ -51,6 +51,20 @@ describe('useDocumentTitle', () => {
     expect(document.title).toBe('(1) ⚠ Orbital - App');
   });
 
+  it('um status que não muda a contagem não re-renderiza o hook', () => {
+    useStatusStore.setState({ status: { a: 'unhealthy' } });
+    let renders = 0;
+    renderHook(() => {
+      renders += 1;
+      useDocumentTitle();
+    });
+    const before = renders;
+    act(() => {
+      useStatusStore.setState({ status: { a: 'unhealthy', b: 'healthy' } });
+    });
+    expect(renders).toBe(before);
+  });
+
   it('a tempestade vence a contagem', () => {
     useStatusStore.setState({ status: { a: 'unhealthy' } });
     renderHook(() => {
