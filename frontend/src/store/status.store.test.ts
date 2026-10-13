@@ -227,3 +227,26 @@ describe('forget', () => {
     expect(stored()).toEqual({ status: { b: 'healthy' }, ts: 7 });
   });
 });
+
+describe('synced', () => {
+  it('começa false e qualquer evento do servidor o liga, mesmo sem mudar status', () => {
+    expect(status().synced).toBe(false);
+    status().applyStatus(statusMsg('a', 'healthy'), APPS);
+    status().applyStatus(statusMsg('a', 'healthy'), APPS);
+    expect(status().synced).toBe(true);
+  });
+
+  it('snapshot sem ciclo e cycle também ligam', () => {
+    status().applySnapshot(snapshotMsg('prd', [], null), APPS);
+    expect(status().synced).toBe(true);
+    useStatusStore.setState(useStatusStore.getInitialState());
+    status().applyCycle(cycleMsg('prd', 2, 10), APPS);
+    expect(status().synced).toBe(true);
+  });
+
+  it('hidratação e poda não ligam', () => {
+    status().hydrate({ status: { a: 'healthy' }, ts: 1, staleEnvs: [], downSeen: new Set() });
+    status().pruneTo(new Set(['a']));
+    expect(status().synced).toBe(false);
+  });
+});

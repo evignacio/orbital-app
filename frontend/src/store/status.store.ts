@@ -30,6 +30,11 @@ interface StatusState {
   /** Fim do último ciclo conhecido de cada ambiente (ms); `null` enquanto não houve. */
   cycles: Record<EnvCode, number | null>;
   downSeen: Set<string>;
+  /**
+   * Já chegou algum evento do servidor (snapshot, status ou cycle) desde a carga:
+   * o `synced` do legado. A galáxia usa para tirar o "último conhecido" da carga.
+   */
+  synced: boolean;
 }
 
 /** O que o hook de eventos decide com o resultado: alertar quedas e recarregar a lista. */
@@ -82,10 +87,15 @@ export const useStatusStore = create<StatusState & StatusActions>()((set, get) =
     const conn = useConnectionStore.getState();
     const cleared = conn.apiDown;
     if (diff.moved || cleared || extra) {
-      set({ status: { ...s.status, ...diff.patch }, downSeen: diff.downSeen, ...extra });
+      set({
+        status: { ...s.status, ...diff.patch },
+        downSeen: diff.downSeen,
+        synced: true,
+        ...extra,
+      });
       writeStatusCache(get().status, get().ts);
     } else {
-      set({ downSeen: diff.downSeen });
+      set({ downSeen: diff.downSeen, synced: true });
     }
     conn.markApiUp();
     // A lista pode ter mudado enquanto a API estava fora, ou em outra aba.
@@ -98,6 +108,7 @@ export const useStatusStore = create<StatusState & StatusActions>()((set, get) =
     staleEnvs: [],
     cycles: noCycles(),
     downSeen: new Set(),
+    synced: false,
 
     applySnapshot: (msg, apps) => {
       const checkedAt = msg.cycle ? msg.cycle.checkedAt : null;
