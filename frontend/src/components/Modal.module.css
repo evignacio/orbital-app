@@ -54,6 +54,20 @@
   animation: floatUp 0.22s cubic-bezier(0.2, 0.8, 0.3, 1);
 }
 
+.md .title {
+  margin-top: 8px;
+  font-size: 22px;
+}
+
+/* Âncora do controle do cabeçalho; o título deixa o espaço dele (32px + 16px de respiro). */
+.hasAction {
+  position: relative;
+}
+
+.hasAction .title {
+  padding-right: 48px;
+}
+
 .dialog:focus {
   outline: none;
 }

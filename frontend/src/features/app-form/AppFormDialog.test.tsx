@@ -112,6 +112,14 @@ afterEach(() => {
 });
 
 describe('AppFormDialog: cadastro', () => {
+  it('abre sem focar campo nenhum: o foco fica no diálogo e o ✕ é o primeiro do Tab', async () => {
+    render(<Harness />);
+    expect(screen.getByRole('dialog')).toHaveFocus();
+    expect(field.name()).not.toHaveFocus();
+    await userEvent.tab();
+    expect(screen.getByRole('button', { name: 'Fechar' })).toHaveFocus();
+  });
+
   it('mostra os textos do legado e as três abas, com o ambiente inicial marcado', () => {
     render(<Harness />);
     const dialog = screen.getByRole('dialog', { name: 'Adicionar aplicação' });
