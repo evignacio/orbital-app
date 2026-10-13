@@ -1,0 +1,49 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 12px;
+  min-height: 100vh;
+  padding: 0 24px;
+  max-width: 560px;
+  margin: 0 auto;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+}
+
+.eyebrow,
+.back {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+}
+
+.eyebrow {
+  color: var(--faint);
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+}
+
+.text {
+  margin: 0;
+  color: var(--muted);
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.back:hover {
+  color: var(--accent-soft);
+}
