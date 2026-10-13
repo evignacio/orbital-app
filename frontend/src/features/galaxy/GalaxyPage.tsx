@@ -85,6 +85,7 @@ export function GalaxyPage() {
 
       <GalaxyStormBanner onRetry={retry} />
 
+      {/* Sem o cartão "GALÁXIA INDISPONÍVEL" (d3Failed) do legado: o d3 agora vem no bundle. */}
       {empty && <div className={styles.empty}>{emptyMessage(apiDown, appCount)}</div>}
 
       <GalaxyAddButton />
