@@ -1,0 +1,6 @@
+/* O d3 desenha aqui; ocupa a section #orbitPanel inteira (painel.html ~173). */
+.container {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}

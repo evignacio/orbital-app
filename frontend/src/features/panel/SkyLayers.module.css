@@ -1,0 +1,44 @@
+/* Valores do painel.html ~72–76; a raiz da página é position:relative + overflow:hidden. */
+.stars,
+.clouds,
+.storm,
+.comet {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.stars {
+  opacity: calc(var(--star-opacity) * var(--calm, 1));
+  transition: opacity 1.2s ease;
+}
+
+.clouds {
+  opacity: calc(var(--cloud-opacity) * var(--calm, 1));
+  transition: opacity 1.2s ease;
+}
+
+.halo {
+  position: absolute;
+  top: -180px;
+  left: 50%;
+  width: 900px;
+  height: 420px;
+  transform: translateX(-50%);
+  background: radial-gradient(closest-side, var(--halo), transparent 70%);
+  pointer-events: none;
+  opacity: var(--calm, 1);
+  transition: opacity 1.2s ease;
+}
+
+.storm {
+  overflow: hidden;
+  opacity: var(--storm-on, 0);
+  transition: opacity 1.2s ease;
+}
+
+.comet {
+  overflow: hidden;
+  opacity: var(--comet-opacity, 0);
+  transition: opacity 0.6s ease;
+}

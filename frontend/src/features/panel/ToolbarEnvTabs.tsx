@@ -1,0 +1,32 @@
+import { ENVS } from '@/domain/environments';
+import type { EnvCode } from '@/domain/types';
+
+export interface ToolbarEnvTabsProps {
+  env: EnvCode;
+  /** setEnv de usePanelFilters: persiste e zera página e seleção. */
+  onChange: (env: EnvCode) => void;
+}
+
+/**
+ * Abas de ambiente do cabeçalho (painel.html ~136, envTab()). Renderiza só os
+ * botões: o contêiner #envTabs (borda, fundo, @media) é da PanelPage. Stub da F3a;
+ * a F3b implementa o visual.
+ */
+export function ToolbarEnvTabs({ env, onChange }: ToolbarEnvTabsProps) {
+  return (
+    <>
+      {ENVS.map(({ code, label }) => (
+        <button
+          key={code}
+          type="button"
+          aria-pressed={env === code}
+          onClick={() => {
+            onChange(code);
+          }}
+        >
+          {label}
+        </button>
+      ))}
+    </>
+  );
+}

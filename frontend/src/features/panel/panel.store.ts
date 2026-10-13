@@ -1,8 +1,14 @@
 import { create } from 'zustand';
+import { isStatus } from '@/domain/status';
 import type { Application, Status } from '@/domain/types';
 
 /** Valor de um chip de filtro (domain/status.ts, FILTERS): 'all' ou um status. */
 export type StatusFilter = 'all' | Status;
+
+/** O valor de FILTERS (string) como filtro; desconhecido vira 'all'. */
+export function toStatusFilter(v: string): StatusFilter {
+  return isStatus(v) ? v : 'all';
+}
 
 // Estado de tela do painel (legacy/script.js: query, filter, page, selectedId,
 // pendingRemoveId e o formOpen/editingId do app-form.js). Não persiste: some ao
