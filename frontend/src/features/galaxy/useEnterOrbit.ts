@@ -72,6 +72,8 @@ export function useEnterOrbit({
       const canvas = fxRef.current;
       if (state.leaving || !root || !canvas) return;
       state.leaving = true;
+      // Com movimento reduzido o legado nem apagava as outras camadas; aqui elas
+      // apagam pelo `leaving` mesmo assim, mas o véu as cobre em 120ms.
       setLeavingKey(node.key);
       const go = () => {
         state.cancel = null;
