@@ -1,0 +1,50 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.formError {
+  padding: 10px 12px;
+  border: 1px solid var(--down-line);
+  border-radius: var(--radius-md);
+  background: var(--down-fill);
+  color: var(--down);
+  font-size: 13px;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.cancel {
+  flex: 1;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.submit {
+  flex: 1.4;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--accent);
+  background: var(--accent-tint);
+  color: var(--accent-soft);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.submit:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
