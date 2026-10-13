@@ -1,0 +1,52 @@
+/* Switch do tema (legacy/common.js swTrack/swKnob, MONO_CONTROL no rótulo). */
+.theme {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.label {
+  color: var(--muted);
+}
+
+.track {
+  position: relative;
+  width: 38px;
+  height: 21px;
+  border-radius: 11px;
+  flex: none;
+  transition:
+    background 0.25s ease,
+    border-color 0.25s ease;
+  border: 1px solid var(--line);
+  background: transparent;
+}
+
+.track[data-on='true'] {
+  border-color: var(--accent);
+  background: var(--accent-tint);
+}
+
+.knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  transition:
+    transform 0.25s cubic-bezier(0.3, 0.8, 0.3, 1),
+    background 0.25s ease;
+  background: var(--faint);
+  transform: translateX(0);
+}
+
+.knob[data-on='true'] {
+  background: var(--accent);
+  transform: translateX(17px);
+}
