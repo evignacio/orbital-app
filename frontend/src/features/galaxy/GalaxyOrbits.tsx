@@ -63,6 +63,10 @@ export function GalaxyOrbits({
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+    // Como o drawOrbits do legado com `this.leaving`: durante a saída o desenho
+    // fica como está (as outras órbitas já apagadas) até a página sair.
+    if (latest.current.leavingKey && drawing.current) return;
+    drawing.current?.destroy();
     t0.current ??= performance.now();
     const drawn = drawGalaxyOrbits(el, {
       orbits,
@@ -76,15 +80,20 @@ export function GalaxyOrbits({
         latest.current.onEnter(node);
       },
     });
-    // Um redesenho no meio da sucção já nasce com as outras órbitas apagadas.
+    // Sem desenho anterior (a saída começou antes do primeiro), já nasce com as outras apagadas.
     const leaving = latest.current.leavingKey;
     if (leaving) drawn.leave(leaving);
     drawing.current = drawn;
-    return () => {
-      drawn.destroy();
-      drawing.current = null;
-    };
   }, [orbits, status, colorOf, light, stale, still, sizeKey]);
+
+  // O desenho só some ao desmontar: uma mudança no meio da saída não pode apagá-lo.
+  useEffect(
+    () => () => {
+      drawing.current?.destroy();
+      drawing.current = null;
+    },
+    [],
+  );
 
   useEffect(() => {
     if (leavingKey) drawing.current?.leave(leavingKey);
