@@ -1,0 +1,15 @@
+/*
+ * Animações globais da galáxia (legacy/index.html <style>). O twinkle da galáxia
+ * vai de .15 a 1, o do painel (keyframes.css) de .25: nomes diferentes para os
+ * dois conviverem no mesmo bundle. Quem desenha a cintilação (4.2) importa este
+ * arquivo e escreve `animation: galaxyTwinkle …` no style inline.
+ */
+@keyframes galaxyTwinkle {
+  0%,
+  100% {
+    opacity: 0.15;
+  }
+  50% {
+    opacity: 1;
+  }
+}

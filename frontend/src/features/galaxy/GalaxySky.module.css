@@ -1,0 +1,23 @@
+/* legacy index.html ~61–62; a saída (enter ~460) apaga o canvas para .25 em .8s ease-in. */
+.sky {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  opacity: var(--star-opacity);
+  transition: opacity 0.4s ease;
+}
+
+.sky[data-leaving='true'] {
+  opacity: 0.25;
+  transition: opacity 0.8s ease-in;
+}
+
+.twinkles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: var(--star-opacity);
+  transition: opacity 0.4s ease;
+}
