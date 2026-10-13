@@ -47,6 +47,13 @@ describe('StatsBar', () => {
     expect(count('FORA')).toBe('1');
   });
 
+  it('o rótulo herda a fonte e a cor do texto, sem estilo mono nem cor do status', () => {
+    render(<StatsBar apps={[app('a')]} />);
+    const label = screen.getByText('NO AR');
+    expect(label).not.toHaveAttribute('class');
+    expect(label).not.toHaveAttribute('style');
+  });
+
   it('não tem controles clicáveis, como no legado', () => {
     render(<StatsBar apps={[app('a')]} />);
     expect(screen.queryByRole('button')).not.toBeInTheDocument();

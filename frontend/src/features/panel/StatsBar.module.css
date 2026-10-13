@@ -1,4 +1,8 @@
-/* statCard() do legado: o tom (up, warn, down) escolhe linha, fundo e cor do rótulo. */
+/*
+ * statCard() do legado: o tom (up, warn, down) escolhe linha e fundo. O rótulo não tem
+ * estilo próprio: o runtime do legado descartava o style dele, então herda Inter 15px
+ * na cor do texto, e é isso que o usuário vê.
+ */
 .card {
   display: flex;
   align-items: baseline;
@@ -21,18 +25,6 @@
 .card[data-tone='down'] {
   border-color: var(--down-line);
   background: var(--down-fill);
-}
-
-.card[data-tone='up'] .label {
-  color: var(--up);
-}
-
-.card[data-tone='warn'] .label {
-  color: var(--warn);
-}
-
-.card[data-tone='down'] .label {
-  color: var(--down);
 }
 
 .count {

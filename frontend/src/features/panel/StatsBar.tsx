@@ -2,7 +2,6 @@ import { useMemo } from 'react';
 import { STATUS_META, STATUSES } from '@/domain/status';
 import type { Application } from '@/domain/types';
 import { useStatusStore } from '@/store/status.store';
-import mono from '@/theme/mono.module.css';
 import styles from './StatsBar.module.css';
 
 export interface StatsBarProps {
@@ -25,7 +24,7 @@ export function StatsBar({ apps }: StatsBarProps) {
     <>
       {counts.map(([s, count]) => (
         <div key={s} className={styles.card} data-tone={STATUS_META[s].tone}>
-          <span className={[mono.stat, styles.label].join(' ')}>{STATUS_META[s].chip}</span>
+          <span>{STATUS_META[s].chip}</span>
           <span className={styles.count} data-testid="stat-count">
             {count}
           </span>
