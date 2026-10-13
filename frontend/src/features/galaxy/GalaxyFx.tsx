@@ -11,7 +11,7 @@ export interface GalaxyFxProps {
 /**
  * As duas camadas da saída (legacy index.html ~207–208), por cima de tudo menos
  * do formulário: o canvas da sucção (z 44) e o véu (z 45). Montadas com a página,
- * nascem limpas a cada volta à galáxia. O desenho é da tarefa 4.5 (useEnterOrbit).
+ * nascem limpas a cada volta à galáxia. Quem desenha nelas é o useEnterOrbit (viz/galaxy-fx).
  */
 export function GalaxyFx({ fxRef, veilRef }: GalaxyFxProps) {
   return (

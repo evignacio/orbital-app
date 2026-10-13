@@ -1,5 +1,8 @@
-import { useEffect, useState, type RefObject } from 'react';
+import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import { useNavigate } from 'react-router';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
+import { usePreferencesStore } from '@/store/preferences.store';
+import { enterSuction } from '@/viz/galaxy-fx';
 import type { GalaxyOrbitNode } from '@/viz/galaxy-orbits';
 import type { GalaxyOrbitsHandle } from './GalaxyOrbits';
 import type { GalaxyRocksHandle } from './GalaxyRocks';
@@ -25,29 +28,76 @@ export interface EnterOrbit {
 
 /**
  * Entrar numa órbita (legacy/galaxy.js enter/runFx/veilAt): a galáxia é sugada
- * para o planeta, o véu cobre a tela e o painel abre filtrado por ela. O estado
- * nasce limpo a cada montagem da página (voltar pelo histórico remonta a
- * GalaxyPage), o que substitui o reload do `pageshow` do legado.
- *
- * Por enquanto só navega, sem animação: a sucção (ENTER_MS, VEIL_AT_MS de
- * viz/galaxy-layout) e o véu são da tarefa 4.5, que mantém esta assinatura.
+ * para o planeta (viz/galaxy-fx), o véu cobre a tela e o painel abre filtrado
+ * por ela, pelo router e sem recarregar. O estado nasce limpo a cada montagem
+ * da página (voltar pelo histórico remonta a GalaxyPage), o que substitui o
+ * reload do `pageshow` do legado.
  */
-export function useEnterOrbit({ veilRef }: EnterOrbitRefs): EnterOrbit {
+export function useEnterOrbit({
+  rootRef,
+  fxRef,
+  veilRef,
+  orbitsRef,
+  rocksRef,
+}: EnterOrbitRefs): EnterOrbit {
   const navigate = useNavigate();
+  const reduced = useReducedMotion();
+  const light = usePreferencesStore((s) => s.theme === 'light');
   const [leavingKey, setLeavingKey] = useState<string | null>(null);
+  // O `this.leaving` do legado: síncrono, para que dois cliques no mesmo tick não saiam duas vezes.
+  const exit = useRef<{ leaving: boolean; cancel: (() => void) | null }>({
+    leaving: false,
+    cancel: null,
+  });
 
-  // A página volta sempre com o véu aberto, mesmo que o elemento fosse reaproveitado.
+  // A página volta sempre com o véu aberto, mesmo que o elemento fosse reaproveitado;
+  // e sair da página no meio da sucção não deixa quadro, véu nem navegação pendentes.
   useEffect(() => {
     const veil = veilRef.current;
-    if (!veil) return;
-    veil.style.transition = '';
-    veil.style.opacity = '';
+    if (veil) {
+      veil.style.transition = '';
+      veil.style.opacity = '';
+    }
+    const state = exit.current;
+    return () => {
+      state.cancel?.();
+      state.cancel = null;
+    };
   }, [veilRef]);
 
-  const enter = (node: GalaxyOrbitNode) => {
-    if (leavingKey) return;
-    setLeavingKey(node.key);
-    void navigate(`/painel?orbita=${encodeURIComponent(node.key)}`);
-  };
+  const enter = useCallback(
+    (node: GalaxyOrbitNode) => {
+      const state = exit.current;
+      const root = rootRef.current;
+      const canvas = fxRef.current;
+      if (state.leaving || !root || !canvas) return;
+      state.leaving = true;
+      // Com movimento reduzido o legado nem apagava as outras camadas; aqui elas
+      // apagam pelo `leaving` mesmo assim, mas o véu as cobre em 120ms.
+      setLeavingKey(node.key);
+      const go = () => {
+        state.cancel = null;
+        void navigate(`/painel?orbita=${encodeURIComponent(node.key)}`);
+      };
+      const others = (orbitsRef.current?.nodes() ?? []).filter((o) => o.key !== node.key);
+      state.cancel = enterSuction(
+        {
+          root,
+          canvas,
+          veil: veilRef.current,
+          target: node,
+          others,
+          rocks: rocksRef.current?.rocks() ?? [],
+          W: root.clientWidth,
+          H: root.clientHeight,
+          light,
+          reduced,
+        },
+        go,
+      );
+    },
+    [rootRef, fxRef, veilRef, orbitsRef, rocksRef, navigate, light, reduced],
+  );
+
   return { leavingKey, enter };
 }
