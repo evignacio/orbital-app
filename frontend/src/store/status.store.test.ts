@@ -80,6 +80,16 @@ describe('applyStatus', () => {
     expect(localStorage.getItem('orbital-status-v1')).toBeNull();
   });
 
+  it('sem mudança de status mantém a mesma identidade do objeto status', () => {
+    status().applyStatus(statusMsg('a', 'healthy'), APPS);
+    const before = status().status;
+    status().applyStatus(statusMsg('a', 'healthy'), APPS);
+    status().applyCycle(cycleMsg('prd', 2, 5), APPS);
+    expect(status().status).toBe(before);
+    status().applyStatus(statusMsg('a', 'unhealthy'), APPS);
+    expect(status().status).not.toBe(before);
+  });
+
   it('id fora da lista pede recarregar', () => {
     expect(status().applyStatus(statusMsg('zz', 'healthy'), APPS).needsReload).toBe(true);
   });

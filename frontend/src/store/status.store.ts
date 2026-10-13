@@ -88,7 +88,7 @@ export const useStatusStore = create<StatusState & StatusActions>()((set, get) =
     const cleared = conn.apiDown;
     if (diff.moved || cleared || extra) {
       set({
-        status: { ...s.status, ...diff.patch },
+        status: diff.moved ? { ...s.status, ...diff.patch } : s.status,
         downSeen: diff.downSeen,
         synced: true,
         ...extra,
