@@ -1,0 +1,142 @@
+/* Card da frota (legacy/painel.html ~203–231 e cardVals em script.js). --tone é a cor do status. */
+.card {
+  position: relative;
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.card[data-selected='true'] {
+  border-color: var(--sel-line);
+  background: var(--sel-fill);
+}
+
+.actions {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.edit,
+.remove {
+  border: none;
+  background: none;
+  color: var(--faint);
+  cursor: pointer;
+}
+
+.edit {
+  display: flex;
+  padding: 3px 4px;
+}
+
+.remove {
+  font-size: 13px;
+  padding: 2px 4px;
+}
+
+.edit:hover {
+  color: var(--accent-soft);
+}
+
+.remove:hover {
+  color: var(--down);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-right: 46px;
+}
+
+.dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--tone);
+  box-shadow: 0 0 12px var(--tone);
+}
+
+.card[data-light='true'] .dot {
+  box-shadow: 0 0 6px var(--tone);
+}
+
+.nameBox {
+  flex: 1;
+  min-width: 0;
+}
+
+.name {
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.badge {
+  flex: none;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  color: var(--tone);
+  background: color-mix(in srgb, var(--tone) 12%, transparent);
+  white-space: nowrap;
+}
+
+.card[data-stale='true'] .badge {
+  background: color-mix(in srgb, var(--tone) 14%, transparent);
+}
+
+.team {
+  font-size: 12.5px;
+  color: var(--muted);
+  margin-top: 8px;
+  text-wrap: pretty;
+}
+
+.links {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+}
+
+.swagger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  letter-spacing: 0.1em;
+  font-size: 11px;
+  border: 1px solid var(--accent);
+  color: var(--accent-soft);
+}
+
+.swaggerOff {
+  border-color: var(--line);
+  color: var(--faint);
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.edit:focus-visible,
+.remove:focus-visible,
+.swagger:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
