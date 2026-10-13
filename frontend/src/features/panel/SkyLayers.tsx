@@ -1,5 +1,9 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
+import { useConnectionStore } from '@/store/connection.store';
+import { drawClouds } from '@/viz/clouds';
 import { drawStars } from '@/viz/stars';
+import { drawStorm } from '@/viz/storm';
 import styles from './SkyLayers.module.css';
 
 /**
@@ -11,6 +15,14 @@ import styles from './SkyLayers.module.css';
  */
 export function SkyLayers() {
   const starsRef = useRef<HTMLDivElement>(null);
+  const cloudsRef = useRef<HTMLDivElement>(null);
+  const stormRef = useRef<HTMLDivElement>(null);
+  const apiDown = useConnectionStore((s) => s.apiDown);
+  const reducedMotion = useReducedMotion();
+  // A tempestade só é desenhada na primeira queda e depois fica montada: ao
+  // voltar a API ela some pela opacidade (--storm-on) e pausa depois do fade.
+  const [stormSeen, setStormSeen] = useState(apiDown);
+  if (apiDown && !stormSeen) setStormSeen(true);
 
   // Desenhadas uma vez: o tema só muda a opacidade da camada e pausa o piscar (--stars-play).
   useEffect(() => {
@@ -18,12 +30,24 @@ export function SkyLayers() {
     return el ? drawStars(el) : undefined;
   }, []);
 
+  // Idem para as nuvens, invisíveis e pausadas no escuro (--cloud-opacity, --clouds-play).
+  useEffect(() => {
+    const el = cloudsRef.current;
+    return el ? drawClouds(el) : undefined;
+  }, []);
+
+  useEffect(() => {
+    const el = stormRef.current;
+    if (!el || !stormSeen) return undefined;
+    return drawStorm(el, { reducedMotion });
+  }, [stormSeen, reducedMotion]);
+
   return (
     <>
       <div ref={starsRef} className={styles.stars} />
-      <div className={styles.clouds} />
+      <div ref={cloudsRef} className={styles.clouds} />
       <div className={styles.halo} />
-      <div className={styles.storm} />
+      <div ref={stormRef} className={styles.storm} />
       <div className={styles.comet} />
     </>
   );
