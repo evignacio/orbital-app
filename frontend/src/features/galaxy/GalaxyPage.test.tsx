@@ -31,7 +31,10 @@ beforeAll(() => {
   Object.defineProperty(HTMLElement.prototype, 'clientWidth', { configurable: true, value: 1280 });
   Object.defineProperty(HTMLElement.prototype, 'clientHeight', { configurable: true, value: 800 });
 });
+// Sem o pacote canvas o getContext do jsdom só avisa "Not implemented"; sem contexto o céu não desenha.
+const getContext = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null);
 afterAll(() => {
+  getContext.mockRestore();
   if (sizeDesc.w) Object.defineProperty(HTMLElement.prototype, 'clientWidth', sizeDesc.w);
   if (sizeDesc.h) Object.defineProperty(HTMLElement.prototype, 'clientHeight', sizeDesc.h);
 });
