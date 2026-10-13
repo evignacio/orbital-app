@@ -10,6 +10,7 @@ import * as cache from '@/storage/cache';
 import { useAppsStore } from '@/store/apps.store';
 import { useConnectionStore } from '@/store/connection.store';
 import { usePreferencesStore } from '@/store/preferences.store';
+import { hydrateStores } from '@/store/hydrate';
 import { useStatusStore } from '@/store/status.store';
 
 const CHECKED_AT = '2026-01-01T00:00:10.000Z';
@@ -158,16 +159,7 @@ describe('AppShell', () => {
     expect(abertos()).toHaveLength(0);
   });
 
-  it('limpa as chaves obsoletas do localStorage ao montar', async () => {
-    const spy = vi.spyOn(cache, 'clearObsoleteKeys');
-    localStorage.setItem('orbital-counters-v1', '{}');
-    renderShell();
-    await appsLoaded();
-    expect(spy).toHaveBeenCalled();
-    expect(localStorage.getItem('orbital-counters-v1')).toBeNull();
-  });
-
-  it('hidrata a lista do cache antes da API responder', async () => {
+  it('mostra a lista já hidratada enquanto a API não responde', async () => {
     // Requisição em voo: resolvida no fim para não deixar a carga compartilhada da store pendurada.
     let finish: (r: Response) => void = () => undefined;
     fetchMock.mockImplementation(
@@ -187,6 +179,8 @@ describe('AppShell', () => {
         orbits: ['Core'],
       },
     ]);
+    // A hidratação é do main.tsx e roda antes do primeiro render.
+    hydrateStores(Date.now());
     renderShell();
     expect(screen.getByText(/app-a/)).toBeInTheDocument();
     act(() => {

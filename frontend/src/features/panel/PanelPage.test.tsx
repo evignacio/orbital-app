@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -6,6 +6,7 @@ import type { Application } from '@/domain/types';
 import { EventStreamContext } from '@/hooks/EventStreamContext';
 import { useAppsStore } from '@/store/apps.store';
 import { useConnectionStore } from '@/store/connection.store';
+import { hydrateStores } from '@/store/hydrate';
 import { usePreferencesStore } from '@/store/preferences.store';
 import { useStatusStore } from '@/store/status.store';
 import { usePanelStore } from './panel.store';
@@ -87,6 +88,23 @@ describe('PanelPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Adicionar aplicação' }));
     expect(usePanelStore.getState()).toMatchObject({ formOpen: true, editing: null });
     expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+
+  it('com o ambiente dev salvo, o cadastro abre com DESENVOLVIMENTO selecionado', async () => {
+    // Como o main.tsx: a hidratação vem antes do primeiro render dos filhos.
+    localStorage.setItem('orbital-env-v1', 'dev');
+    hydrateStores(Date.now());
+    renderPage();
+    await userEvent.click(screen.getByRole('button', { name: 'Adicionar aplicação' }));
+    const dialog = within(screen.getByRole('dialog'));
+    expect(dialog.getByRole('button', { name: 'DESENVOLVIMENTO' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(dialog.getByRole('button', { name: 'PRODUÇÃO' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
   });
 
   it('a remoção pendente abre o diálogo só para app do ambiente da tela', () => {
