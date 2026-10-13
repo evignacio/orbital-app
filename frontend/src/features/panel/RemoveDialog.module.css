@@ -1,0 +1,58 @@
+.text {
+  margin: 8px 0 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--muted);
+  text-wrap: pretty;
+}
+
+.error {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--down-line);
+  border-radius: var(--radius-md);
+  background: var(--down-fill);
+  color: var(--down);
+  font-size: 13px;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+.buttons {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.cancel,
+.confirm {
+  flex: 1;
+  padding: 11px;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.cancel {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+}
+
+.confirm {
+  border: 1px solid var(--down-line);
+  background: var(--down-fill);
+  color: var(--down);
+  font-weight: 500;
+}
+
+.confirm:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.cancel:focus-visible,
+.confirm:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
