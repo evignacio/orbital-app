@@ -19,6 +19,9 @@ export interface DownHit {
 // O lote é do módulo: quem registra o hook e quem chama `queueAlert` são hooks diferentes.
 let buffer: DownHit[] = [];
 let batchTid: ReturnType<typeof setTimeout> | undefined;
+// Se a tela ainda quer alertas na hora do flush: um lote enfileirado no painel
+// não sai se nos 400 ms a página virou a galáxia. O hook registra o seu.
+let alertsActive: () => boolean = () => true;
 
 function notifyDown(hit: DownHit): void {
   const app = useAppsStore.getState().apps.find((a) => a.id === hit.id);
@@ -34,7 +37,7 @@ function notifyDown(hit: DownHit): void {
 function flushAlert(): void {
   const hits = buffer;
   buffer = [];
-  if (!hits.length || !isAway()) return;
+  if (!hits.length || !alertsActive() || !isAway()) return;
   const prefs = usePreferencesStore.getState();
   if (prefs.sound) beep();
   if (!prefs.notify) return;
@@ -87,6 +90,7 @@ export function useDownAlerts(active = true): { queueAlert: typeof queueAlert } 
   });
 
   useEffect(() => {
+    alertsActive = () => activeRef.current;
     const onReturn = () => {
       if (!isAway()) dismissAlerts();
     };
@@ -100,6 +104,7 @@ export function useDownAlerts(active = true): { queueAlert: typeof queueAlert } 
       window.removeEventListener('focus', onReturn);
       unsubscribe();
       dismissAlerts();
+      alertsActive = () => true;
     };
   }, []);
   return { queueAlert };
