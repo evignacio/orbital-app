@@ -2,7 +2,7 @@ import { select, type BaseType, type Selection } from 'd3-selection';
 import { appendClouds, type CloudSpec } from './clouds';
 import './weather-keyframes.css';
 
-// Tempestade do painel: a API está inacessível (legacy/script.js drawStorm). A
+// Tempestade do painel: a API está inacessível. A
 // camada aparece e some pela opacidade (--storm-on); o desenho fica montado e só
 // a animação pausa depois do fade (--storm-play).
 

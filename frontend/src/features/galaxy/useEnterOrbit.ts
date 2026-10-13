@@ -27,7 +27,7 @@ export interface EnterOrbit {
 }
 
 /**
- * Entrar numa órbita (legacy/galaxy.js enter/runFx/veilAt): a galáxia é sugada
+ * Entrar numa órbita: a galáxia é sugada
  * para o planeta (viz/galaxy-fx), o véu cobre a tela e o painel abre filtrado
  * por ela, pelo router e sem recarregar. O estado nasce limpo a cada montagem
  * da página (voltar pelo histórico remonta a GalaxyPage), o que substitui o

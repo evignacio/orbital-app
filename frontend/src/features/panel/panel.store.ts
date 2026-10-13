@@ -10,9 +10,9 @@ export function toStatusFilter(v: string): StatusFilter {
   return isStatus(v) ? v : 'all';
 }
 
-// Estado de tela do painel (legacy/script.js: query, filter, page, selectedId,
-// pendingRemoveId e o formOpen/editingId do app-form.js). Não persiste: some ao
-// sair da página (usePanelLifecycle), como o legado some no reload.
+// Estado de tela do painel: busca, filtro, página, seleção,
+// remoção pendente e o formulário aberto/em edição. Não persiste: some ao
+// sair da página (usePanelLifecycle).
 interface PanelState {
   query: string;
   filter: StatusFilter;

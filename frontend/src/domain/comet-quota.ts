@@ -1,4 +1,4 @@
-// Cota do cometa (legacy/script.js launchComet): raro por desenho, no máximo
+// Cota do cometa: raro por desenho, no máximo
 // COMET_MAX passagens em qualquer janela móvel de 1h, contadas pelos timestamps
 // gravados — recarregar a página não zera a conta.
 

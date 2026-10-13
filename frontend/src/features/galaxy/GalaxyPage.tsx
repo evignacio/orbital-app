@@ -23,7 +23,7 @@ export function emptyMessage(apiDown: boolean, appCount: number): string {
 }
 
 /**
- * A galáxia (/, legacy/index.html + galaxy.js): cada órbita é um sistema; o
+ * A galáxia (/): cada órbita é um sistema; o
  * clique abre o painel filtrado por ela. A página monta o layout (céu, barra do
  * topo, título, aviso, estado vazio, botão + e as camadas da saída) e liga as
  * regiões, cada uma num componente. Tema, título, stream e carga são do AppShell;

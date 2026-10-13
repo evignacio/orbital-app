@@ -1,6 +1,6 @@
 import { isStatus, statusColor } from '../domain/status';
 
-// Cálculos da órbita do painel (legacy/script.js drawOrbits/updatePlanets/paintPlanets),
+// Cálculos da órbita do painel,
 // sem DOM: o desenho em panel-orbits.ts só aplica o que sai daqui.
 
 /** Achatamento das órbitas: a elipse tem ry = r * ORBIT_TILT. */

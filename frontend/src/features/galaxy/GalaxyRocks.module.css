@@ -1,4 +1,4 @@
-/* legacy index.html ~63: os asteroides recebem o ponteiro, a camada não. */
+/* Os asteroides recebem o ponteiro, a camada não. */
 .layer {
   position: absolute;
   inset: 0;

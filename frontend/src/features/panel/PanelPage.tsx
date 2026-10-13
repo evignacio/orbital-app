@@ -17,13 +17,13 @@ import { usePanelFilters } from './usePanelFilters';
 import { usePanelLifecycle } from './usePanelLifecycle';
 import { useSync } from './useSync';
 
-// Texto fixo do cabeçalho (painel.html ~146).
+// Texto fixo do cabeçalho.
 const SUBTITLE =
   'Cada planeta é uma aplicação em órbita. O brilho indica se o health check respondeu na última varredura.';
 
 /**
- * O painel (/painel, legacy/painel.html). A página monta o layout (contêineres,
- * grid e @media do legado) e liga as regiões, cada uma num componente próprio.
+ * O painel (/painel). A página monta o layout (contêineres,
+ * grid e @media) e liga as regiões, cada uma num componente próprio.
  * Tema, título, alertas e o stream SSE são do AppShell.
  */
 export function PanelPage() {

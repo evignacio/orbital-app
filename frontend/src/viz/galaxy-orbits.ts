@@ -107,7 +107,7 @@ function nodesFor(scene: GalaxyOrbitsScene, W: number, H: number): GalaxyOrbitNo
 }
 
 /**
- * As órbitas da galáxia (legacy/galaxy.js drawOrbits): cada uma é um sistema
+ * As órbitas da galáxia: cada uma é um sistema
  * como o do painel — no centro a lua (escuro) ou o sol (claro), em volta anéis
  * tracejados na cor da órbita com planetinhas na cor de status (systemTones) e,
  * embaixo, a legenda. Tudo é refeito a cada chamada, como no legado; o `t0`

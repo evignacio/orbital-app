@@ -38,7 +38,7 @@ function statusTitle(
 }
 
 /**
- * Card da frota (painel.html ~203–231). O status entra por seletor do próprio id:
+ * Card da frota. O status entra por seletor do próprio id:
  * um evento de status re-renderiza só o card afetado.
  */
 export const AppCard = memo(function AppCard({

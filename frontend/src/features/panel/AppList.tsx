@@ -47,7 +47,7 @@ function emptyMsg(appCount: number, apiDown: boolean, orbit: Orbit | null): stri
 }
 
 /**
- * Coluna da frota (painel.html ~182–237): cabeçalho, busca, filtros + paginação,
+ * Coluna da frota: cabeçalho, busca, filtros + paginação,
  * cards e vazio. Renderiza o conteúdo: a <section> #listCol (sticky, @media) é da
  * PanelPage.
  */

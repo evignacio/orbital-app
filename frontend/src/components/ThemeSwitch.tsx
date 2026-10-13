@@ -7,7 +7,7 @@ interface ThemeSwitchProps {
 }
 
 /**
- * Switch do tema da barra do topo (legacy index.html ~74 e painel.html ~95):
+ * Switch do tema da barra do topo:
  * trilho de swTrack/swKnob com o rótulo DARK/LIGHT à direita.
  */
 export function ThemeSwitch({ light, onToggle }: ThemeSwitchProps) {

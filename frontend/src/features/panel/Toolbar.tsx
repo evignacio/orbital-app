@@ -20,7 +20,7 @@ function cycleLabel(checkedAt: number | null): string {
 }
 
 /**
- * Barra do topo (painel.html ~95–128): tema, Sincronizar, relógio da última
+ * Barra do topo: tema, Sincronizar, relógio da última
  * verificação e o sino de alertas. Renderiza só os itens: o contêiner posicionado
  * (#topBar, com o @media) é da PanelPage.
  */

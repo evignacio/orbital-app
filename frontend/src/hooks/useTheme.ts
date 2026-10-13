@@ -2,7 +2,7 @@ import { useCallback, useEffect } from 'react';
 import { useConnectionStore } from '../store/connection.store';
 import { usePreferencesStore } from '../store/preferences.store';
 
-// Tempo do fade do céu ao sair da tempestade (legacy/script.js, STORM_FADE_MS).
+// Tempo do fade do céu ao sair da tempestade.
 export const STORM_FADE_MS = 1300;
 
 /**

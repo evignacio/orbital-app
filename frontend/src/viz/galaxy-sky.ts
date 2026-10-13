@@ -2,7 +2,7 @@ import { select } from 'd3-selection';
 import { gauss, rng } from '../domain/random';
 import './galaxy-keyframes.css';
 
-// Céu da galáxia (legacy/galaxy.js drawSky e drawTwinkles): uma espiral de dois
+// Céu da galáxia: uma espiral de dois
 // braços num canvas e 34 pontos que cintilam por cima. As sementes são as do
 // legado, então o céu é o mesmo a cada carga e em cada tamanho de tela.
 

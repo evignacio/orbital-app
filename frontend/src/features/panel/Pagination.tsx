@@ -7,7 +7,7 @@ interface PaginationProps {
   onChange: (page: number) => void;
 }
 
-/** ‹ 1/3 › (painel.html ~195–199, navBtn): o botão no limite fica apagado e não faz nada. */
+/** ‹ 1/3 ›: o botão no limite fica apagado e não faz nada. */
 export function Pagination({ page, pageCount, onChange }: PaginationProps) {
   const canPrev = page > 0;
   const canNext = page < pageCount - 1;

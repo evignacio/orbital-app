@@ -1,7 +1,7 @@
 import { select } from 'd3-selection';
 import './comet.css';
 
-// Cometa do painel (legacy/script.js launchComet): uma pista girada que cruza o
+// Cometa do painel: uma pista girada que cruza o
 // céu uma vez, com cauda em degradê e cabeça brilhante. Cores pelas variáveis do tema.
 
 export interface CometTrajectory {

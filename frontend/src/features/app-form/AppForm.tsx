@@ -67,7 +67,7 @@ export interface AppFormProps {
   ctl: AppFormController;
 }
 
-/** Os campos e botões do cadastro/edição (painel.html ~251–335). */
+/** Os campos e botões do cadastro/edição. */
 export function AppForm({ ctl }: AppFormProps) {
   const { form, errors, formError, submitting, isEditing } = ctl;
   const submitLabel = isEditing

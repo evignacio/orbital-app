@@ -20,7 +20,7 @@ const app: Application = {
   orbits: ['Dream team'],
 };
 
-// O que o legado grava (legacy/script.js commitApps e saveStatus), escrito à mão:
+// O que o legado grava, escrito à mão:
 // JSON.stringify(apps) e JSON.stringify({ status, ts: this.statusTs || 0 }).
 const legacyApps =
   '[{"id":"a1","env":"hml","name":"pagamentos","team":"Time A","healthCheckUrl":"https://x/health","swaggerUrl":"","orbits":["Dream team"]}]';

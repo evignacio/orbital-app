@@ -8,7 +8,7 @@ import { usePreferencesStore } from '@/store/preferences.store';
 import { useStatusStore } from '@/store/status.store';
 import { usePanelStore, type StatusFilter } from './panel.store';
 
-/** Cards por página da lista (legacy/script.js, PAGE_SIZE). */
+/** Cards por página da lista. */
 export const PAGE_SIZE = 3;
 
 export interface PanelFilters {
@@ -45,7 +45,7 @@ export interface PanelFilters {
 // de status não re-renderiza a página inteira (só o card e o planeta afetados).
 const NO_STATUS = {};
 
-/** Lógica de tela do painel (legacy/script.js: envApps, currentOrbit, visibleApps, setEnv, select). */
+/** Lógica de tela do painel. */
 export function usePanelFilters(): PanelFilters {
   const [params] = useSearchParams();
   const orbit = orbitKey(params.get('orbita') ?? '');

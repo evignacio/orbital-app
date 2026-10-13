@@ -1,4 +1,4 @@
-/* Peças comuns dos campos do cadastro (legacy/painel.html ~250–330, fieldStyle em app-form.js). */
+/* Peças comuns dos campos do cadastro. */
 .field {
   display: flex;
   flex-direction: column;

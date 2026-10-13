@@ -10,9 +10,9 @@ export interface StatsBarProps {
 }
 
 /**
- * Contadores por status do cabeçalho (painel.html ~148, statCard()). Renderiza só
+ * Contadores por status do cabeçalho. Renderiza só
  * os cartões: o contêiner #statsRow (opacidade e title "Dados desatualizados"
- * quando stale, @media) é da PanelPage. No legado não são clicáveis.
+ * quando stale, @media) é da PanelPage. Não são clicáveis.
  */
 export function StatsBar({ apps }: StatsBarProps) {
   const status = useStatusStore((s) => s.status);

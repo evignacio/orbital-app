@@ -29,7 +29,7 @@ export interface AppFormDialogProps {
 }
 
 /**
- * Modal de cadastro/edição de aplicação (painel.html ~239–340, legacy/app-form.js),
+ * Modal de cadastro/edição de aplicação,
  * reaproveitado pela galáxia: nada aqui é do painel. A lista de apps (times e órbitas
  * sugeridos) vem de useAppsStore. O fundo não fecha, para não perder o que foi digitado.
  */

@@ -1,7 +1,7 @@
 import { rng } from '@/domain/random';
 import { clamp01, easeCubicIn, ENTER_MS, VEIL_AT_MS } from './galaxy-layout';
 
-// Entrar numa órbita (legacy/galaxy.js enter/runFx/veilAt): a galáxia é sugada
+// Entrar numa órbita: a galáxia é sugada
 // para o planeta clicado, a tela escurece e quem chamou navega no fim.
 
 export interface FxPoint {

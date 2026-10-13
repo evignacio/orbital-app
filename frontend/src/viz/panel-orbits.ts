@@ -46,7 +46,7 @@ export interface PanelOrbit {
 type PlanetSel = Selection<SVGGElement, PlanetNode, SVGGElement, unknown>;
 
 /**
- * Esqueleto da órbita do painel (legacy/script.js drawOrbits): svg, brilhos,
+ * Esqueleto da órbita do painel: svg, brilhos,
  * anéis, núcleo e planetas, com o timer de rotação. Quem chama refaz tudo só
  * quando muda a cena; o resto passa por `update`.
  */

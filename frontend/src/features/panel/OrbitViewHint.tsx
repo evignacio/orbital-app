@@ -12,7 +12,7 @@ export interface OrbitHintInput {
   staleTs: number;
 }
 
-/** Rodapé da órbita (legacy/script.js orbitHint): de onde vêm os dados na tela. */
+/** Rodapé da órbita: de onde vêm os dados na tela. */
 export function orbitHintText({ apiDown, lastOk, stale, staleTs }: OrbitHintInput): string {
   if (apiDown) {
     if (!lastOk) return 'SEM CONTATO COM A CENTRAL';

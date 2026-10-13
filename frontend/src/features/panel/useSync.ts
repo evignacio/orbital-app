@@ -13,7 +13,7 @@ export interface SyncControls {
 }
 
 /**
- * Porte do checkAll (legacy/script.js ~722). O fim normal da varredura chega pelo
+ * Porte do checkAll. O fim normal da varredura chega pelo
  * cycle (status.store); o timer só evita ficar preso. Ele pertence a este hook e
  * é limpo sempre que `scanning` volta a false, senão o timer de uma varredura
  * antiga encerraria a seguinte.

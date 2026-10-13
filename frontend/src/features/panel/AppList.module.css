@@ -1,4 +1,4 @@
-/* Coluna da frota (legacy/painel.html ~182–237). O contêiner #listCol é da PanelPage. */
+/* Coluna da frota. O contêiner #listCol é da PanelPage. */
 .header {
   display: flex;
   align-items: center;

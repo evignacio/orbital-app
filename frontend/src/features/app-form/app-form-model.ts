@@ -8,7 +8,7 @@ import {
 import { orbitKey, type Orbit } from '@/domain/orbits';
 import type { Application, EnvCode } from '@/domain/types';
 
-// Regras puras do cadastro (legacy/app-form.js), fora dos componentes para
+// Regras puras do cadastro, fora dos componentes para
 // serem testadas sem DOM.
 
 /** Cadastro novo: já na órbita indicada (a do filtro, no painel), se houver. */

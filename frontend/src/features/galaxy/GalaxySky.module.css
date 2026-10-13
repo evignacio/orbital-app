@@ -1,6 +1,6 @@
-/* legacy index.html ~61–62; a saída (enter ~460) apaga o canvas para .25 em .8s ease-in. */
+/* A saída apaga o canvas para .25 em .8s ease-in. */
 .sky {
-  /* Cores da espiral (legacy drawSky) em "r, g, b": viz/galaxy-sky as lê por
+  /* Cores da espiral em "r, g, b": viz/galaxy-sky as lê por
      getComputedStyle e põe o alfa de cada ponto. As mesmas nos dois temas: o
      claro esconde o canvas (--star-opacity 0). */
   --sky-nebula: 110, 96, 200;

@@ -67,7 +67,7 @@ function withoutError(errors: FormErrors, k: AppFormField): FormErrors {
 }
 
 /**
- * Estado e envio do formulário de cadastro/edição (legacy/app-form.js). O diálogo
+ * Estado e envio do formulário de cadastro/edição. O diálogo
  * fica montado: o rascunho de um cadastro fechado sem enviar sobrevive, e a abertura
  * (open/editing vindos de quem usa) decide se o form volta em branco ou vem da app.
  */

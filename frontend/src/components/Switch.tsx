@@ -9,7 +9,7 @@ interface SwitchProps {
   disabled?: boolean;
 }
 
-/** Interruptor rotulado (legacy/common.js, swTrack/swKnob): o botão inteiro é o alvo do clique. */
+/** Interruptor rotulado: o botão inteiro é o alvo do clique. */
 export function Switch({ label, checked, onChange, disabled = false }: SwitchProps) {
   return (
     <button

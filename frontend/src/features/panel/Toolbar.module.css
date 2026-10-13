@@ -1,4 +1,4 @@
-/* Itens da barra do topo (legacy/painel.html ~95–113); o contêiner é da PanelPage. */
+/* Itens da barra do topo; o contêiner é da PanelPage. */
 .theme {
   display: flex;
   align-items: center;

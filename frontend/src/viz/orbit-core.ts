@@ -14,7 +14,7 @@ const CRATERS: readonly (readonly [number, number, number])[] = [
 ];
 
 /**
- * Núcleo de uma órbita (legacy/common.js appendOrbitCore): lua no tema escuro,
+ * Núcleo de uma órbita: lua no tema escuro,
  * sol no claro, com raio de 17 (e halo até ~34). `sel` é um ou vários <g> (o
  * painel usa um, a galáxia um por órbita); `glowId` é o filtro de brilho já
  * definido no SVG. Os gradientes entram no defs uma vez só.
@@ -88,7 +88,7 @@ export function appendOrbitCore<
 }
 
 /**
- * Núcleo do painel com a API fora (legacy/script.js drawCore com storm): a
+ * Núcleo do painel com a API fora: a
  * central vira o ícone de tempestade, sem sinal dos planetas.
  */
 export function appendStormCore<G extends BaseType, D, P extends BaseType, PD>(

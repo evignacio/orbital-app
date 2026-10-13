@@ -25,7 +25,7 @@ export interface GalaxyRocksProps {
 }
 
 /**
- * Asteroides à deriva (legacy index.html ~63, galaxy.js drawRocks): arremessáveis
+ * Asteroides à deriva: arremessáveis
  * com o ponteiro e com colisão. Como no legado, o resize e a troca do movimento
  * reduzido os refazem; o tema só troca as variáveis --rock-*.
  */

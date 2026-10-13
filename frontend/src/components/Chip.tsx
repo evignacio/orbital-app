@@ -7,7 +7,7 @@ interface ChipProps {
   children: ReactNode;
 }
 
-/** Botão de filtro em forma de pílula mono (legacy/script.js, chip()). */
+/** Botão de filtro em forma de pílula mono. */
 export function Chip({ active, onClick, children }: ChipProps) {
   return (
     <button type="button" aria-pressed={active} className={styles.chip} onClick={onClick}>

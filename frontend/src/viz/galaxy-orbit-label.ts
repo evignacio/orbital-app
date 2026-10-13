@@ -13,7 +13,7 @@ export function countLabel(n: number): string {
 }
 
 /**
- * Linha de saúde da legenda (legacy/galaxy.js drawOrbits): VERIFICANDO enquanto
+ * Linha de saúde da legenda: VERIFICANDO enquanto
  * nenhuma app da órbita tem status; com status antigo ou a API fora, o último
  * conhecido em cinza; senão TODAS NO AR ou as quedas e lentidões nas cores delas.
  */

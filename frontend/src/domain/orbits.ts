@@ -11,7 +11,7 @@ export interface OrbitWithApps extends Orbit {
 // Órbitas: agrupamentos derivados das apps (cada uma traz `orbits`, uma lista de
 // nomes). A identidade é a chave sem acento, minúscula e com "-" no lugar dos
 // espaços — a mesma de api/src/validators/application.validator.js — e é ela que
-// vai em painel.html?orbita=.
+// vai em /painel?orbita=.
 export function orbitKey(name: string | null | undefined): string {
   return (name ?? '')
     .normalize('NFD')

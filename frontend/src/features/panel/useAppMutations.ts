@@ -30,7 +30,7 @@ function onUpdated(app: Application): void {
 
 const MUTATIONS: AppMutations = { onCreated, onUpdated };
 
-/** Callbacks do formulário no painel (legacy/script.js ~792–807). Sempre as mesmas funções. */
+/** Callbacks do formulário no painel. Sempre as mesmas funções. */
 export function useAppMutations(): AppMutations {
   return MUTATIONS;
 }

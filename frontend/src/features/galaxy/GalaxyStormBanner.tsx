@@ -17,7 +17,7 @@ export function galaxyStormMessage(lastOk: number | null): string {
 }
 
 /**
- * Aviso de tempestade da galáxia (legacy index.html ~80–89): flutua abaixo do
+ * Aviso de tempestade da galáxia: flutua abaixo do
  * título, com fundo de diálogo, e não tem o "Tentando…" do painel.
  */
 export function GalaxyStormBanner({ onRetry }: GalaxyStormBannerProps) {

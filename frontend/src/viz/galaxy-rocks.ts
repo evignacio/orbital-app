@@ -3,7 +3,7 @@ import { timer, type Timer } from 'd3-timer';
 import { rng } from '../domain/random';
 import { smoothClosedPath } from './galaxy-layout';
 
-// Asteroides à deriva (legacy/galaxy.js drawRocks): dá para arremessá-los com o
+// Asteroides à deriva: dá para arremessá-los com o
 // ponteiro, e eles colidem. As sementes são as do legado.
 
 /** Um asteroide: posição, velocidade atual e a de cruzeiro (b*), para onde ela volta. */

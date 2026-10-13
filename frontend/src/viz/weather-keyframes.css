@@ -1,5 +1,5 @@
 /*
- * Animações globais das nuvens e da tempestade (painel.html <style> ~63–67). Como
+ * Animações globais das nuvens e da tempestade. Como
  * em keyframes.css, o d3 escreve o nome no style inline, então não podem passar
  * pelo escopo dos CSS Modules. Ficam num arquivo próprio para não disputar o
  * keyframes.css com o cometa.

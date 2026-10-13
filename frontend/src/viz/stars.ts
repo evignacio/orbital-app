@@ -1,7 +1,7 @@
 import { select } from 'd3-selection';
 import './keyframes.css';
 
-// Céu estrelado do painel (legacy/script.js drawStars). 4 grupos com ritmo e fase
+// Céu estrelado do painel. 4 grupos com ritmo e fase
 // próprios piscam no lugar de 160 animações, uma por estrela; a opacidade base de
 // cada estrela disfarça que o grupo pisca junto.
 

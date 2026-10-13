@@ -1,7 +1,7 @@
 import type { SVGProps } from 'react';
 
 // Paths Phosphor (viewBox 256, fill), copiados literalmente dos <svg> do legado
-// (painel.html, index.html e BOLT_PATH em script.js). Cada ícone usado lá é uma entrada.
+//. Cada ícone usado lá é uma entrada.
 const PATHS = {
   clock:
     'M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24Zm0 192a88 88 0 1 1 88-88 88.1 88.1 0 0 1-88 88Zm48-88a8 8 0 0 1-8 8h-40a8 8 0 0 1-8-8V72a8 8 0 0 1 16 0v48h32a8 8 0 0 1 8 8Z',

@@ -1,8 +1,7 @@
 import { select, type BaseType, type Selection } from 'd3-selection';
 import './weather-keyframes.css';
 
-// Nuvens à deriva do céu claro (legacy/script.js cloudSvg, appendClouds e
-// drawClouds). A tempestade reaproveita appendClouds com nuvens carregadas.
+// Nuvens à deriva do céu claro. A tempestade reaproveita appendClouds com nuvens carregadas.
 
 export interface CloudSpec {
   /** Altura em % do contêiner. */

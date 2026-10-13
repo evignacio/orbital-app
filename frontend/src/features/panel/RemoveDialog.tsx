@@ -17,7 +17,7 @@ export interface RemoveDialogProps {
 }
 
 /**
- * Confirmação de remoção (painel.html ~341–366, confirmRemove ~774). A PanelPage o
+ * Confirmação de remoção. A PanelPage o
  * renderiza só enquanto há remoção pendente.
  */
 export function RemoveDialog({ app, onClose }: RemoveDialogProps) {

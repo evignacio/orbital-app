@@ -5,7 +5,7 @@ import { AppFormDialog } from '@/features/app-form/AppFormDialog';
 import { useAppsStore } from '@/store/apps.store';
 import styles from './GalaxyAddButton.module.css';
 
-// onAppCreated do legado (galaxy.js ~502): a app entra na lista e, se trouxer uma
+// Ao criar uma app: a app entra na lista e, se trouxer uma
 // órbita nova, ela vira planeta (a GalaxyPage deriva as órbitas da store). Diferente
 // do painel, não troca o ambiente salvo: a galáxia não filtra por ambiente.
 function onCreated(app: Application): void {
@@ -19,7 +19,7 @@ function onUpdated(): void {
 }
 
 /**
- * Botão + da galáxia (legacy index.html ~102): abre o mesmo formulário do painel
+ * Botão + da galáxia: abre o mesmo formulário do painel
  * (features/app-form, AppFormDialog) ali mesmo, sem sair da página. Sem props:
  * o estado de aberto é do próprio botão.
  */

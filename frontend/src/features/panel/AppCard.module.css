@@ -1,4 +1,4 @@
-/* Card da frota (legacy/painel.html ~203–231 e cardVals em script.js). --tone é a cor do status. */
+/* Card da frota. --tone é a cor do status. */
 .card {
   position: relative;
   padding: 14px 16px;

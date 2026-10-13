@@ -31,7 +31,7 @@ export interface GalaxyOrbitsProps {
 }
 
 /**
- * Camada das órbitas (legacy index.html ~64, galaxy.js drawOrbits): o contêiner
+ * Camada das órbitas: o contêiner
  * do d3, por cima do céu e dos asteroides. Como no legado, qualquer mudança de
  * apps, status, tema ou stale refaz o desenho; o relógio compartilhado (t0) deixa
  * a deriva e a rotação contínuas.

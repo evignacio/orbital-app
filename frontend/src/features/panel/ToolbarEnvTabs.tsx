@@ -9,7 +9,7 @@ export interface ToolbarEnvTabsProps {
 }
 
 /**
- * Abas de ambiente do cabeçalho (painel.html ~136, envTab()). Renderiza só os
+ * Abas de ambiente do cabeçalho. Renderiza só os
  * botões: o contêiner #envTabs (borda, fundo, @media) é da PanelPage.
  */
 export function ToolbarEnvTabs({ env, onChange }: ToolbarEnvTabsProps) {

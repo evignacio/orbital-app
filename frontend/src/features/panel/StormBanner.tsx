@@ -15,7 +15,7 @@ export function stormMessage(lastOk: number | null): string {
 }
 
 /**
- * Aviso de tempestade (painel.html ~156–168, skyVals): só com a API fora. Como no
+ * Aviso de tempestade: só com a API fora. Como no
  * legado, o botão segue clicável durante a varredura; só o rótulo muda.
  */
 export function StormBanner({ onRetry }: StormBannerProps) {

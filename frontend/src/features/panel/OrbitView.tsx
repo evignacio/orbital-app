@@ -22,7 +22,7 @@ export interface OrbitViewProps {
 }
 
 /**
- * Conteúdo do painel da órbita (painel.html ~172–181): o contêiner do d3 e a dica
+ * Conteúdo do painel da órbita: o contêiner do d3 e a dica
  * do rodapé. O esqueleto só é refeito quando muda o que ele desenha (tema,
  * tempestade, ambiente, tamanho, movimento reduzido); status, busca, filtro e
  * seleção passam pelo update, como o updatePlanets do legado.

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { gauss, hashId, rng } from './random';
 
-// Os números esperados saíram da implementação de frontend/legacy: o desenho
+// Os números esperados saíram da implementação original: o desenho
 // da galáxia depende de que continuem idênticos.
 describe('hashId', () => {
   it.each([

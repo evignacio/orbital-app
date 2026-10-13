@@ -1,4 +1,4 @@
-/* Layout do legacy/painel.html (estilos inline e @media do <helmet>), por variável do tema. */
+/* Layout do painel, por variável do tema. */
 .root {
   position: relative;
   min-height: 100vh;

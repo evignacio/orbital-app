@@ -9,9 +9,8 @@ export interface ToolbarFiltersProps {
 }
 
 /**
- * Chips de filtro por status (painel.html ~193, chip()). A PanelPage os entrega
- * prontos à AppList (prop `filters`), que os põe na linha da paginação. Stub da
- * F3a; a F3b implementa.
+ * Chips de filtro por status. A PanelPage os entrega
+ * prontos à AppList (prop `filters`), que os põe na linha da paginação.
  */
 export function ToolbarFilters({ filter, onChange }: ToolbarFiltersProps) {
   return (

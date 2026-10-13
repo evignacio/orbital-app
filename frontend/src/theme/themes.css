@@ -1,7 +1,7 @@
 /*
  * Temas do Orbital. O tema é aplicado setando `data-theme` ("dark" | "light") e,
  * enquanto a API está fora (tempestade), `data-storm="on"` e `data-storm-play="running"` no <html>.
- * Valores copiados literalmente de THEMES / STORM_OVERRIDES em legacy/common.js.
+ * Valores copiados literalmente de THEMES / STORM_OVERRIDES.
  */
 :root[data-theme='dark'] {
   --bg: radial-gradient(
@@ -153,7 +153,7 @@
   --moon: #ffffff;
   --mono: 'JetBrains Mono', monospace;
 }
-/* Modo tempestade: o céu fecha e liga a chuva (legacy/script.js, applySky). */
+/* Modo tempestade: o céu fecha e liga a chuva. */
 :root[data-storm='on'] {
   --calm: 0.15;
   --storm-on: 1;
@@ -185,7 +185,7 @@
 }
 
 /*
- * O corpo segue --page-bg do tema (legacy/common.js, applyTheme: body.style.background).
+ * O corpo segue --page-bg do tema.
  * O seletor com [data-theme] vence o `html, body { background }` do index.html, que fica só como
  * fundo antes de o tema ser aplicado.
  */

@@ -10,7 +10,7 @@ function isAway(): boolean {
 }
 
 /**
- * Agenda o cometa raro (legacy scheduleComet/launchComet): tenta a cada 20–60 min e
+ * Agenda o cometa raro: tenta a cada 20–60 min e
  * a cota por hora vem do log no localStorage. `launch` desenha e devolve `false` se
  * não havia onde. Tema claro, aba ausente e movimento reduzido adiam sem gastar cota.
  */

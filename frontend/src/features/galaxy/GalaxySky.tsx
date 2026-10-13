@@ -11,7 +11,7 @@ export interface GalaxySkyProps {
 }
 
 /**
- * Céu da galáxia (legacy index.html ~61–62): o canvas da espiral (drawSky) e a
+ * Céu da galáxia: o canvas da espiral (drawSky) e a
  * camada da cintilação (drawTwinkles, 34 pontos com `galaxyTwinkle`). O tema não
  * redesenha nada, como no legado: o claro esconde os dois por --star-opacity.
  */

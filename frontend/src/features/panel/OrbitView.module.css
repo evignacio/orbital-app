@@ -1,11 +1,11 @@
-/* O d3 desenha aqui; ocupa a section #orbitPanel inteira (painel.html ~173). */
+/* O d3 desenha aqui; ocupa a section #orbitPanel inteira. */
 .container {
   flex: 1;
   min-height: 0;
   display: flex;
 }
 
-/* Dica do rodapé (orbitHintStyle, legacy/script.js skyVals). A section tem position:relative. */
+/* Dica do rodapé (orbitHintStyle). A section tem position:relative. */
 .hint {
   position: absolute;
   left: 18px;

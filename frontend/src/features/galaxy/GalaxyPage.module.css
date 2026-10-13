@@ -1,4 +1,4 @@
-/* Layout do legacy/index.html (estilos inline e @media do <helmet>), por variável do tema. */
+/* Layout da galáxia, por variável do tema. */
 .root {
   position: relative;
   width: 100vw;
@@ -85,8 +85,8 @@
   }
 }
 
-/* A galáxia legada cortava toda animação e transição com movimento reduzido
-   (index.html <helmet>); aqui só dentro da página, para não mudar o painel. */
+/* A galáxia corta toda animação e transição com movimento reduzido
+   aqui só dentro da página, para não mudar o painel. */
 @media (prefers-reduced-motion: reduce) {
   .root,
   .root *,
