@@ -1,3 +1,6 @@
+import { useEffect, useRef } from 'react';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
+import { drawSky, drawTwinkles } from '@/viz/galaxy-sky';
 import styles from './GalaxySky.module.css';
 
 export interface GalaxySkyProps {
@@ -9,15 +12,31 @@ export interface GalaxySkyProps {
 
 /**
  * Céu da galáxia (legacy index.html ~61–62): o canvas da espiral (drawSky) e a
- * camada da cintilação (drawTwinkles, 34 pontos com `galaxyTwinkle`, de
- * viz/galaxy-keyframes.css). Os dois elementos já têm a posição, a opacidade do
- * tema (--star-opacity) e o apagar da saída; o desenho é da tarefa 4.2.
+ * camada da cintilação (drawTwinkles, 34 pontos com `galaxyTwinkle`). O tema não
+ * redesenha nada, como no legado: o claro esconde os dois por --star-opacity.
  */
-export function GalaxySky({ leaving }: GalaxySkyProps) {
+export function GalaxySky({ sizeKey, leaving }: GalaxySkyProps) {
+  const skyRef = useRef<HTMLCanvasElement>(null);
+  const twinkleRef = useRef<HTMLDivElement>(null);
+  const still = useReducedMotion();
+
+  useEffect(() => {
+    const cv = skyRef.current;
+    if (!cv) return;
+    return drawSky(cv);
+  }, [sizeKey]);
+
+  // A cintilação é em %: o tamanho não muda nada, só o movimento reduzido.
+  useEffect(() => {
+    const el = twinkleRef.current;
+    if (!el) return;
+    return drawTwinkles(el, still);
+  }, [still]);
+
   return (
     <>
-      <canvas className={styles.sky} data-leaving={leaving} />
-      <div className={styles.twinkles} />
+      <canvas ref={skyRef} className={styles.sky} data-leaving={leaving} />
+      <div ref={twinkleRef} className={styles.twinkles} />
     </>
   );
 }
