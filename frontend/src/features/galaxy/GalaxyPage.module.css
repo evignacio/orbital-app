@@ -1,0 +1,86 @@
+/* Layout do legacy/index.html (estilos inline e @media do <helmet>), por variável do tema. */
+.root {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  background: var(--bg);
+  font-family: var(--font-body);
+  color: var(--ink);
+  overflow: hidden;
+  transition:
+    background 0.4s ease,
+    color 0.3s ease;
+}
+
+/* Céu, asteroides e órbitas: as camadas são dos componentes de cada região. */
+.sky {
+  position: absolute;
+  inset: 0;
+}
+
+.head {
+  position: absolute;
+  top: 22px;
+  left: 28px;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.title {
+  margin: 8px 0 0;
+  font-size: clamp(22px, 2.2vw, 30px);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+}
+
+.subtitle {
+  margin: 6px 0 0;
+  max-width: 42ch;
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.topBar {
+  position: absolute;
+  top: 14px;
+  right: 20px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.empty {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+  max-width: min(420px, calc(100vw - 32px));
+  padding: 20px 24px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-md);
+  background: var(--dialog);
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  .head {
+    left: 16px;
+    top: 14px;
+  }
+}
