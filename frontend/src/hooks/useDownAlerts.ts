@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { envLabel } from '../domain/environments';
 import { useAppsStore } from '../store/apps.store';
 import { useConnectionStore } from '../store/connection.store';
@@ -76,9 +76,16 @@ function alertApiDown(): void {
 
 /**
  * Registra os alertas de queda: alerta único quando a API cai e limpeza ao voltar o foco.
- * Devolve `queueAlert` para o hook de eventos entregar as quedas.
+ * Devolve `queueAlert` para o hook de eventos entregar as quedas. Com `active`
+ * false (fora do painel; a galáxia legada nunca alertava), a queda da API não alerta.
  */
-export function useDownAlerts(): { queueAlert: typeof queueAlert } {
+export function useDownAlerts(active = true): { queueAlert: typeof queueAlert } {
+  // Lido na hora da queda: trocar de rota não reassina a store.
+  const activeRef = useRef(active);
+  useEffect(() => {
+    activeRef.current = active;
+  });
+
   useEffect(() => {
     const onReturn = () => {
       if (!isAway()) dismissAlerts();
@@ -86,7 +93,7 @@ export function useDownAlerts(): { queueAlert: typeof queueAlert } {
     document.addEventListener('visibilitychange', onReturn);
     window.addEventListener('focus', onReturn);
     const unsubscribe = useConnectionStore.subscribe((s, prev) => {
-      if (s.apiDown && !prev.apiDown) alertApiDown();
+      if (s.apiDown && !prev.apiDown && activeRef.current) alertApiDown();
     });
     return () => {
       document.removeEventListener('visibilitychange', onReturn);

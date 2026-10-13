@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo } from 'react';
-import { Outlet } from 'react-router';
+import { Outlet, useMatch } from 'react-router';
 import { EventStreamContext } from '@/hooks/EventStreamContext';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { useDownAlerts } from '@/hooks/useDownAlerts';
@@ -19,8 +19,16 @@ function notifyAllowed(): boolean {
 export function AppShell() {
   useTheme();
   useDocumentTitle();
-  const { queueAlert } = useDownAlerts();
-  const { reconnectIfClosed } = useEventStream({ onFell: queueAlert });
+  // Alertas de queda só com o painel aberto, como no legado (a galáxia nunca
+  // alertava). O downSeen segue atualizado pela store: uma queda vista na
+  // galáxia não alerta de novo ao abrir o painel.
+  const onPanel = useMatch('/painel') !== null;
+  const { queueAlert } = useDownAlerts(onPanel);
+  const { reconnectIfClosed } = useEventStream({
+    onFell: (hits) => {
+      if (onPanel) queueAlert(hits);
+    },
+  });
 
   // Antes da primeira pintura, para a tela já nascer com o último estado conhecido
   // (o legado hidratava no componentDidMount). Idempotente: o StrictMode roda duas vezes.
