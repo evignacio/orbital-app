@@ -1,0 +1,6 @@
+/* Camada das órbitas (legacy index.html ~64): o svg é sem cliques, cada sistema os recebe. */
+.layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
