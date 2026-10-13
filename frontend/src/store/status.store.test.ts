@@ -213,3 +213,17 @@ describe('pruneTo', () => {
     expect(stored()).toEqual({ status: { a: 'healthy' }, ts: 5 });
   });
 });
+
+describe('forget', () => {
+  it('tira o status e o downSeen de uma app (volta a "não verificado") e grava', () => {
+    useStatusStore.setState({
+      status: { a: 'unhealthy', b: 'healthy' },
+      ts: 7,
+      downSeen: new Set(['a', 'b']),
+    });
+    status().forget('a');
+    expect(status().status).toEqual({ b: 'healthy' });
+    expect([...status().downSeen]).toEqual(['b']);
+    expect(stored()).toEqual({ status: { b: 'healthy' }, ts: 7 });
+  });
+});
