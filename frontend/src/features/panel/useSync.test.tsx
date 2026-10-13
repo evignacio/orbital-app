@@ -103,6 +103,32 @@ describe('useSync', () => {
     expect(useConnectionStore.getState().scanning).toBe(true);
   });
 
+  it('o POST atrasado da varredura A não arma timer para a varredura B de outro ambiente', async () => {
+    let resolveA: (v: unknown) => void = () => undefined;
+    syncEnvironment.mockReturnValueOnce(new Promise((r) => (resolveA = r)));
+    syncEnvironment.mockReturnValueOnce(new Promise(() => undefined));
+    const a = renderHook(() => useSync('prd'), { wrapper });
+    const b = renderHook(() => useSync('dev'), { wrapper });
+    act(() => {
+      a.result.current.sync();
+    });
+    act(() => {
+      useConnectionStore.getState().endScan(); // cycle de A
+    });
+    act(() => {
+      b.result.current.sync();
+    });
+    await act(async () => {
+      resolveA({});
+      await Promise.resolve();
+    });
+    act(() => {
+      vi.advanceTimersByTime(SCAN_MAX_MS * 2);
+    });
+    expect(useConnectionStore.getState().scanning).toBe(true);
+    expect(useConnectionStore.getState().scanEnv).toBe('dev');
+  });
+
   it('falha do POST encerra a varredura e marca a tempestade', async () => {
     syncEnvironment.mockRejectedValue(new Error('rede'));
     const { result } = renderHook(() => useSync('prd'), { wrapper });

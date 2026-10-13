@@ -42,7 +42,9 @@ export function useSync(env: EnvCode): SyncControls {
     syncEnvironment(env).then(
       () => {
         // O cycle pode ter chegado antes da resposta do POST: aí não há timer a armar.
-        if (!useConnectionStore.getState().scanning) return;
+        // Nem de outra varredura, de outro ambiente, que começou no meio do caminho.
+        const conn = useConnectionStore.getState();
+        if (!conn.scanning || conn.scanEnv !== env) return;
         clearTimeout(timer.current);
         timer.current = setTimeout(() => {
           timer.current = undefined;
