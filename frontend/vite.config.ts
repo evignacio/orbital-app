@@ -4,8 +4,7 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   plugins: [react()],
-  // Fase de convivência com o legado: só a URL dos assets muda (vira '/' no corte da galáxia).
-  base: '/spa/',
+  base: '/',
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
