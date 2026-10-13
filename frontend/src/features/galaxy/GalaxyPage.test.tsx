@@ -178,7 +178,8 @@ describe('GalaxyPage', () => {
     useAppsStore.setState({ apps: APPS });
     const router = renderGalaxy();
     await userEvent.click(screen.getByRole('link', { name: 'Abrir a órbita Dream team' }));
-    expect(await screen.findByText('painel aberto')).toBeInTheDocument();
+    // A sucção leva ENTER_MS (900ms) antes de navegar: folga sobre o 1s padrão do findBy.
+    expect(await screen.findByText('painel aberto', {}, { timeout: 3000 })).toBeInTheDocument();
     expect(router.state.location.search).toBe('?orbita=dream-team');
     await act(() => router.navigate(-1));
     const orbs = [...document.querySelectorAll<SVGGElement>('g.orb')];
