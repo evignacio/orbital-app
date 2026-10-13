@@ -1,0 +1,15 @@
+/* O d3 escreve o nome no style inline: fora do escopo dos CSS Modules (painel.html). */
+@keyframes comet {
+  0% {
+    transform: translateX(-25vw);
+    opacity: 0;
+  }
+  10%,
+  80% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(125vw);
+    opacity: 0;
+  }
+}
