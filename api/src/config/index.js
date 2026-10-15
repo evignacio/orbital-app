@@ -22,6 +22,14 @@ function int(name, fallback, min) {
   return value;
 }
 
+// Comma-separated list ("a,b"); blanks and trailing slashes are dropped.
+function list(name, fallback) {
+  const raw = str(name, undefined);
+  if (raw === undefined) return fallback;
+  const items = raw.split(",").map(item => item.trim().replace(/\/+$/, "")).filter(Boolean);
+  return items.length ? items : fallback;
+}
+
 const config = Object.freeze({
   port: int("PORT", 3001, 1),
   mongoUrl: str("MONGO_URL", "mongodb://localhost:27017"),
@@ -37,6 +45,8 @@ const config = Object.freeze({
   healthCheckConcurrency: int("HEALTH_CHECK_CONCURRENCY", 10, 1),
   healthCheckTimeoutMs: int("HEALTH_CHECK_TIMEOUT_MS", 5000, 1),
   degradedLatencyMs: int("DEGRADED_LATENCY_MS", 3000, 1),
+  // Origins allowed by CORS; "*" (the default) allows any.
+  corsOrigins: list("CORS_ORIGINS", ["*"]),
 });
 
 module.exports = config;

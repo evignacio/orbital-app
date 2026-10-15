@@ -33,11 +33,10 @@ describe('healthLine', () => {
     expect(healthLine(o(0, 0), false)).toEqual([{ text: 'TODAS NO AR', color: 'var(--up)' }]);
   });
 
-  it('quedas e lentidões, separadas por ponto', () => {
+  it('lentidões numa linha abaixo das quedas', () => {
     expect(healthLine(o(2, 1), false)).toEqual([
       { text: '2 FORA', color: 'var(--down)' },
-      { text: ' · ', color: 'var(--faint)' },
-      { text: '1 DEGRADADO', color: 'var(--warn)' },
+      { text: '1 DEGRADADO', color: 'var(--warn)', nextLine: true },
     ]);
     expect(healthLine(o(1, 0), false)).toEqual([{ text: '1 FORA', color: 'var(--down)' }]);
     expect(healthLine(o(0, 4), false)).toEqual([{ text: '4 DEGRADADO', color: 'var(--warn)' }]);
