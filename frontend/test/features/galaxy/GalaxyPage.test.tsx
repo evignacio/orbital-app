@@ -121,7 +121,7 @@ describe('GalaxyPage', () => {
     expect(screen.queryByText(/Nenhuma órbita ainda/)).toBeNull();
     expect(screen.getByRole('link', { name: 'Abrir a órbita Dream team' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Abrir a órbita Core' })).toBeInTheDocument();
-    expect(health()).toEqual(['1 FORA · 1 DEGRADADO', 'TODAS NO AR']);
+    expect(health()).toEqual(['1 FORA1 DEGRADADO', 'TODAS NO AR']);
   });
 
   it('um status novo atualiza a legenda', () => {

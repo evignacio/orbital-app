@@ -5,6 +5,8 @@ import type { GalaxyOrbit } from './galaxy-layout';
 export interface LabelSpan {
   text: string;
   color: string;
+  /** Começa numa nova linha, centralizada, abaixo do trecho anterior. */
+  nextLine?: boolean;
 }
 
 /** Contagem da legenda: todas as apps da órbita, em todos os ambientes. */
@@ -15,7 +17,8 @@ export function countLabel(n: number): string {
 /**
  * Linha de saúde da legenda: VERIFICANDO enquanto
  * nenhuma app da órbita tem status; com status antigo ou a API fora, o último
- * conhecido em cinza; senão TODAS NO AR ou as quedas e lentidões nas cores delas.
+ * conhecido em cinza; senão TODAS NO AR ou as quedas e lentidões nas cores delas,
+ * as lentidões numa linha abaixo das quedas.
  */
 export function healthLine(
   o: Pick<GalaxyOrbit, 'checked' | 'down' | 'degraded'>,
@@ -33,8 +36,13 @@ export function healthLine(
   if (!o.down && !o.degraded) return [{ text: 'TODAS NO AR', color: 'var(--up)' }];
   const spans: LabelSpan[] = [];
   if (o.down) spans.push({ text: `${String(o.down)} FORA`, color: 'var(--down)' });
-  if (o.down && o.degraded) spans.push({ text: ' · ', color: 'var(--faint)' });
-  if (o.degraded) spans.push({ text: `${String(o.degraded)} DEGRADADO`, color: 'var(--warn)' });
+  if (o.degraded) {
+    spans.push({
+      text: `${String(o.degraded)} DEGRADADO`,
+      color: 'var(--warn)',
+      ...(o.down ? { nextLine: true } : {}),
+    });
+  }
   return spans;
 }
 
@@ -77,6 +85,8 @@ export function appendOrbitLabel<G extends BaseType, D extends GalaxyOrbit, P ex
     .selectAll('tspan')
     .data((d) => healthLine(d, stale))
     .join('tspan')
+    .attr('x', (s) => (s.nextLine ? 0 : null))
+    .attr('dy', (s) => (s.nextLine ? 14 : null))
     .style('fill', (s) => s.color)
     .text((s) => s.text);
 }
