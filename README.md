@@ -102,13 +102,10 @@ docker compose -f docker-compose.local.yml up -d --build
 |--------------|----------------------------|-------------------------|
 | 🌐 Frontend  | http://localhost           | Painel Orbital (nginx)  |
 | ⚙️ API       | http://localhost:3001      | REST API                |
-| 🍃 MongoDB   | mongodb://localhost:27017  | Banco de dados          |
-| 🔴 Redis     | localhost:6379             | Cache e último status   |
+| 🍃 MongoDB   | mongodb://127.0.0.1:27017  | Banco de dados (só desta máquina)        |
+| 🔴 Redis     | 127.0.0.1:6379             | Cache e último status (só desta máquina) |
 
 > O banco é populado automaticamente com dados de exemplo na primeira inicialização. Nas reinicializações seguintes os dados persistem no volume `mongo_data`.
->
-> Banco criado antes das órbitas? O `mongo-add-orbits.js` coloca na órbita "Dream team" toda aplicação que ainda não tem `orbits`:
-> `docker compose -f docker-compose.local.yml exec -T mongo mongosh orbital < mongo-add-orbits.js` e depois apague as chaves `orbital:apps:*` do Redis.
 
 ---
 
@@ -140,6 +137,36 @@ As credenciais dos serviços externos são lidas do arquivo `api/.env.prod`:
 | `HEALTH_CHECK_CONCURRENCY` | Máximo de health checks simultâneos por ciclo |
 | `DEGRADED_LATENCY_MS` | Tempo de resposta (ms) acima do qual a aplicação fica degradada |
 | `HEALTH_CHECK_TIMEOUT_MS` | Tempo máximo (ms) de cada health check antes de marcar a aplicação como fora do ar |
+| `CORS_ORIGINS`   | Origens liberadas para chamar a API direto do navegador (vazio = nenhuma; veja abaixo) |
+| `LOG_LEVEL`      | Nível mínimo dos logs: `info`, `warn` ou `error` |
+
+---
+
+### 🔒 HTTPS (opcional)
+
+Para servir com HTTPS, some o override do Caddy ao compose. O Caddy obtém e renova o certificado (Let's Encrypt) sozinho e envia o HSTS; o DNS do domínio precisa apontar para o host e as portas 80 e 443 precisam estar abertas:
+
+```bash
+ORBITAL_DOMAIN=orbital.exemplo.com docker compose -f docker-compose.prod.yml -f docker-compose.tls.yml up -d --build
+```
+
+Localmente, `docker compose -f docker-compose.local.yml -f docker-compose.tls.yml up -d` serve `https://localhost` com uma CA local (o navegador vai avisar). Com o override, o nginx do frontend não publica porta: só o Caddy fica exposto. A configuração está em [`caddy/Caddyfile`](caddy/Caddyfile).
+
+### 🛡️ Segurança das imagens
+
+- **Containers sem root.** A API roda como o usuário `node` (uid 1000) e o frontend usa a imagem `nginxinc/nginx-unprivileged`, escutando na porta 8080 (o compose publica `80:8080`, então a URL continua `http://localhost`).
+- **Healthcheck.** As duas imagens têm `HEALTHCHECK`: a da API só testa se a porta aceita conexão TCP (não consulta Mongo nem Redis), a do frontend faz um GET no nginx. `docker compose ps` mostra o estado `healthy`.
+- **Headers de segurança.** O nginx envia CSP restrita (`script-src 'self'`, nenhum recurso de terceiros), `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy` e `Permissions-Policy`.
+- **Sem recursos externos.** As fontes (Inter e JetBrains Mono) são servidas pela própria aplicação via `@fontsource`, sem Google Fonts.
+- **CORS fechado por padrão.** O navegador fala com a API pela mesma origem (nginx ou proxy do Vite), então `CORS_ORIGINS` vazio não libera nenhuma origem. Preencha só se uma página em outra origem chamar a API diretamente (ex.: `CORS_ORIGINS=https://painel.exemplo.com`); `*` libera qualquer origem e é desaconselhado.
+
+### 🧭 Configuração do frontend
+
+| Variável       | Padrão             | Descrição |
+|----------------|--------------------|-----------|
+| `API_UPSTREAM` | `http://api:3001`  | Endereço da API para o proxy `/api/` do nginx (útil fora do Docker Compose, ex.: Kubernetes) |
+
+O DNS usado pelo nginx vem do `/etc/resolv.conf` do container (`NGINX_ENTRYPOINT_LOCAL_RESOLVERS=1`), então funciona em Docker e Kubernetes sem ajuste. O template fica em [`frontend/nginx/default.conf.template`](frontend/nginx/default.conf.template).
 
 ---
 
@@ -186,6 +213,7 @@ docker compose -f docker-compose.local.yml up -d --build frontend
 | `DEGRADED_LATENCY_MS` | `3000`                    | Tempo de resposta (ms) acima do qual a aplicação fica degradada |
 | `HEALTH_CHECK_TIMEOUT_MS` | `5000`                  | Tempo máximo (ms) de cada health check antes de marcar a aplicação como fora do ar |
 | `LOG_LEVEL`       | `info`                        | Nível mínimo dos logs (JSON, uma linha por evento): `info`, `warn` ou `error` |
+| `CORS_ORIGINS`    | *(vazio)*                     | Origens liberadas para chamar a API direto do navegador, separadas por vírgula. Vazio = nenhuma origem (o normal: o frontend usa a mesma origem via nginx). `*` libera qualquer uma e é desaconselhado |
 
 Um valor inválido (ex.: `HEALTH_CHECK_INTERVAL_S=abc`) impede a API de subir, com o erro no log.
 
@@ -218,3 +246,7 @@ Testes do frontend com Vitest + Testing Library (jsdom, com um `EventSource` fal
 cd frontend
 npm test
 ```
+
+## 📝 Histórico de versões
+
+As mudanças de cada versão estão no [CHANGELOG.md](CHANGELOG.md); as versões publicadas ficam em [Releases](https://github.com/evignacio/orbital-app/releases).

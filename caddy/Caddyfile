@@ -1,0 +1,14 @@
+# Front TLS opcional (docker-compose.tls.yml). O Caddy obtém e renova o certificado
+# sozinho (Let's Encrypt; com ORBITAL_DOMAIN=localhost usa uma CA local, autoassinada),
+# redireciona HTTP → HTTPS e repassa tudo ao nginx do frontend, que cuida de SPA,
+# cache, cabeçalhos de segurança e proxy para a API.
+{$ORBITAL_DOMAIN} {
+	# HSTS só aqui: é o único ponto que fala HTTPS. Sem "preload" — é um compromisso
+	# difícil de desfazer; ative conscientemente se quiser.
+	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+
+	reverse_proxy frontend:8080 {
+		# SSE (/api/applications/events): repassa cada evento na hora, sem buffer.
+		flush_interval -1
+	}
+}

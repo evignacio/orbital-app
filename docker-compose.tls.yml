@@ -1,0 +1,29 @@
+# HTTPS opcional: soma-se a qualquer um dos dois compose.
+#   ORBITAL_DOMAIN=orbital.exemplo.com docker compose -f docker-compose.prod.yml -f docker-compose.tls.yml up -d
+#   docker compose -f docker-compose.local.yml -f docker-compose.tls.yml up -d   # https://localhost (CA local)
+# Para um certificado público, o DNS do domínio deve apontar para este host e as
+# portas 80/443 devem estar abertas (80 serve o desafio ACME e o redirecionamento).
+services:
+  caddy:
+    image: caddy:2.10-alpine
+    environment:
+      ORBITAL_DOMAIN: ${ORBITAL_DOMAIN:-localhost}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # HTTP/3
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data # certificados e chaves — não apagar à toa (limites do Let's Encrypt)
+      - caddy_config:/config
+    depends_on:
+      - frontend
+    restart: unless-stopped
+
+  # Com o Caddy na frente, o nginx não publica porta: só é alcançado pela rede do compose.
+  frontend:
+    ports: !reset []
+
+volumes:
+  caddy_data:
+  caddy_config:

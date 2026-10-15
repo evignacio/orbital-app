@@ -7,10 +7,16 @@ services:
     volumes:
       - mongo_data:/data/db
       - ./mongo-seed.js:/docker-entrypoint-initdb.d/mongo-seed.js:ro
+    # Published on loopback only: reachable from this machine (API run with
+    # `npm run dev`, Compass…), never from the network.
+    ports:
+      - "127.0.0.1:27017:27017"
     restart: unless-stopped
 
   redis:
     image: redis:7-alpine
+    ports:
+      - "127.0.0.1:6379:6379"
     restart: unless-stopped
 
   api:
@@ -33,7 +39,7 @@ services:
     build:
       context: ./frontend
     ports:
-      - "80:80"
+      - "80:8080"
     restart: unless-stopped
 
 volumes:

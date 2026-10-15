@@ -1,0 +1,8 @@
+/* Fundo escuro antes do CSS do bundle carregar (evita o clarão branco). Arquivo
+   externo, e não <style> inline, para a CSP manter style-src 'self'. */
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: #161826;
+}

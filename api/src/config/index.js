@@ -45,8 +45,9 @@ const config = Object.freeze({
   healthCheckConcurrency: int("HEALTH_CHECK_CONCURRENCY", 10, 1),
   healthCheckTimeoutMs: int("HEALTH_CHECK_TIMEOUT_MS", 5000, 1),
   degradedLatencyMs: int("DEGRADED_LATENCY_MS", 3000, 1),
-  // Origins allowed by CORS; "*" (the default) allows any.
-  corsOrigins: list("CORS_ORIGINS", ["*"]),
+  // Origins allowed by CORS. Unset/empty (the default) allows none: the browser reaches
+  // the API same-origin through nginx (or Vite's proxy). "*" allows any, only when set.
+  corsOrigins: list("CORS_ORIGINS", []),
 });
 
 module.exports = config;

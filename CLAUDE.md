@@ -16,9 +16,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `api/` | Express REST API + SSE, health-check scheduler (Node 24) |
 | `frontend/` | React + TypeScript SPA built with Vite and served by nginx: galaxy (`/`) and panel (`/painel`) |
 | `site/` | static presentation page published on GitHub Pages (not part of the app) |
-| `docs/` | notes and a standalone galaxy prototype |
-| `mongo-seed.js`, `mongo-add-orbits.js` | Mongo seed and migration scripts |
+| `mongo-seed.js` | Mongo seed script |
+| `CHANGELOG.md` | release history (Keep a Changelog, pt-BR); the release workflow reads it |
 | `docker-compose.local.yml`, `docker-compose.prod.yml` | how the stack runs |
+| `docker-compose.tls.yml`, `caddy/Caddyfile` | optional HTTPS front (Caddy, HSTS) layered on either compose file |
 
 ## Running the app
 
@@ -28,18 +29,21 @@ The app is **not** standalone — the frontend reads from a REST API under `/api
 docker compose -f docker-compose.local.yml up -d --build
 ```
 
-Then open `http://localhost` (nginx, port 80). The API is on `http://localhost:3001`.
+Then open `http://localhost` (nginx listens on 8080 as a non-root user; compose publishes it as `80:8080`). The API is on `http://localhost:3001`.
 
-- `docker-compose.local.yml` — full local stack: mongo + redis + api + frontend
+- `docker-compose.local.yml` — full local stack: mongo + redis + api + frontend; mongo and redis are published on `127.0.0.1` only
 - `docker-compose.prod.yml` — api + frontend only; mongo and redis come from `api/.env.prod` (template: `api/.env.prod.example`)
+- `docker-compose.tls.yml` — override adding Caddy on 80/443 for `ORBITAL_DOMAIN`; the frontend then publishes no port
+
+Both images run as non-root and have a `HEALTHCHECK`. The nginx config is a template (`frontend/nginx/default.conf.template`): `API_UPSTREAM` (default `http://api:3001`) sets the proxy target and the resolver comes from the container's `/etc/resolv.conf`. CORS is closed by default (`CORS_ORIGINS` empty), since the browser reaches the API same-origin through nginx or Vite.
 
 The frontend image builds the SPA (`npm run build`) and serves `dist/` with nginx; rebuild it with `docker compose -f docker-compose.local.yml up -d --build frontend`. For frontend work with hot reload, run `npm run dev` in `frontend/` (Vite on `http://localhost:5173`, proxying `/api` to the API on `:3001`) with the stack still up — see `frontend/CLAUDE.md`.
 
 ## Architecture
 
 ```
-frontend (nginx :80)  ──HTTP + SSE──▶  api (Express :3001)  ──▶  MongoDB
-                                         └──▶ Redis (cache de apps e estado dos checks)
+frontend (nginx :8080) ──HTTP + SSE──▶  api (Express :3001)  ──▶  MongoDB
+                                          └──▶ Redis (cache de apps e estado dos checks)
 ```
 
 The browser never probes health check URLs itself, and has no timer. The **API schedules the checks**: every `HEALTH_CHECK_INTERVAL_S` (default 30) it runs a cycle per environment, with offsets production 0 s, staging 10 s, development 20 s, so the three never run together. A cycle fetches each `healthCheckUrl` server-side and publishes each result over SSE as soon as that check ends. `status` is `healthy`, `degraded` (a 2xx slower than `DEGRADED_LATENCY_MS`, default 3000; these also carry `limitMs`) or `unhealthy` (non-2xx, network error or timeout — an error always wins over slowness). **Single API instance only**: scheduler and SSE fan-out are in-process, so several replicas would check twice.
@@ -76,4 +80,4 @@ The UI uses three short codes that map onto API/Mongo names. The frontend's sing
 
 ## Seed data
 
-`mongo-seed.js` seeds 10 sample applications across the three collections, all in the `Dream team` orbit. It runs only on first boot of an empty `mongo_data` volume (it is mounted into `docker-entrypoint-initdb.d`, and `MONGO_INITDB_DATABASE=orbital` makes the entrypoint run it against `orbital`), so re-seeding means dropping that volume. A database created before orbits existed is migrated with `mongo-add-orbits.js` (idempotent: every document without `orbits` gets `["Dream team"]`), run with `docker compose -f docker-compose.local.yml exec -T mongo mongosh orbital < mongo-add-orbits.js` followed by deleting the `orbital:apps:<env>` keys in Redis.
+`mongo-seed.js` seeds 10 sample applications across the three collections, all in the `Dream team` orbit. It runs only on first boot of an empty `mongo_data` volume (it is mounted into `docker-entrypoint-initdb.d`, and `MONGO_INITDB_DATABASE=orbital` makes the entrypoint run it against `orbital`), so re-seeding means dropping that volume.

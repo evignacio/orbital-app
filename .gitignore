@@ -143,4 +143,9 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
 
-docs/*
+# macOS
+.DS_Store
+
+# Notas internas e protótipos locais (não versionados)
+docs/
+frontend/prototipos/

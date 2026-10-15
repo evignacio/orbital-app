@@ -1,11 +1,27 @@
 name: Release
 
+# A versão é declarada no "version" de api/package.json e frontend/package.json
+# (as duas iguais). Em cada push na main, depois dos testes, este job cria a tag
+# v<versão> e o GitHub Release se essa tag ainda não existe; se já existe (push
+# sem mudança de versão), não faz nada. O texto do release é a seção
+# "## [<versão>]" do CHANGELOG.md (ou as notas automáticas do GitHub, se não
+# houver seção). O workflow não faz commits nem push, então não dispara a si
+# mesmo e só precisa do GITHUB_TOKEN.
+#
+# Para lançar: suba a versão nos dois package.json (npm version <v>
+# --no-git-tag-version em api/ e frontend/), mova o "Não lançado" do
+# CHANGELOG.md para "## [<v>] - <data>" e faça o push na main SEM [skip ci].
+
 on:
   push:
     branches: [main]
 
 permissions:
   contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
   test-api:
@@ -43,22 +59,50 @@ jobs:
   release:
     needs: [test-api, test-frontend]
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Bump version and push tag
-        id: tag
-        uses: mathieudutour/github-tag-action@v6.2
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          default_bump: patch
-          release_branches: main
+      - name: Ler a versão dos package.json
+        id: version
+        run: |
+          api=$(node -p "require('./api/package.json').version")
+          web=$(node -p "require('./frontend/package.json').version")
+          if [ "$api" != "$web" ]; then
+            echo "::error::Versões diferentes: api/package.json=$api, frontend/package.json=$web"
+            exit 1
+          fi
+          tag="v$api"
+          echo "version=$api" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::A tag $tag já existe; nenhum release novo (suba a versão nos package.json para lançar)."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
 
-      - name: Create GitHub Release
-        uses: ncipollo/release-action@v1
-        with:
-          tag: ${{ steps.tag.outputs.new_tag }}
-          name: ${{ steps.tag.outputs.new_tag }}
-          body: ${{ steps.tag.outputs.changelog }}
+      - name: Criar a tag e o GitHub Release
+        if: steps.version.outputs.exists == 'false'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          # Seção "## [VERSION]" do CHANGELOG.md, sem o cabeçalho, até a próxima "## [".
+          awk -v hdr="## [$VERSION]" '
+            index($0, hdr) == 1 { on = 1; next }
+            on && /^## \[/ { exit }
+            on { print }
+          ' CHANGELOG.md > notes.md
+          args=(--target "$GITHUB_SHA" --title "$TAG")
+          if grep -q '[^[:space:]]' notes.md; then
+            args+=(--notes-file notes.md)
+          else
+            echo "::warning::CHANGELOG.md não tem a seção [$VERSION]; usando as notas automáticas do GitHub."
+            args+=(--generate-notes)
+          fi
+          case "$VERSION" in *-*) args+=(--prerelease) ;; esac
+          gh release create "$TAG" "${args[@]}"

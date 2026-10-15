@@ -112,7 +112,8 @@ describe("GET /applications/events", () => {
     expect(stream.res.headers.get("cache-control")).toBe("no-cache, no-transform");
     expect(stream.res.headers.get("connection")).toBe("keep-alive");
     expect(stream.res.headers.get("x-accel-buffering")).toBe("no");
-    expect(stream.res.headers.get("access-control-allow-origin")).toBe("*");
+    // CORS_ORIGINS vazio (padrão): o navegador chega pelo nginx, na mesma origem.
+    expect(stream.res.headers.get("access-control-allow-origin")).toBeNull();
   });
 
   it("começa com retry: 3000 e manda um snapshot por ambiente, na ordem de ENVIRONMENTS", async () => {
