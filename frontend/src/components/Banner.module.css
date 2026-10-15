@@ -63,6 +63,7 @@
   flex: none;
   color: var(--tone);
   animation: flicker 4s linear infinite;
+  animation-play-state: var(--backdrop-play, running);
 }
 
 .text {

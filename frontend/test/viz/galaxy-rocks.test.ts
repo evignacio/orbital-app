@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createMotionClock } from '@/domain/motion-clock';
 import {
   collideRocks,
   drawGalaxyRocks,
@@ -213,6 +214,16 @@ describe('drawGalaxyRocks', () => {
     expect(first?.vx).toBe(200);
     expect(first?.vy).toBe(0);
     expect(first?.vr).toBe(120);
+  });
+
+  it('com o relógio pausado (modal aberto) os asteroides ficam parados', async () => {
+    const clock = createMotionClock();
+    clock.setPaused(true);
+    const drawing = drawGalaxyRocks(el, { still: false, clock });
+    const before = drawing.rocks().map((d) => [d.x, d.y, d.rot]);
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    expect(drawing.rocks().map((d) => [d.x, d.y, d.rot])).toEqual(before);
+    drawing.destroy();
   });
 
   it('destroy para o timer, remove o svg e o arremesso pendente', () => {

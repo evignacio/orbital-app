@@ -176,7 +176,9 @@ export function drawTwinkles(el: HTMLElement, still: boolean): () => void {
     .style('opacity', () => (still ? 0.5 : null))
     .style('animation', (d) =>
       still ? null : `galaxyTwinkle ${String(d.d)}s ease-in-out ${String(-d.o)}s infinite`,
-    );
+    )
+    // Depois do atalho animation, que o zera; pausa atrás de um modal.
+    .style('animation-play-state', 'var(--backdrop-play, running)');
   return () => {
     spans.remove();
   };

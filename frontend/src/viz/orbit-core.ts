@@ -105,7 +105,8 @@ export function appendStormCore<G extends BaseType, D, P extends BaseType, PD>(
     .attr('transform', 'translate(-17,-19) scale(.133)')
     .style('fill', 'var(--storm)')
     .style('filter', 'drop-shadow(0 0 6px var(--storm-line))')
-    .style('animation', 'flicker 4s linear infinite');
+    .style('animation', 'flicker 4s linear infinite')
+    .style('animation-play-state', 'var(--backdrop-play, running)');
   g.append('text')
     .attr('y', 50)
     .attr('text-anchor', 'middle')

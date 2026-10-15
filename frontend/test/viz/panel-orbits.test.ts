@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createMotionClock } from '@/domain/motion-clock';
 import type { StatusMap } from '@/domain/types';
 import { drawOrbits, type PanelOrbitScene, type PanelPlanets } from '@/viz/panel-orbits';
 
@@ -28,7 +29,14 @@ const PLANETS = [
 ];
 
 function scene(over: Partial<PanelOrbitScene> = {}): PanelOrbitScene {
-  return { light: false, storm: false, still: false, t0: Date.now(), onSelect: vi.fn(), ...over };
+  return {
+    light: false,
+    storm: false,
+    still: false,
+    clock: createMotionClock(() => Date.now()),
+    onSelect: vi.fn(),
+    ...over,
+  };
 }
 
 function planets(over: Partial<PanelPlanets> = {}): PanelPlanets {
@@ -147,7 +155,7 @@ describe('drawOrbits', () => {
 
   it('os planetas giram e a limpeza para o timer e remove o svg', () => {
     vi.useFakeTimers();
-    const orbit = drawOrbits(mount(), scene({ t0: Date.now() - 1000 }), planets());
+    const orbit = drawOrbits(mount(), scene(), planets());
     const g = planetEls()[0];
     const before = g?.getAttribute('transform');
     vi.advanceTimersByTime(80);
@@ -158,6 +166,27 @@ describe('drawOrbits', () => {
     orbit.destroy();
     expect(timers.stopped).toBe(1);
     expect(el.querySelector('svg')).toBeNull();
+  });
+
+  it('com o relógio pausado (modal aberto) os planetas não giram e retomam de onde pararam', () => {
+    vi.useFakeTimers();
+    const clock = createMotionClock(() => Date.now());
+    const orbit = drawOrbits(mount(), scene({ clock }), planets());
+    const g = planetEls()[0];
+    clock.setPaused(true);
+    const before = g?.getAttribute('transform');
+    vi.advanceTimersByTime(5000);
+    timers.ticks.forEach((tick) => {
+      tick();
+    });
+    expect(g?.getAttribute('transform')).toBe(before);
+    clock.setPaused(false);
+    vi.advanceTimersByTime(16);
+    timers.ticks.forEach((tick) => {
+      tick();
+    });
+    expect(clock.now()).toBe(16);
+    orbit.destroy();
   });
 
   it('movimento reduzido: planetas parados na posição inicial', () => {

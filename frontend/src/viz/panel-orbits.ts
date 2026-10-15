@@ -1,5 +1,6 @@
 import { select, type Selection } from 'd3-selection';
 import { timer, type Timer } from 'd3-timer';
+import type { MotionClock } from '../domain/motion-clock';
 import { STATUSES, statusColor } from '../domain/status';
 import type { StatusMap } from '../domain/types';
 import { appendOrbitCore, appendStormCore } from './orbit-core';
@@ -22,8 +23,8 @@ export interface PanelOrbitScene {
   storm: boolean;
   /** prefers-reduced-motion: planetas parados, sem timer. */
   still: boolean;
-  /** Início da rotação (ms): o mesmo entre redesenhos, para os planetas não pularem. */
-  t0: number;
+  /** O mesmo entre redesenhos, para os planetas não pularem; pausado, a rotação para. */
+  clock: MotionClock;
   onSelect: (id: string) => void;
 }
 
@@ -55,7 +56,7 @@ export function drawOrbits(
   scene: PanelOrbitScene,
   initial: PanelPlanets,
 ): PanelOrbit {
-  const { light, storm, still, t0, onSelect } = scene;
+  const { light, storm, still, clock, onSelect } = scene;
   const { W, H } = orbitBox(el.clientWidth, el.clientHeight);
   const root = select(el);
   root.selectAll('svg').remove();
@@ -102,7 +103,7 @@ export function drawOrbits(
   const rMax = maxRadius(W, H);
   let planetSel: PlanetSel | null = null;
 
-  const elapsed = () => (still ? 0 : (Date.now() - t0) / 1000);
+  const elapsed = () => (still ? 0 : clock.now() / 1000);
 
   const update = (state: PanelPlanets) => {
     const nodes = planetNodes(state.planets, rMax);
@@ -148,7 +149,7 @@ export function drawOrbits(
   let spin: Timer | null = null;
   if (!still) {
     spin = timer(() => {
-      if (!planetSel) return;
+      if (!planetSel || clock.isPaused()) return;
       const t = elapsed();
       planetSel.attr('transform', (d) => planetTransform(d, t));
     });

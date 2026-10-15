@@ -1,5 +1,6 @@
 import { select } from 'd3-selection';
 import { timer, type Timer } from 'd3-timer';
+import type { MotionClock } from '../domain/motion-clock';
 import { hashId, rng } from '../domain/random';
 import { statusColor } from '../domain/status';
 import type { StatusMap } from '../domain/types';
@@ -50,8 +51,8 @@ export interface GalaxyOrbitsScene {
   stale: boolean;
   /** prefers-reduced-motion: sem deriva nem rotação, sem timer. */
   still: boolean;
-  /** Início do relógio (performance.now()): o mesmo entre redesenhos, para nada pular. */
-  t0: number;
+  /** O mesmo entre redesenhos, para nada pular; pausado, a deriva e a rotação param. */
+  clock: MotionClock;
   onEnter: (node: GalaxyOrbitNode) => void;
 }
 
@@ -110,7 +111,7 @@ function nodesFor(scene: GalaxyOrbitsScene, W: number, H: number): GalaxyOrbitNo
  * As órbitas da galáxia: cada uma é um sistema
  * como o do painel — no centro a lua (escuro) ou o sol (claro), em volta anéis
  * tracejados na cor da órbita com planetinhas na cor de status (systemTones) e,
- * embaixo, a legenda. Tudo é refeito a cada chamada, como no legado; o `t0`
+ * embaixo, a legenda. Tudo é refeito a cada chamada, como no legado; o `clock`
  * compartilhado mantém a deriva e a rotação contínuas entre redesenhos.
  */
 export function drawGalaxyOrbits(el: HTMLElement, scene: GalaxyOrbitsScene): GalaxyOrbitsDrawing {
@@ -120,7 +121,7 @@ export function drawGalaxyOrbits(el: HTMLElement, scene: GalaxyOrbitsScene): Gal
   root.selectAll('svg').remove();
   if (!W) return { nodes: () => [], leave: () => undefined, destroy: () => undefined };
 
-  const { light, stale, still, t0, onEnter } = scene;
+  const { light, stale, still, clock, onEnter } = scene;
   const svg = root
     .append('svg')
     .attr('width', W)
@@ -230,8 +231,8 @@ export function drawGalaxyOrbits(el: HTMLElement, scene: GalaxyOrbitsScene): Gal
   if (still) planetTick(0);
   else {
     drift = timer(() => {
-      if (leaving) return;
-      const t = (performance.now() - t0) / 1000;
+      if (leaving || clock.isPaused()) return;
+      const t = clock.now() / 1000;
       planetTick(t);
       place(t);
     });
