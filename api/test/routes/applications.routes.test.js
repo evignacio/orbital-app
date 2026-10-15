@@ -539,6 +539,38 @@ describe("middlewares do app", () => {
     expect(res.headers["access-control-allow-origin"]).toBe("*");
   });
 
+  describe("com CORS_ORIGINS definido", () => {
+    const withOrigins = origins =>
+      new Promise(resolve =>
+        jest.isolateModules(() => {
+          jest.doMock("../../src/config", () => ({ corsOrigins: origins }));
+          resolve(require("../../src/middlewares/cors.middleware"));
+        })
+      );
+    const call = (cors, origin, method = "GET") => {
+      const headers = {};
+      const res = { setHeader: (k, v) => (headers[k] = v), status: () => ({ end: () => (headers.ended = true) }) };
+      const next = jest.fn();
+      cors({ method, headers: origin ? { origin } : {} }, res, next);
+      return { headers, next };
+    };
+
+    it("reflete só as origens da lista", async () => {
+      const cors = await withOrigins(["http://a.com", "https://b.com"]);
+      expect(call(cors, "https://b.com").headers["Access-Control-Allow-Origin"]).toBe("https://b.com");
+    });
+
+    it("não envia Allow-Origin para origem fora da lista ou sem Origin, mas segue a requisição", async () => {
+      const cors = await withOrigins(["http://a.com"]);
+      for (const origin of ["http://evil.com", undefined]) {
+        const { headers, next } = call(cors, origin);
+        expect(headers["Access-Control-Allow-Origin"]).toBeUndefined();
+        expect(headers.Vary).toBe("Origin");
+        expect(next).toHaveBeenCalled();
+      }
+    });
+  });
+
   it("responde preflight OPTIONS com 204 sem chegar às rotas nem gerar log de request", async () => {
     const res = await request(app).options("/applications/production").set("Origin", "http://localhost");
 

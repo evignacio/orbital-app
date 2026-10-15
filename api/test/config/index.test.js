@@ -19,7 +19,13 @@ describe("config", () => {
       healthCheckConcurrency: 10,
       healthCheckTimeoutMs: 5000,
       degradedLatencyMs: 3000,
+      corsOrigins: ["*"],
     });
+  });
+
+  it("lê CORS_ORIGINS como lista separada por vírgula, sem espaços nem barra final", () => {
+    expect(loadConfig({ CORS_ORIGINS: " http://a.com/ , https://b.com:8080,," }).corsOrigins).toEqual(["http://a.com", "https://b.com:8080"]);
+    expect(loadConfig({ CORS_ORIGINS: " , " }).corsOrigins).toEqual(["*"]);
   });
 
   it("lê as variáveis de texto removendo espaços nas pontas", () => {
