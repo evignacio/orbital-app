@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, type RefObject } from 'react';
 import { orbitColors } from '@/domain/orbits';
+import { useModalOpen } from '@/components/modal-stack';
+import { useMotionClock } from '@/hooks/useMotionClock';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { useAppsStore } from '@/store/apps.store';
 import { usePreferencesStore } from '@/store/preferences.store';
@@ -33,8 +35,8 @@ export interface GalaxyOrbitsProps {
 /**
  * Camada das órbitas: o contêiner
  * do d3, por cima do céu e dos asteroides. Como no legado, qualquer mudança de
- * apps, status, tema ou stale refaz o desenho; o relógio compartilhado (t0) deixa
- * a deriva e a rotação contínuas.
+ * apps, status, tema ou stale refaz o desenho; o relógio compartilhado deixa
+ * a deriva e a rotação contínuas, e para com um modal aberto.
  */
 export function GalaxyOrbits({
   sizeKey,
@@ -45,11 +47,11 @@ export function GalaxyOrbits({
 }: GalaxyOrbitsProps) {
   const ref = useRef<HTMLDivElement>(null);
   const drawing = useRef<GalaxyOrbitsDrawing | null>(null);
-  const t0 = useRef<number | null>(null);
   const apps = useAppsStore((s) => s.apps);
   const status = useStatusStore((s) => s.status);
   const light = usePreferencesStore((s) => s.theme === 'light');
   const still = useReducedMotion();
+  const clock = useMotionClock(useModalOpen());
 
   const orbits = useMemo(() => orbitsData(apps, status), [apps, status]);
   const colorOf = useMemo(() => orbitColors(apps, light ? 'light' : 'dark'), [apps, light]);
@@ -67,7 +69,6 @@ export function GalaxyOrbits({
     // fica como está (as outras órbitas já apagadas) até a página sair.
     if (latest.current.leavingKey && drawing.current) return;
     drawing.current?.destroy();
-    t0.current ??= performance.now();
     const drawn = drawGalaxyOrbits(el, {
       orbits,
       status,
@@ -75,7 +76,7 @@ export function GalaxyOrbits({
       light,
       stale,
       still,
-      t0: t0.current,
+      clock,
       onEnter: (node) => {
         latest.current.onEnter(node);
       },
@@ -84,7 +85,7 @@ export function GalaxyOrbits({
     const leaving = latest.current.leavingKey;
     if (leaving) drawn.leave(leaving);
     drawing.current = drawn;
-  }, [orbits, status, colorOf, light, stale, still, sizeKey]);
+  }, [orbits, status, colorOf, light, stale, still, clock, sizeKey]);
 
   // O desenho só some ao desmontar: uma mudança no meio da saída não pode apagá-lo.
   useEffect(

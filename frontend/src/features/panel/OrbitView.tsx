@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useReducer, useRef } from 'react';
 import type { Application, EnvCode } from '@/domain/types';
+import { useModalOpen } from '@/components/modal-stack';
+import { useMotionClock } from '@/hooks/useMotionClock';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { useResize } from '@/hooks/useResize';
 import { useConnectionStore } from '@/store/connection.store';
@@ -30,12 +32,12 @@ export interface OrbitViewProps {
 export function OrbitView({ apps, selectedId, onSelect, env, stale }: OrbitViewProps) {
   const ref = useRef<HTMLDivElement>(null);
   const orbit = useRef<PanelOrbit | null>(null);
-  // Início da rotação: sobrevive aos redesenhos, então os planetas não pulam.
-  const t0 = useRef<number | null>(null);
   const light = usePreferencesStore((s) => s.theme === 'light');
   const storm = useConnectionStore((s) => s.apiDown);
   const status = useStatusStore((s) => s.status);
   const still = useReducedMotion();
+  // Sobrevive aos redesenhos, então os planetas não pulam; para com um modal aberto.
+  const clock = useMotionClock(useModalOpen());
   const [size, resized] = useReducer((n: number) => n + 1, 0);
   useResize(ref, resized);
 
@@ -54,14 +56,13 @@ export function OrbitView({ apps, selectedId, onSelect, env, stale }: OrbitViewP
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    t0.current ??= Date.now();
     const drawn = drawOrbits(
       el,
       {
         light,
         storm,
         still,
-        t0: t0.current,
+        clock,
         onSelect: (id) => {
           latest.current.onSelect(id);
         },
@@ -73,7 +74,7 @@ export function OrbitView({ apps, selectedId, onSelect, env, stale }: OrbitViewP
       drawn.destroy();
       orbit.current = null;
     };
-  }, [env, light, storm, still, size]);
+  }, [env, light, storm, still, clock, size]);
 
   useEffect(() => {
     orbit.current?.update(planets);

@@ -58,6 +58,7 @@ export function createCometLayer(el: HTMLElement, random: () => number = Math.ra
         .style('width', 'max-content')
         .style('opacity', '0')
         .style('animation', `comet ${String(d.dur)}s linear 1 forwards`)
+        .style('animation-play-state', 'var(--backdrop-play, running)')
         .on('animationend', () => {
           lane.remove();
         })

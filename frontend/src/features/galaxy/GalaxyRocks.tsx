@@ -1,4 +1,6 @@
 import { useEffect, useRef, type RefObject } from 'react';
+import { useModalOpen } from '@/components/modal-stack';
+import { useMotionClock } from '@/hooks/useMotionClock';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { drawGalaxyRocks, type GalaxyRocksDrawing } from '@/viz/galaxy-rocks';
 import styles from './GalaxyRocks.module.css';
@@ -33,17 +35,18 @@ export function GalaxyRocks({ sizeKey, leaving, handleRef }: GalaxyRocksProps) {
   const ref = useRef<HTMLDivElement>(null);
   const drawing = useRef<GalaxyRocksDrawing | null>(null);
   const still = useReducedMotion();
+  const clock = useMotionClock(useModalOpen());
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const drawn = drawGalaxyRocks(el, { still });
+    const drawn = drawGalaxyRocks(el, { still, clock });
     drawing.current = drawn;
     return () => {
       drawn.destroy();
       drawing.current = null;
     };
-  }, [sizeKey, still]);
+  }, [sizeKey, still, clock]);
 
   useEffect(() => {
     handleRef.current = { rocks: () => drawing.current?.rocks() ?? [] };

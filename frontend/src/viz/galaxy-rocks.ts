@@ -1,5 +1,6 @@
 import { select } from 'd3-selection';
 import { timer, type Timer } from 'd3-timer';
+import { createMotionClock, type MotionClock } from '../domain/motion-clock';
 import { rng } from '../domain/random';
 import { smoothClosedPath } from './galaxy-layout';
 
@@ -148,10 +149,10 @@ export interface GalaxyRocksDrawing {
 
 const transform = (d: Rock) => `translate(${String(d.x)},${String(d.y)}) rotate(${String(d.rot)})`;
 
-/** Desenha os asteroides no tamanho de `el`; com movimento reduzido ficam parados e sem timer. */
+/** Desenha os asteroides no tamanho de `el`; com movimento reduzido ficam parados e sem timer, e com o `clock` pausado, parados. */
 export function drawGalaxyRocks(
   el: HTMLElement,
-  { still }: { still: boolean },
+  { still, clock = createMotionClock() }: { still: boolean; clock?: MotionClock },
 ): GalaxyRocksDrawing {
   const W = el.clientWidth;
   const H = el.clientHeight;
@@ -222,9 +223,10 @@ export function drawGalaxyRocks(
   let tick: Timer | null = null;
   g.attr('transform', transform);
   if (!still) {
-    let last = performance.now();
+    let last = clock.now();
     tick = timer(() => {
-      const now = performance.now();
+      if (clock.isPaused()) return;
+      const now = clock.now();
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
       stepRocks(rocks, dt, W, H);

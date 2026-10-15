@@ -173,6 +173,18 @@
   --storm-play: running;
 }
 
+/*
+ * Com um modal aberto (data-modal, components/modal-stack.ts), o blur do overlay seria
+ * refeito a cada quadro do fundo animado: as animações de trás pausam. Vem depois dos
+ * temas e de data-storm-play para vencê-los com a mesma especificidade.
+ */
+:root[data-modal='open'] {
+  --stars-play: paused;
+  --clouds-play: paused;
+  --storm-play: paused;
+  --backdrop-play: paused;
+}
+
 /* Sob o céu fechado do tema claro, os tons de apoio escurecem para manter o contraste. */
 :root[data-theme='light'][data-storm='on'] {
   --muted: #25364b;

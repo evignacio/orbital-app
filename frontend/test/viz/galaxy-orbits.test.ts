@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createMotionClock } from '@/domain/motion-clock';
 import { orbitColors } from '@/domain/orbits';
 import type { Application, StatusMap } from '@/domain/types';
 import { orbitsData } from '@/viz/galaxy-layout';
@@ -58,7 +59,7 @@ function scene(over: Partial<GalaxyOrbitsScene> = {}): GalaxyOrbitsScene {
     light: false,
     stale: false,
     still: true,
-    t0: 0,
+    clock: createMotionClock(),
     onEnter: vi.fn(),
     ...over,
   };

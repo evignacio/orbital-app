@@ -48,6 +48,7 @@
   flex: none;
   color: var(--storm);
   animation: flicker 4s linear infinite;
+  animation-play-state: var(--backdrop-play, running);
 }
 
 .text {
