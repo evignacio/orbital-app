@@ -525,18 +525,20 @@ describe("cache da lista de aplicações", () => {
 });
 
 describe("middlewares do app", () => {
-  it("reflete a Origin da requisição nos cabeçalhos CORS", async () => {
-    const res = await request(app).get("/applications").set("Origin", "http://localhost");
+  it("por padrão (CORS_ORIGINS vazio) não envia cabeçalhos CORS de liberação para nenhuma origem", async () => {
+    const res = await request(app).get("/applications").set("Origin", "https://evil.example");
 
-    expect(res.headers["access-control-allow-origin"]).toBe("http://localhost");
-    expect(res.headers["access-control-allow-methods"]).toBe("GET, POST, PUT, DELETE, OPTIONS");
-    expect(res.headers["access-control-allow-headers"]).toBe("Content-Type");
+    expect(res.status).toBe(200);
+    expect(res.headers["access-control-allow-origin"]).toBeUndefined();
+    expect(res.headers["access-control-allow-methods"]).toBeUndefined();
+    expect(res.headers["access-control-allow-headers"]).toBeUndefined();
     expect(res.headers.vary).toContain("Origin");
+    expect(res.headers["x-content-type-options"]).toBe("nosniff");
   });
 
-  it("usa * como origem permitida quando a requisição não traz Origin", async () => {
+  it("por padrão também não envia Allow-Origin em requisição sem Origin", async () => {
     const res = await request(app).get("/applications");
-    expect(res.headers["access-control-allow-origin"]).toBe("*");
+    expect(res.headers["access-control-allow-origin"]).toBeUndefined();
   });
 
   describe("com CORS_ORIGINS definido", () => {
@@ -549,15 +551,20 @@ describe("middlewares do app", () => {
       );
     const call = (cors, origin, method = "GET") => {
       const headers = {};
-      const res = { setHeader: (k, v) => (headers[k] = v), status: () => ({ end: () => (headers.ended = true) }) };
+      let status;
+      const res = { setHeader: (k, v) => (headers[k] = v), status: code => ((status = code), { end: () => (headers.ended = true) }) };
       const next = jest.fn();
       cors({ method, headers: origin ? { origin } : {} }, res, next);
-      return { headers, next };
+      return { headers, next, status: () => status };
     };
 
-    it("reflete só as origens da lista", async () => {
+    it("reflete só as origens da lista, com os métodos e cabeçalhos permitidos", async () => {
       const cors = await withOrigins(["http://a.com", "https://b.com"]);
-      expect(call(cors, "https://b.com").headers["Access-Control-Allow-Origin"]).toBe("https://b.com");
+      const { headers } = call(cors, "https://b.com");
+      expect(headers["Access-Control-Allow-Origin"]).toBe("https://b.com");
+      expect(headers["Access-Control-Allow-Methods"]).toBe("GET, POST, PUT, DELETE, OPTIONS");
+      expect(headers["Access-Control-Allow-Headers"]).toBe("Content-Type");
+      expect(headers.Vary).toBe("Origin");
     });
 
     it("não envia Allow-Origin para origem fora da lista ou sem Origin, mas segue a requisição", async () => {
@@ -565,8 +572,25 @@ describe("middlewares do app", () => {
       for (const origin of ["http://evil.com", undefined]) {
         const { headers, next } = call(cors, origin);
         expect(headers["Access-Control-Allow-Origin"]).toBeUndefined();
+        expect(headers["Access-Control-Allow-Methods"]).toBeUndefined();
         expect(headers.Vary).toBe("Origin");
         expect(next).toHaveBeenCalled();
+      }
+    });
+
+    it("com * explícito reflete qualquer origem, e usa * quando a requisição não traz Origin", async () => {
+      const cors = await withOrigins(["*"]);
+      expect(call(cors, "https://qualquer.example").headers["Access-Control-Allow-Origin"]).toBe("https://qualquer.example");
+      expect(call(cors, undefined).headers["Access-Control-Allow-Origin"]).toBe("*");
+    });
+
+    it("responde preflight com 204 sem seguir adiante, liberada ou não", async () => {
+      for (const origins of [["http://a.com"], []]) {
+        const cors = await withOrigins(origins);
+        const { next, status, headers } = call(cors, "http://a.com", "OPTIONS");
+        expect(status()).toBe(204);
+        expect(headers.ended).toBe(true);
+        expect(next).not.toHaveBeenCalled();
       }
     });
   });

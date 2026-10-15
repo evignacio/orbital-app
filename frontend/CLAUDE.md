@@ -21,10 +21,13 @@ To see a change in the real app on port 80, rebuild just this service (then hard
 docker compose -f docker-compose.local.yml up -d --build frontend
 ```
 
-- The `Dockerfile` is multi-stage: `node:24-alpine` runs `npm ci` + `npm run build`, and `nginx:1.27-alpine` serves `dist/`. Vite copies `public/` (the Nocturne `_ds/` folder and `favicon.svg`) into `dist/`.
-- `nginx.conf`: any path that is not a file falls back to `index.html` (SPA routes), served `no-cache`; `/assets/` (hashed by Vite) is cached a year as `immutable` with no fallback (a missing asset is a 404, not the HTML); `favicon.svg` and `_ds/` are cached one day; `/api/` is proxied to the `api` service with the prefix stripped, and `/api/applications/events` unbuffered with a 1 h read timeout.
-- `index.html` sets `data-theme` from `orbital-theme-v1` in an inline script before first paint (the module would flash the wrong theme), links the Nocturne stylesheet and the Google Fonts, and loads `src/main.tsx`.
-- `prototipos/` holds the design prototypes; it is reference only, not shipped, and ignored by lint.
+- The `Dockerfile` is multi-stage: `node:24-alpine` runs `npm ci` + `npm run build`, and `nginxinc/nginx-unprivileged:1.28-alpine` serves `dist/` as uid 101 on port **8080** (compose publishes `80:8080`), with a `HEALTHCHECK` (busybox `wget` on `http://127.0.0.1:8080/`). Vite copies `public/` (the Nocturne `_ds/` folder, `favicon.svg`, `theme-boot.js`, `theme-boot.css`) into `dist/`.
+- nginx config lives in `nginx/`: `default.conf.template` is rendered by the image's entrypoint (envsubst) into `/etc/nginx/conf.d/default.conf` at startup. Only `API_UPSTREAM` (default `http://api:3001`, set in the Dockerfile) and `NGINX_LOCAL_RESOLVERS` (filled from `/etc/resolv.conf` because `NGINX_ENTRYPOINT_LOCAL_RESOLVERS=1` — `127.0.0.11` in Docker, the cluster DNS in Kubernetes) are substituted (`NGINX_ENVSUBST_FILTER`); nginx's own `$vars` are untouched. To point at another API: `docker run -e API_UPSTREAM=http://host:port …`.
+- Routing: any path that is not a file falls back to `index.html` (SPA routes), served `no-cache`; `/assets/` (hashed by Vite) is cached a year as `immutable` with no fallback (a missing asset is a 404, not the HTML); `favicon.svg`, `theme-boot.*` and `_ds/` are cached one day; `/api/` is proxied to `API_UPSTREAM` with the prefix stripped, and `/api/applications/events` unbuffered with a 1 h read timeout.
+- **Security headers** (`nginx/security-headers.conf`) are `include`d in **every** location — a location with its own `add_header` drops the server-level ones — with `always`: CSP, `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`. On `/api/` the API's own copies are dropped (`proxy-hide-security-headers.conf`) so each header appears once. No HSTS here (plain HTTP); the optional TLS front (`docker-compose.tls.yml` + `caddy/Caddyfile`) adds it.
+- **CSP**: `script-src 'self'` and `style-src 'self'` — so **no inline `<script>`/`<style>` in `index.html`** and nothing from a third-party host (no CDN, no Google Fonts). The one exception is `style-src-attr 'unsafe-inline'`, because `viz/comet.ts` and `viz/clouds.ts` build markup with `style="…"` through `.html()`; styles set through the CSSOM (d3 `.style()`, React's `style` prop) are not affected by CSP. Replacing those `style="…"` with SVG attributes / CSSOM would let it go. A new external origin (API on another host, images, etc.) must be added to the CSP.
+- `index.html` loads `/theme-boot.js` as a classic blocking script (no `defer`/`async`) that sets `data-theme` from `orbital-theme-v1` before first paint (the module would flash the wrong theme), `/theme-boot.css` (dark background before the bundle CSS), the Nocturne stylesheet, and `src/main.tsx`.
+- `prototipos/` (when present) holds local design prototypes; it is git-ignored, not shipped, and ignored by lint.
 
 ## Layout of `src/`
 
@@ -74,7 +77,7 @@ domain     → (nothing)
 |---|---|
 | `/` | `GalaxyPage` — the galaxy |
 | `/painel` | `PanelPage` — the panel; `?orbita=<key>` filters it by orbit |
-| `*` | `NotFoundPage` — a minimal pt-BR 404 ("Página não encontrada") with a link back to the galaxy; there is no redirect, so old URLs like `/painel.html` land here |
+| `*` | `NotFoundPage` — a pt-BR 404 over the panel's sky (`SkyLayers`: stars in dark, clouds in light), left-aligned: a large "ERRO 404", "Página não encontrada" and a link back to the galaxy; there is no redirect, so old URLs like `/painel.html` land here |
 
 A route that throws renders `RouteError` (same `MessagePage`), instead of React Router's developer screen.
 
@@ -153,7 +156,7 @@ A single comet crosses the panel's sky as a rare, random event — dark theme on
 - `_ds_manifest.json` and `readme.md` document available components and tokens.
 - Color tokens follow OKLCH tonal ramps (`--color-neutral-100`…`900`, `--color-accent-*`).
 - Icons: Phosphor (https://phosphoricons.com), through the typed `Icon` component (`components/Icon.tsx`, `<Icon name="clock" />`): a new icon is a new entry in its `PATHS` map. Copy real path data; do not hand-write it.
-- Fonts: Inter (body/headings) + JetBrains Mono (monospaced labels, via `var(--mono)` or the `mono.module.css` classes), loaded from Google Fonts in `index.html`.
+- Fonts: Inter (body/headings) + JetBrains Mono (monospaced labels, via `var(--mono)` or the `mono.module.css` classes), self-hosted through `@fontsource/inter` and `@fontsource/jetbrains-mono`: `main.tsx` imports only the weights used (Inter 400/500/600/700, Mono 400/500) and only the `latin` subset (covers pt-BR), and Vite bundles the woff2 into `/assets/`. A new weight is a new import there. The `@import` of Google Fonts at the top of the Nocturne `styles.css` was removed — keep it out if that file is ever re-exported.
 
 ## Tests
 

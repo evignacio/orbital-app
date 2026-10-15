@@ -1,15 +1,26 @@
+# Template da imagem oficial do nginx: na subida, o entrypoint renderiza este arquivo
+# com envsubst em /etc/nginx/conf.d/default.conf. Só são trocadas as variáveis de
+# ambiente que passam no NGINX_ENVSUBST_FILTER (Dockerfile): API_UPSTREAM e
+# NGINX_LOCAL_RESOLVERS. As variáveis do próprio nginx ($host, $uri…) ficam intactas.
+#   API_UPSTREAM          — onde está a API (padrão http://api:3001, no Dockerfile)
+#   NGINX_LOCAL_RESOLVERS — DNS do /etc/resolv.conf (NGINX_ENTRYPOINT_LOCAL_RESOLVERS=1):
+#                           127.0.0.11 no Docker, o DNS do cluster no Kubernetes
 server {
-    listen 80;
+    # Imagem sem root: porta acima de 1024 (o compose publica 80:8080).
+    listen 8080;
     root /usr/share/nginx/html;
     index index.html;
+    server_tokens off;
 
     gzip on;
     gzip_proxied any;
-    gzip_types text/html text/css application/javascript application/json;
+    # text/html já é comprimido sempre (repetir aqui só gera um aviso na subida).
+    gzip_types text/css application/javascript application/json;
 
     # Rotas da SPA (/, /painel…): qualquer caminho que não seja arquivo cai no
     # index.html, que sempre revalida (ETag → 304) para um deploy aparecer na hora.
     location / {
+        include /etc/nginx/snippets/security-headers.conf;
         add_header Cache-Control "no-cache" always;
         try_files $uri /index.html;
     }
@@ -18,13 +29,15 @@ server {
     # um asset que sumiu deve dar 404, não o HTML da SPA. Sem "always", o header
     # só sai em 200/304: um 404 nunca fica um ano no cache.
     location /assets/ {
+        include /etc/nginx/snippets/security-headers.conf;
         add_header Cache-Control "public, max-age=31536000, immutable";
         try_files $uri =404;
     }
 
     # Estáticos sem hash no nome: cache de 1 dia, depois revalida pelo ETag.
     # Não usar "immutable" — um rebuild troca o conteúdo sem trocar a URL.
-    location ~ ^/(favicon\.svg|_ds/) {
+    location ~ ^/(favicon\.svg|theme-boot\.(js|css)|_ds/) {
+        include /etc/nginx/snippets/security-headers.conf;
         add_header Cache-Control "public, max-age=86400";
         try_files $uri =404;
     }
@@ -32,8 +45,10 @@ server {
     # SSE: sem buffer (cada evento sai na hora) e sem timeout curto de leitura.
     # "location =" casa só o caminho, então ?changes=true também cai aqui.
     location = /api/applications/events {
-        resolver 127.0.0.11 valid=10s ipv6=off;
-        set $api_upstream http://api:3001;
+        include /etc/nginx/snippets/security-headers.conf;
+        include /etc/nginx/snippets/proxy-hide-security-headers.conf;
+        resolver ${NGINX_LOCAL_RESOLVERS} valid=10s ipv6=off;
+        set $api_upstream ${API_UPSTREAM};
         rewrite ^/api/(.*)$ /$1 break;
         proxy_pass $api_upstream;
         proxy_http_version 1.1;
@@ -48,11 +63,13 @@ server {
     }
 
     # O frontend chama a API por caminho relativo (/api/...). Resolver + variável
-    # fazem o nginx resolver "api" a cada requisição: sobe mesmo se a API ainda
-    # não estiver no ar e acompanha a troca de IP quando o container reinicia.
+    # fazem o nginx resolver o host da API a cada requisição: sobe mesmo se a API
+    # ainda não estiver no ar e acompanha a troca de IP quando o container reinicia.
     location /api/ {
-        resolver 127.0.0.11 valid=10s ipv6=off;
-        set $api_upstream http://api:3001;
+        include /etc/nginx/snippets/security-headers.conf;
+        include /etc/nginx/snippets/proxy-hide-security-headers.conf;
+        resolver ${NGINX_LOCAL_RESOLVERS} valid=10s ipv6=off;
+        set $api_upstream ${API_UPSTREAM};
         rewrite ^/api/(.*)$ /$1 break;
         proxy_pass $api_upstream;
         proxy_set_header Host $host;
