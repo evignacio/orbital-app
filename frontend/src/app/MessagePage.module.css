@@ -1,28 +1,39 @@
+/* A raiz é position:relative + overflow:hidden para as camadas do céu (SkyLayers). */
 .root {
+  position: relative;
+  overflow: hidden;
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-  gap: 12px;
+  align-items: center;
+  justify-content: flex-start;
   min-height: 100vh;
-  padding: 0 24px;
-  max-width: 560px;
-  margin: 0 auto;
+  padding: 0 clamp(24px, 10vw, 160px);
   background: var(--bg);
   color: var(--ink);
   font-family: var(--font-body);
 }
 
+.content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  max-width: 560px;
+  text-align: left;
+}
+
 .eyebrow,
 .back {
   font-family: var(--mono);
-  font-size: 12px;
-  letter-spacing: 0.32em;
   text-transform: uppercase;
 }
 
 .eyebrow {
-  color: var(--faint);
+  font-size: clamp(48px, 10vw, 112px);
+  font-weight: 300;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  color: var(--ink);
 }
 
 .title {
@@ -40,6 +51,9 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
+  margin-top: 12px;
+  font-size: 12px;
+  letter-spacing: 0.32em;
   color: var(--accent);
   text-decoration: none;
 }

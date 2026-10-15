@@ -18,8 +18,9 @@ describe('páginas de aviso', () => {
       [{ element: <AppShell />, children: [{ path: '*', element: <NotFoundPage /> }] }],
       { initialEntries: ['/painel.html'] },
     );
-    render(<RouterProvider router={router} />);
+    const { container } = render(<RouterProvider router={router} />);
     expect(screen.getByText('ERRO 404')).toBeInTheDocument();
+    expect(container.querySelectorAll('.stars circle')).toHaveLength(160);
     expect(screen.getByRole('heading', { name: 'Página não encontrada' })).toBeInTheDocument();
     expect(screen.getByText('Este endereço não existe no Orbital.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Galáxia/ })).toHaveAttribute('href', '/');

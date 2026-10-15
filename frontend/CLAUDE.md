@@ -74,7 +74,7 @@ domain     → (nothing)
 |---|---|
 | `/` | `GalaxyPage` — the galaxy |
 | `/painel` | `PanelPage` — the panel; `?orbita=<key>` filters it by orbit |
-| `*` | `NotFoundPage` — a minimal pt-BR 404 ("Página não encontrada") with a link back to the galaxy; there is no redirect, so old URLs like `/painel.html` land here |
+| `*` | `NotFoundPage` — a pt-BR 404 over the panel's sky (`SkyLayers`: stars in dark, clouds in light), left-aligned: a large "ERRO 404", "Página não encontrada" and a link back to the galaxy; there is no redirect, so old URLs like `/painel.html` land here |
 
 A route that throws renders `RouteError` (same `MessagePage`), instead of React Router's developer screen.
 
