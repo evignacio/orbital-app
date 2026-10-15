@@ -8,6 +8,10 @@ A versão é a mesma em `api/package.json` e `frontend/package.json`, e a tag `v
 
 ## [Não lançado]
 
+## [2.0.0-beta.4] - 2026-10-14
+
+Preparação para uso público: segurança, imagens sem root e versionamento.
+
 ### ⚠ Mudanças incompatíveis
 
 - **CORS restritivo por padrão:** sem `CORS_ORIGINS` a API não libera nenhuma origem (o navegador fala com ela pela mesma origem, via nginx ou proxy do Vite). `*` só vale se configurado explicitamente.
@@ -206,7 +210,8 @@ Primeira versão estável: daqui em diante, quebra de compatibilidade exige subi
 
 Primeira versão marcada: painel orbital com D3.js, cadastro de aplicações com sugestões de time, filtros, cache no `localStorage`, favicon e compose local e de produção. Release automático por push na `main`.
 
-[Não lançado]: https://github.com/evignacio/orbital-app/compare/v2.0.0-beta.3...HEAD
+[Não lançado]: https://github.com/evignacio/orbital-app/compare/v2.0.0-beta.4...HEAD
+[2.0.0-beta.4]: https://github.com/evignacio/orbital-app/compare/v2.0.0-beta.3...v2.0.0-beta.4
 [2.0.0-beta.3]: https://github.com/evignacio/orbital-app/compare/v2.0.0-beta.2...v2.0.0-beta.3
 [2.0.0-beta.2]: https://github.com/evignacio/orbital-app/compare/v2.0.0-beta.1...v2.0.0-beta.2
 [2.0.0-beta.1]: https://github.com/evignacio/orbital-app/compare/v1.0.12...v2.0.0-beta.1
