@@ -1,10 +1,11 @@
 import { API_TO_ENV } from '../domain/environments';
 import { isStatus } from '../domain/status';
 import type { CycleTrigger, EnvCode, Status } from '../domain/types';
+import { API_BASE } from './config';
 
 // ?changes=true: depois do snapshot só chegam os status que mudaram (o cycle vem
 // sempre); o painel só precisa do campo status.
-export const EVENTS_URL = '/api/applications/events?changes=true';
+export const EVENTS_URL = `${API_BASE}/applications/events?changes=true`;
 
 // Eventos já validados: `env` é o código curto (no fio vem o nome da API) e as
 // datas viram ms. Diferem dos tipos crus de domain/types.ts só nisso.

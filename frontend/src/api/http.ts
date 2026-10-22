@@ -1,8 +1,5 @@
 import { API_TIMEOUT } from '../domain/constants';
-
-// Relativo: o nginx que serve a página encaminha /api/ para o container da API,
-// então funciona em qualquer host e sem CORS.
-const API_BASE = '/api';
+import { API_BASE } from './config';
 
 // Resposta HTTP que não foi 2xx. Leva o status e, quando a API manda, o corpo JSON
 // ({ error } ou { error, fields } num 400), para o cadastro e a remoção mostrarem o motivo.

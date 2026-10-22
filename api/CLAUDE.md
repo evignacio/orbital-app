@@ -2,16 +2,18 @@
 
 Backend-specific guidance. The architecture, the HTTP/SSE contract with the frontend and the environments are in the root `CLAUDE.md`; this file covers how the API is built.
 
-Express, no framework beyond it. Run the tests with `npm test` from this folder; run the API itself through the root docker compose (it needs Mongo and Redis). The image (`Dockerfile`, `node:24-alpine`, `NODE_ENV=production`, prod deps only) runs as the unprivileged `node` user (uid 1000; the code stays root-owned and read-only) and has a `HEALTHCHECK` that only opens a TCP connection to `127.0.0.1:$PORT` — it doesn't hit Mongo or Redis, so a dependency outage doesn't mark the container unhealthy.
+Express, no framework beyond it. Run the tests with `npm test` from this folder; run the API itself through the root docker compose (it needs Mongo and Redis). The image (`Dockerfile`, `node:24-alpine`, `NODE_ENV=production`, prod deps only) runs as the unprivileged `node` user (uid 1000; the code stays root-owned and read-only) and has a `HEALTHCHECK` that calls `GET /health` (busybox `wget`).
+
+`GET /health` answers `200 { "status": "UP" }` (`Cache-Control: no-store`) whenever the process is up. It is liveness only: it doesn't touch Mongo or Redis on purpose — with a single instance, failing it on a dependency outage would restart or deregister the only pod. It is mounted before the request logger, so probes don't log. On EKS it is the path for the liveness/readiness probes.
 
 ## Layout of `src/`
 
 ```
 config/        index.js (env vars, validated once), environments.js (env names + scheduler offsets, single source), database.js (Mongo connection)
-controllers/   applications.controller.js, events.controller.js (SSE) — HTTP in/out only
+controllers/   applications.controller.js, events.controller.js (SSE), health.controller.js — HTTP in/out only
 middlewares/   cors, request-logger, error-handler, async-route, validate-env (*.middleware.js)
 repositories/  applications.repository.js (Mongo + apps:<env> cache), status.repository.js (Redis status:/cycle:)
-routes/        applications.routes.js — only maps method + path → middleware/controller
+routes/        applications.routes.js, health.routes.js — only map method + path → middleware/controller
 services/      scheduler.service.js, health-check.service.js, snapshot.service.js, events.service.js (SSE bus)
 utils/         logger.js, cache.js (withCache/withRedis), map-limit.js
 validators/    application.validator.js

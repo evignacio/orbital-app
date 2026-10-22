@@ -8,6 +8,15 @@ A versão é a mesma em `api/package.json` e `frontend/package.json`, e a tag `v
 
 ## [Não lançado]
 
+## [2.0.0-beta.5] - 2026-10-22
+
+Health check da API e endereço da API configurável no frontend, preparando o deploy na AWS.
+
+### Adicionado
+
+- Endpoint `GET /health` na API (`{ "status": "UP" }`), para os probes do Kubernetes e o healthcheck do container. Não consulta Mongo nem Redis e não gera log de requisição.
+- Endereço da API do frontend em um único lugar (`API_BASE` em `frontend/src/api/config.ts`, padrão `/api`), para servir o frontend sem nginx (ex.: AWS CloudFront) apontando para a API em outro host.
+
 ## [2.0.0-beta.4] - 2026-10-14
 
 Preparação para uso público: segurança, imagens sem root e versionamento.
@@ -210,7 +219,8 @@ Primeira versão estável: daqui em diante, quebra de compatibilidade exige subi
 
 Primeira versão marcada: painel orbital com D3.js, cadastro de aplicações com sugestões de time, filtros, cache no `localStorage`, favicon e compose local e de produção. Release automático por push na `main`.
 
-[Não lançado]: https://github.com/evignacio/orbital-app/compare/v2.0.0-beta.4...HEAD
+[Não lançado]: https://github.com/evignacio/orbital-app/compare/v2.0.0-beta.5...HEAD
+[2.0.0-beta.5]: https://github.com/evignacio/orbital-app/compare/v2.0.0-beta.4...v2.0.0-beta.5
 [2.0.0-beta.4]: https://github.com/evignacio/orbital-app/compare/v2.0.0-beta.3...v2.0.0-beta.4
 [2.0.0-beta.3]: https://github.com/evignacio/orbital-app/compare/v2.0.0-beta.2...v2.0.0-beta.3
 [2.0.0-beta.2]: https://github.com/evignacio/orbital-app/compare/v2.0.0-beta.1...v2.0.0-beta.2

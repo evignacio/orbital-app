@@ -60,6 +60,7 @@ MongoDB is the source of truth. Redis caches each environment's app list and kee
 | POST | `/applications/:env` | create an app |
 | PUT | `/applications/:env/:id` | edit an app (full replacement of its fields; the env cannot change) |
 | DELETE | `/applications/:env/:id` | remove an app |
+| GET | `/health` | liveness: `200 { status: "UP" }` while the process is up (no Mongo/Redis check) |
 
 The frontend reaches the API through nginx under `/api/…`.
 

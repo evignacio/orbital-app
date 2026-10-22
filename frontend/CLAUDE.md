@@ -26,6 +26,7 @@ docker compose -f docker-compose.local.yml up -d --build frontend
 - Routing: any path that is not a file falls back to `index.html` (SPA routes), served `no-cache`; `/assets/` (hashed by Vite) is cached a year as `immutable` with no fallback (a missing asset is a 404, not the HTML); `favicon.svg`, `theme-boot.*` and `_ds/` are cached one day; `/api/` is proxied to `API_UPSTREAM` with the prefix stripped, and `/api/applications/events` unbuffered with a 1 h read timeout.
 - **Security headers** (`nginx/security-headers.conf`) are `include`d in **every** location — a location with its own `add_header` drops the server-level ones — with `always`: CSP, `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`. On `/api/` the API's own copies are dropped (`proxy-hide-security-headers.conf`) so each header appears once. No HSTS here (plain HTTP); the optional TLS front (`docker-compose.tls.yml` + `caddy/Caddyfile`) adds it.
 - **CSP**: `script-src 'self'` and `style-src 'self'` — so **no inline `<script>`/`<style>` in `index.html`** and nothing from a third-party host (no CDN, no Google Fonts). The one exception is `style-src-attr 'unsafe-inline'`, because `viz/comet.ts` and `viz/clouds.ts` build markup with `style="…"` through `.html()`; styles set through the CSSOM (d3 `.style()`, React's `style` prop) are not affected by CSP. Replacing those `style="…"` with SVG attributes / CSSOM would let it go. A new external origin (API on another host, images, etc.) must be added to the CSP.
+- **API address**: the only place is `API_BASE` in `src/api/config.ts` (used by `apiFetch()` and the SSE `EVENTS_URL`). The default `/api` goes through nginx (or Vite's proxy). For a static deploy without nginx (e.g. AWS CloudFront) set it to the API's real URL, no trailing slash and no `/api` prefix, then rebuild; the API must list the page's origin in `CORS_ORIGINS`, and the CSP served by that host must allow it in `connect-src`.
 - `index.html` loads `/theme-boot.js` as a classic blocking script (no `defer`/`async`) that sets `data-theme` from `orbital-theme-v1` before first paint (the module would flash the wrong theme), `/theme-boot.css` (dark background before the bundle CSS), the Nocturne stylesheet, and `src/main.tsx`.
 - `prototipos/` (when present) holds local design prototypes; it is git-ignored, not shipped, and ignored by lint.
 
@@ -36,8 +37,8 @@ main.tsx      clears obsolete storage keys, hydrates the stores from localStorag
 app/          router.tsx (routes), AppShell.tsx (per-app singletons), MessagePage.tsx (404 / route error)
 domain/       pure TS, no React and no DOM: types, environments, status, orbits, application-form,
               migrations, status-diff, format, random, constants, comet-quota
-api/          http.ts (apiFetch, ApiError, apiErrorMsg), applications.ts (list/create/update/remove/sync),
-              events.ts (parseEvent + openEventStream)
+api/          config.ts (API_BASE), http.ts (apiFetch, ApiError, apiErrorMsg),
+              applications.ts (list/create/update/remove/sync), events.ts (parseEvent + openEventStream)
 storage/      keys.ts (orbital-*-v1), local-storage.ts (read/write with the try/catch built in),
               cache.ts (apps + status cache), preferences.ts, comet-log.ts
 store/        Zustand: apps.store, status.store, connection.store, preferences.store, hydrate.ts, selectors.ts
