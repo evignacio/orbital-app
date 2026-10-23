@@ -1,4 +1,4 @@
-/* Aviso de tempestade da galáxia e o @media (max-width: 640px) de #galaxyStorm. */
+/* Aviso de tempestade da galáxia: é a parte flexível da linha do topo (GalaxyPage). */
 @keyframes floatUp {
   from {
     opacity: 0;
@@ -27,13 +27,13 @@
   }
 }
 
+/* O aviso fica sobre o céu: o clique passa para os planetas, só o botão o recebe. */
 .banner {
-  position: absolute;
-  top: 150px;
-  left: 28px;
-  z-index: 20;
-  max-width: 420px;
+  flex: 1;
+  min-width: 0;
+  pointer-events: none;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 14px;
   padding: 12px 16px;
@@ -51,8 +51,9 @@
   animation-play-state: var(--backdrop-play, running);
 }
 
+/* Sem espaço para o texto ao lado, o botão desce para a linha de baixo. */
 .text {
-  flex: 1;
+  flex: 1 1 220px;
   min-width: 0;
 }
 
@@ -79,6 +80,7 @@
   color: var(--storm);
   cursor: pointer;
   white-space: nowrap;
+  pointer-events: auto;
 }
 
 .action:hover {
@@ -86,12 +88,10 @@
   border-color: var(--storm);
 }
 
+/* No celular o aviso ocupa a segunda linha inteira, abaixo do título e do botão de tema. */
 @media (max-width: 640px) {
   .banner {
-    left: 16px;
-    right: 16px;
-    top: auto;
-    bottom: 100px;
-    max-width: none;
+    flex-basis: 100%;
+    order: 1;
   }
 }

@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { useComets } from '@/hooks/useComets';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
-import { useConnectionStore } from '@/store/connection.store';
+import { useStormDrawn } from '@/hooks/useStormDrawn';
 import { drawClouds } from '@/viz/clouds';
 import { createCometLayer, type CometLayer } from '@/viz/comet';
 import { drawStars } from '@/viz/stars';
@@ -21,12 +21,9 @@ export function SkyLayers() {
   const stormRef = useRef<HTMLDivElement>(null);
   const cometRef = useRef<HTMLDivElement>(null);
   const cometLayer = useRef<CometLayer | null>(null);
-  const apiDown = useConnectionStore((s) => s.apiDown);
   const reducedMotion = useReducedMotion();
-  // A tempestade só é desenhada na primeira queda e depois fica montada: ao
-  // voltar a API ela some pela opacidade (--storm-on) e pausa depois do fade.
-  const [stormSeen, setStormSeen] = useState(apiDown);
-  if (apiDown && !stormSeen) setStormSeen(true);
+  // Ao voltar a API a tempestade some pela opacidade (--storm-on) e sai do DOM depois do fade.
+  const stormDrawn = useStormDrawn();
 
   // Desenhadas uma vez: o tema só muda a opacidade da camada e pausa o piscar (--stars-play).
   useEffect(() => {
@@ -42,9 +39,9 @@ export function SkyLayers() {
 
   useEffect(() => {
     const el = stormRef.current;
-    if (!el || !stormSeen) return undefined;
+    if (!el || !stormDrawn) return undefined;
     return drawStorm(el, { reducedMotion });
-  }, [stormSeen, reducedMotion]);
+  }, [stormDrawn, reducedMotion]);
 
   useEffect(() => {
     const el = cometRef.current;

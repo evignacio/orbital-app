@@ -17,8 +17,8 @@ export function galaxyStormMessage(lastOk: number | null): string {
 }
 
 /**
- * Aviso de tempestade da galáxia: flutua abaixo do
- * título, com fundo de diálogo, e não tem o "Tentando…" do painel.
+ * Aviso de tempestade da galáxia: fica ao lado do
+ * título, ocupando o resto da linha, com fundo de diálogo, e não tem o "Tentando…" do painel.
  */
 export function GalaxyStormBanner({ onRetry }: GalaxyStormBannerProps) {
   const apiDown = useConnectionStore((s) => s.apiDown);

@@ -1,6 +1,7 @@
 import { act, render } from '@testing-library/react';
 import { StrictMode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { STORM_FADE_MS } from '@/hooks/useTheme';
 import { useConnectionStore } from '@/store/connection.store';
 import { SkyLayers } from '@/features/panel/SkyLayers';
 
@@ -25,6 +26,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
@@ -46,7 +48,8 @@ describe('SkyLayers', () => {
     expect(clouds?.children).toHaveLength(0);
   });
 
-  it('sem tempestade a camada fica vazia; com apiDown desenha uma vez e segue montada para o fade', () => {
+  it('sem tempestade a camada fica vazia; com apiDown desenha e só sai do DOM depois do fade', () => {
+    vi.useFakeTimers();
     const { container, unmount } = renderSky();
     const storm = container.querySelector('.storm');
     expect(storm?.children).toHaveLength(0);
@@ -55,11 +58,18 @@ describe('SkyLayers', () => {
     });
     expect(storm?.children).toHaveLength(5);
     expect(storm?.innerHTML).toContain('rainLayer');
-    // A API volta: o céu abre pela opacidade (--storm-on), o desenho continua lá.
+    // A API volta: o céu abre pela opacidade (--storm-on); o desenho fica até o fim do fade.
     act(() => {
       useConnectionStore.getState().markApiUp();
     });
+    act(() => {
+      vi.advanceTimersByTime(STORM_FADE_MS - 1);
+    });
     expect(storm?.children).toHaveLength(5);
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(storm?.children).toHaveLength(0);
     act(() => {
       useConnectionStore.getState().markApiDown();
     });

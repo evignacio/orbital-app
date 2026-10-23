@@ -168,6 +168,8 @@
  */
 :root {
   --storm-play: paused;
+  /* Fade das camadas da tempestade; STORM_FADE_MS (useTheme) espera um pouco mais. */
+  --storm-fade: 1.2s;
 }
 :root[data-storm-play='running'] {
   --storm-play: running;

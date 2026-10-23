@@ -1,0 +1,13 @@
+/* A chuva não recebe o ponteiro e segue a tempestade pelo tema (--storm-on). */
+.rain {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: var(--storm-on, 0);
+  transition: opacity var(--storm-fade) ease;
+}
+
+.rain[data-leaving='true'] {
+  opacity: 0;
+  transition: opacity 0.16s;
+}

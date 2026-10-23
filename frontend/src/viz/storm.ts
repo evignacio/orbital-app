@@ -2,7 +2,7 @@ import { select, type BaseType, type Selection } from 'd3-selection';
 import { appendClouds, type CloudSpec } from './clouds';
 import './weather-keyframes.css';
 
-// Tempestade do painel: a API está inacessível. A
+// Tempestade do painel (e a chuva da galáxia, drawRain): a API está inacessível. A
 // camada aparece e some pela opacidade (--storm-on); o desenho fica montado e só
 // a animação pausa depois do fade (--storm-play).
 
@@ -80,6 +80,54 @@ function play<E extends BaseType, D, P extends BaseType, PD>(sel: Selection<E, D
   return sel.style('animation-play-state', 'var(--storm-play, paused)');
 }
 
+/** A chuva inclinada, nas camadas de RAIN_LAYERS, dentro de `div` (que vira fixed). */
+function appendRain(
+  div: Selection<HTMLDivElement, unknown, null, undefined>,
+  random: () => number,
+) {
+  const drops = rainDrops(random);
+  play(
+    fixed(div)
+      .style('transform', 'skewX(-10deg)')
+      .selectAll('div')
+      .data(RAIN_LAYERS)
+      .join('div')
+      .style('position', 'absolute')
+      .style('top', '0')
+      .style('left', '0')
+      .style('width', '100%')
+      .style('height', '200vh')
+      .style('will-change', 'transform')
+      .style('animation', (d) => `rainLayer ${String(d.dur)}s linear ${String(d.delay)}s infinite`),
+  )
+    .selectAll('div')
+    .data((_, li) => layerDrops(drops, li))
+    .join('div')
+    .style('position', 'absolute')
+    .style('top', (d) => `${String(d.y)}vh`)
+    .style('left', (d) => `${String(d.x)}%`)
+    .style('width', '1px')
+    .style('height', (d) => `${String(d.len)}px`)
+    .style('opacity', (d) => d.op)
+    .style('background', 'linear-gradient(transparent, var(--storm-rain))');
+}
+
+/**
+ * Só a chuva, para a galáxia (sem céu, nuvens nem raios, que cobririam a espiral).
+ * Com movimento reduzido não desenha nada; a limpeza remove tudo.
+ */
+export function drawRain(
+  el: HTMLElement,
+  { reducedMotion, random = Math.random }: StormOptions,
+): () => void {
+  if (reducedMotion) return () => undefined;
+  const div = select(el).append('div');
+  appendRain(div, random);
+  return () => {
+    div.remove();
+  };
+}
+
 /** Desenha a tempestade em `el`; a limpeza remove tudo. */
 export function drawStorm(
   el: HTMLElement,
@@ -108,31 +156,7 @@ export function drawStorm(
   );
   if (reducedMotion) return cleanup;
 
-  const drops = rainDrops(random);
-  play(
-    fixed(add())
-      .style('transform', 'skewX(-10deg)')
-      .selectAll('div')
-      .data(RAIN_LAYERS)
-      .join('div')
-      .style('position', 'absolute')
-      .style('top', '0')
-      .style('left', '0')
-      .style('width', '100%')
-      .style('height', '200vh')
-      .style('will-change', 'transform')
-      .style('animation', (d) => `rainLayer ${String(d.dur)}s linear ${String(d.delay)}s infinite`),
-  )
-    .selectAll('div')
-    .data((_, li) => layerDrops(drops, li))
-    .join('div')
-    .style('position', 'absolute')
-    .style('top', (d) => `${String(d.y)}vh`)
-    .style('left', (d) => `${String(d.x)}%`)
-    .style('width', '1px')
-    .style('height', (d) => `${String(d.len)}px`)
-    .style('opacity', (d) => d.op)
-    .style('background', 'linear-gradient(transparent, var(--storm-rain))');
+  appendRain(add(), random);
   play(
     fixed(add())
       .style('background', 'var(--storm-flash)')

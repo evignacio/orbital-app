@@ -98,19 +98,19 @@ describe('GalaxyPage', () => {
     ).toBeInTheDocument();
   });
 
-  it('sem órbitas, convida a usar o botão +', () => {
+  it('sem órbitas, mostra só a galáxia e o botão +, sem mensagem', () => {
     renderGalaxy();
-    expect(
-      screen.getByText('Nenhuma órbita ainda. Use o botão + para lançar a primeira aplicação.'),
-    ).toBeInTheDocument();
+    expect(screen.queryByText(/Nenhuma órbita ainda/)).toBeNull();
+    expect(screen.queryByText(/Não foi possível carregar/)).toBeNull();
     expect(screen.getByRole('button', { name: 'Adicionar aplicação' })).toBeInTheDocument();
   });
 
-  it('sem apps e com a API fora, diz que não carregou', () => {
+  it('sem apps e com a API fora, só o aviso da tempestade', () => {
     useConnectionStore.setState({ apiDown: true });
     renderGalaxy();
+    expect(screen.queryByText(/Não foi possível carregar/)).toBeNull();
     expect(
-      screen.getByText('Não foi possível carregar as aplicações. Tentando reconectar…'),
+      screen.getByText('Nenhuma checagem foi concluída ainda. Tentando reconectar…'),
     ).toBeInTheDocument();
   });
 

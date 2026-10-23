@@ -6,6 +6,7 @@ import {
   RAIN_DROP_COUNT,
   RAIN_LAYERS,
   STORM_CLOUDS,
+  drawRain,
   drawStorm,
   layerDrops,
   rainDrops,
@@ -103,6 +104,29 @@ describe('drawStorm', () => {
     expect(el.innerHTML).not.toContain('rainLayer');
     expect(el.innerHTML).not.toContain('lightning');
     cleanup();
+    expect(el.children).toHaveLength(0);
+  });
+});
+
+describe('drawRain', () => {
+  it('só a chuva inclinada, nas 4 camadas, sem céu, nuvens nem raios; a limpeza remove tudo', () => {
+    const el = document.createElement('div');
+    const cleanup = drawRain(el, { reducedMotion: false, random: rng(2) });
+    expect(el.children).toHaveLength(1);
+    const rain = el.children[0] as HTMLDivElement;
+    expect(rain.style.position).toBe('fixed');
+    expect(rain.style.transform).toBe('skewX(-10deg)');
+    expect(rain.children).toHaveLength(4);
+    expect(el.innerHTML).toContain('rainLayer');
+    expect(el.innerHTML).not.toContain('lightning');
+    expect(el.innerHTML).not.toContain('--storm-sky');
+    cleanup();
+    expect(el.children).toHaveLength(0);
+  });
+
+  it('com movimento reduzido não desenha nada', () => {
+    const el = document.createElement('div');
+    drawRain(el, { reducedMotion: true });
     expect(el.children).toHaveLength(0);
   });
 });

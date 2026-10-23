@@ -159,7 +159,7 @@ describe('layout', () => {
     expect(layoutRef(orbits).slice(0, 4)).toEqual(before);
   });
 
-  it('fica longe do título, da barra do topo, do botão + e do núcleo', () => {
+  it('fica longe do título, do aviso de tempestade, da barra do topo, do botão + e do núcleo', () => {
     layoutRef(orbits).forEach(([x, y]) => {
       RESERVED.forEach(([rx, ry, r]) => {
         expect(Math.hypot(rx - x, ry - y)).toBeGreaterThan(r - 60);

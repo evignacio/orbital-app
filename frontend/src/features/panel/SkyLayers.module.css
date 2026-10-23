@@ -34,7 +34,7 @@
 .storm {
   overflow: hidden;
   opacity: var(--storm-on, 0);
-  transition: opacity 1.2s ease;
+  transition: opacity var(--storm-fade) ease;
 }
 
 .comet {

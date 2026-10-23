@@ -16,11 +16,15 @@ const RMY = 104;
 const CANDIDATES = 60;
 
 /**
- * Áreas reservadas no espaço de referência, [x, y, raio]: o título, a barra do
- * topo, o botão + e o núcleo da galáxia.
+ * Áreas reservadas no espaço de referência, [x, y, raio]: o título, a faixa do
+ * aviso de tempestade (ao lado do título, até a barra do topo; reservada sempre,
+ * para os planetas não mudarem de lugar quando a API cai), a barra do topo, o
+ * botão + e o núcleo da galáxia.
  */
 export const RESERVED: readonly (readonly [number, number, number])[] = [
   [170, 40, 150],
+  [620, 40, 130],
+  [900, 40, 130],
   [REF_W - 110, 30, 90],
   [REF_W - 58, REF_H - 58, 110],
   [REF_W / 2, REF_H / 2, Math.min(REF_W, REF_H) * 0.16],
@@ -82,8 +86,8 @@ export function systemTones(
 
 // Posições estáveis: calculadas no espaço REF_W×REF_H, na ordem de nascimento,
 // com candidatos sorteados a partir do hash da chave de cada órbita e comparados
-// só às anteriores. O título, a barra do topo, o botão + e o núcleo da galáxia
-// ficam reservados.
+// só às anteriores. O título, o aviso de tempestade, a barra do topo, o botão +
+// e o núcleo da galáxia ficam reservados.
 export function layoutRef(orbits: readonly Pick<Orbit, 'key'>[]): Point[] {
   const placed: Point[] = [];
   orbits.forEach((o) => {

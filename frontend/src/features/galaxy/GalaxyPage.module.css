@@ -18,12 +18,24 @@
   inset: 0;
 }
 
-.head {
+/* Linha do topo: título, o aviso de tempestade (com a API fora) e o botão de tema,
+   que fica à direita mesmo sem o aviso (margin-left: auto). */
+.headRow {
   position: absolute;
-  top: 22px;
+  top: 14px;
   left: 28px;
+  right: 20px;
   z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 28px;
   pointer-events: none;
+}
+
+/* O padding alinha o título 8px abaixo do botão de tema, como antes da linha. */
+.head {
+  flex: none;
+  padding-top: 8px;
 }
 
 .eyebrow {
@@ -52,36 +64,26 @@
 }
 
 .topBar {
-  position: absolute;
-  top: 14px;
-  right: 20px;
-  z-index: 20;
+  align-self: flex-start;
+  margin-left: auto;
+  pointer-events: auto;
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
-.empty {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 10;
-  max-width: min(420px, calc(100vw - 32px));
-  padding: 20px 24px;
-  border: 1px dashed var(--line);
-  border-radius: var(--radius-md);
-  background: var(--dialog);
-  color: var(--muted);
-  font-size: 14px;
-  line-height: 1.5;
-  text-align: center;
-}
-
 @media (max-width: 640px) {
-  .head {
+  /* Título e botão de tema na primeira linha; o aviso desce para a segunda, inteiro. */
+  .headRow {
     left: 16px;
-    top: 14px;
+    right: 16px;
+    flex-wrap: wrap;
+    gap: 14px;
+  }
+
+  .head {
+    flex: 1 1 0;
+    min-width: 0;
   }
 }
 
