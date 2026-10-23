@@ -8,6 +8,20 @@ A versão é a mesma em `api/package.json` e `frontend/package.json`, e a tag `v
 
 ## [Não lançado]
 
+## [2.0.0-beta.6] - 2026-10-22
+
+Tempestade na galáxia: aviso ao lado do título, chuva e galáxia sem mensagens quando vazia.
+
+### Adicionado
+
+- Chuva da tempestade também na galáxia quando a API fica inacessível, nos temas escuro e claro.
+
+### Alterado
+
+- O aviso de tempestade da galáxia fica na linha do topo, ao lado do título e até o botão de tema; no celular, abaixo do título. O clique passa pelo aviso para os planetas (só "Tentar agora" o recebe), e os planetas evitam a faixa do aviso. Por isso as órbitas existentes podem mudar de lugar uma vez.
+- A galáxia não mostra mais o cartão de estado vazio: sem órbitas, aparece só o céu e o botão +; com a API fora, só o aviso de tempestade.
+- No painel e na galáxia, a tempestade sai da página depois que o céu abre, em vez de ficar montada e invisível, liberando memória de vídeo.
+
 ## [2.0.0-beta.5] - 2026-10-22
 
 Health check da API e endereço da API configurável no frontend, preparando o deploy na AWS.
