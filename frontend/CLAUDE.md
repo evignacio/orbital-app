@@ -45,7 +45,7 @@ store/        Zustand: apps.store, status.store, connection.store, preferences.s
 hooks/        useEventStream, useDownAlerts (+ alerts/beep, alerts/notify), useTheme, useDocumentTitle,
               useComets, useReducedMotion, useResize, EventStreamContext
 theme/        themes.css (tokens per theme and storm), base.css (global rules), mono.module.css
-viz/          imperative drawing with d3-selection, d3-timer and canvas: orbit-core, orbit-geometry, stars,
+viz/          imperative drawing with d3-selection, frame-loop and canvas: orbit-core, orbit-geometry, stars,
               clouds, storm, comet, panel-orbits, galaxy-sky, galaxy-rocks, galaxy-layout, galaxy-orbits,
               galaxy-orbit-label, galaxy-fx (+ the keyframes CSS they use)
 components/   generic UI that knows nothing of the domain: Icon, Switch, Chip, Modal, Banner, ThemeSwitch
@@ -116,9 +116,9 @@ The frontend has **no health-check timer**: `useEventStream()` opens one `EventS
 
 ## Visualization (`viz/`)
 
-Drawing stays imperative: `d3-selection` + `d3-timer` (npm dependencies, bundled — no CDN) and canvas. A `viz/` module receives an element plus ready data and options (`drawOrbits(el, scene, planets)`, `drawStorm(el, opts)`, `drawStars(el)`) and returns a cleanup function (or an object with `update()`/`destroy()`). Components call them inside `useEffect` and return that cleanup, so the StrictMode double mount leaves nothing behind. The panel's `OrbitView` only rebuilds the skeleton when what it draws changes (theme, storm, env, size, reduced motion); statuses, search, filter and selection go through `update()`. With `prefers-reduced-motion` (`useReducedMotion()`) the panel orbit stands still (no timer), as does the galaxy.
+Drawing stays imperative: `d3-selection` (npm dependency, bundled — no CDN), canvas, and `frameLoop()` (`viz/frame-loop.ts`, a plain `requestAnimationFrame` loop) for continuous animation. Don't bring back `d3-timer`: its global clock drifts while the tab is hidden, and a drawing created then (an SSE redraw) could go ~1 min without a frame after the tab came back, small planets stuck at the moon's center. Animated drawings also place everything at the current time when drawn, not on the first frame. A `viz/` module receives an element plus ready data and options (`drawOrbits(el, scene, planets)`, `drawStorm(el, opts)`, `drawStars(el)`) and returns a cleanup function (or an object with `update()`/`destroy()`). Components call them inside `useEffect` and return that cleanup, so the StrictMode double mount leaves nothing behind. The panel's `OrbitView` only rebuilds the skeleton when what it draws changes (theme, storm, env, size, reduced motion); statuses, search, filter and selection go through `update()`. With `prefers-reduced-motion` (`useReducedMotion()`) the panel orbit stands still (no timer), as does the galaxy.
 
-**Animation pauses behind a modal.** The overlay's `backdrop-filter: blur()` would be recomputed on every frame of the animated background, which stutters on weaker machines, so everything behind an open modal pauses. `components/modal-stack.ts` keeps the open-modal stack, sets `data-modal="open"` on `<html>` and exposes `useModalOpen()`. The d3 timers read time from a `MotionClock` (`domain/motion-clock.ts`, one per component via `useMotionClock(paused)`), which stops while paused and resumes where it left off, so nothing jumps. CSS animations pause through `themes.css` (`--stars-play`, `--clouds-play`, `--storm-play` and `--backdrop-play`). A new infinite animation in a background layer must use `animation-play-state: var(--backdrop-play, running)`.
+**Animation pauses behind a modal.** The overlay's `backdrop-filter: blur()` would be recomputed on every frame of the animated background, which stutters on weaker machines, so everything behind an open modal pauses. `components/modal-stack.ts` keeps the open-modal stack, sets `data-modal="open"` on `<html>` and exposes `useModalOpen()`. The frame loops read time from a `MotionClock` (`domain/motion-clock.ts`, one per component via `useMotionClock(paused)`), which stops while paused and resumes where it left off, so nothing jumps. CSS animations pause through `themes.css` (`--stars-play`, `--clouds-play`, `--storm-play` and `--backdrop-play`). A new infinite animation in a background layer must use `animation-play-state: var(--backdrop-play, running)`.
 
 ## Styling — CSS Modules and tokens
 
@@ -172,7 +172,7 @@ A single comet crosses the panel's sky as a rare, random event — dark theme on
 - **Names:** components and types in `PascalCase` (`AppCard.tsx`), hooks `useX.ts`, domain and viz modules in `kebab-case.ts`, the CSS Module next to its component.
 - **Small, single-purpose components.** Screen logic goes in the feature's hooks (`usePanelFilters`, `useSync`), not in JSX. A file past ~200 lines is a sign to split it.
 - **No `any`.** External data (API, SSE, localStorage) comes in through parse functions that check the shape (`fromApi`, `migrateApp`, `parseEvent`) and return domain types.
-- **Effects always clean up** (timers, `EventSource`, `d3-timer`, `requestAnimationFrame`, listeners) and are safe under the StrictMode double mount.
+- **Effects always clean up** (timers, `EventSource`, `frameLoop`, `requestAnimationFrame`, listeners) and are safe under the StrictMode double mount.
 - **Texts** are pt-BR; there is no i18n.
 - **localStorage** only through `storage/`.
 - **Commits** in Portuguese, in the gerund ("Adicionando store de status"), one subject per commit.
@@ -196,7 +196,7 @@ Adapted from [clean-code-javascript](https://github.com/ryanmcdermott/clean-code
 - Prefer table lookups over `switch`/`if` chains on a type: `STATUS_META`, `ENVS`, the `Icon` `PATHS` are the model — add a row, not a branch.
 - Defaults through default parameters or `{ ...defaults, ...opts }`, never by mutating the input.
 - Prefer `map`/`filter`/`reduce` over loops with mutable counters, except in per-frame canvas/d3 code, where plain loops are fine.
-- Don't over-optimize; measure first. Per-frame code (`d3-timer`, canvas) is the one place where allocations matter; elsewhere, prefer narrow store selectors to `useMemo` tricks.
+- Don't over-optimize; measure first. Per-frame code (`frameLoop`, canvas) is the one place where allocations matter; elsewhere, prefer narrow store selectors to `useMemo` tricks.
 
 **Side effects and state**
 - Never mutate store state, props, arguments or arrays in place — build copies and go through the store's `set`/actions.

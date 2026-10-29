@@ -1,5 +1,4 @@
 import { select } from 'd3-selection';
-import { timer, type Timer } from 'd3-timer';
 import type { MotionClock } from '../domain/motion-clock';
 import { hashId, rng } from '../domain/random';
 import { statusColor } from '../domain/status';
@@ -7,6 +6,7 @@ import type { StatusMap } from '../domain/types';
 import { layout, systemTones, type GalaxyOrbit, type Tone } from './galaxy-layout';
 import { appendOrbitLabel } from './galaxy-orbit-label';
 import { appendOrbitCore } from './orbit-core';
+import { frameLoop, type FrameLoop } from './frame-loop';
 
 /** Um planetinha de um sistema: anel (rx, ry), fase e velocidade. */
 export interface MiniPlanet {
@@ -227,14 +227,19 @@ export function drawGalaxyOrbits(el: HTMLElement, scene: GalaxyOrbitsScene): Gal
     });
   };
 
-  let drift: Timer | null = null;
+  const frame = () => {
+    const t = clock.now() / 1000;
+    planetTick(t);
+    place(t);
+  };
+  let drift: FrameLoop | null = null;
   if (still) planetTick(0);
   else {
-    drift = timer(() => {
+    // Já na posição certa: sem isso os planetinhas nascem no centro da lua até o primeiro quadro.
+    frame();
+    drift = frameLoop(() => {
       if (leaving || clock.isPaused()) return;
-      const t = clock.now() / 1000;
-      planetTick(t);
-      place(t);
+      frame();
     });
   }
 

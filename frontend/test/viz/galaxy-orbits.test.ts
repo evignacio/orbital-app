@@ -5,21 +5,19 @@ import type { Application, StatusMap } from '@/domain/types';
 import { orbitsData } from '@/viz/galaxy-layout';
 import { drawGalaxyOrbits, type GalaxyOrbitsScene } from '@/viz/galaxy-orbits';
 
-// O timer é o real; só contamos quem foi parado.
+// O laço de quadros é o real; só contamos quem foi parado.
 const timers = vi.hoisted(() => [] as { stopped: boolean }[]);
-vi.mock('d3-timer', async (importOriginal) => {
-  const real = await importOriginal<typeof import('d3-timer')>();
+vi.mock('@/viz/frame-loop', async (importOriginal) => {
+  const real = await importOriginal<typeof import('@/viz/frame-loop')>();
   return {
-    ...real,
-    timer: (cb: (elapsed: number) => void) => {
-      const t = real.timer(cb);
+    frameLoop: (tick: () => void) => {
+      const loop = real.frameLoop(tick);
       const rec = { stopped: false };
       timers.push(rec);
       return {
-        restart: t.restart.bind(t),
         stop: () => {
           rec.stopped = true;
-          t.stop();
+          loop.stop();
         },
       };
     },
@@ -172,6 +170,23 @@ describe('drawGalaxyOrbits', () => {
     timers.length = 0;
     drawGalaxyOrbits(el, scene({ still: true })).destroy();
     expect(timers).toHaveLength(0);
+  });
+
+  it('em movimento, os planetinhas já nascem no anel, sem esperar o primeiro quadro', () => {
+    const firstMini = () => orbs(el)[0]?.querySelector<SVGCircleElement>('circle.mini');
+    // Parado, o planetinha fica na posição do instante 0.
+    drawGalaxyOrbits(el, scene({ still: true }));
+    const atZero = firstMini()?.getAttribute('cx');
+    el.replaceChildren();
+    // Relógio em 10 s: a posição tem de ser a desse instante, não o centro da lua (cx ausente) nem a de t=0.
+    let now = 0;
+    const clock = createMotionClock(() => now);
+    now = 10_000;
+    const drawing = drawGalaxyOrbits(el, scene({ still: false, clock }));
+    const cx = firstMini()?.getAttribute('cx');
+    expect(cx).not.toBeNull();
+    expect(cx).not.toBe(atZero);
+    drawing.destroy();
   });
 
   it('destroy para o timer e remove o svg', () => {

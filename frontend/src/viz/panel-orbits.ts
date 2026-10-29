@@ -1,8 +1,8 @@
 import { select, type Selection } from 'd3-selection';
-import { timer, type Timer } from 'd3-timer';
 import type { MotionClock } from '../domain/motion-clock';
 import { STATUSES, statusColor } from '../domain/status';
 import type { StatusMap } from '../domain/types';
+import { frameLoop, type FrameLoop } from './frame-loop';
 import { appendOrbitCore, appendStormCore } from './orbit-core';
 import {
   ORBIT_TILT,
@@ -146,9 +146,9 @@ export function drawOrbits(
 
   update(initial);
 
-  let spin: Timer | null = null;
+  let spin: FrameLoop | null = null;
   if (!still) {
-    spin = timer(() => {
+    spin = frameLoop(() => {
       if (!planetSel || clock.isPaused()) return;
       const t = elapsed();
       planetSel.attr('transform', (d) => planetTransform(d, t));

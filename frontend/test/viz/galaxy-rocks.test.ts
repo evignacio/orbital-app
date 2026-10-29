@@ -10,21 +10,19 @@ import {
   type Rock,
 } from '@/viz/galaxy-rocks';
 
-// O timer é o real; só contamos quem foi parado.
+// O laço de quadros é o real; só contamos quem foi parado.
 const timers = vi.hoisted(() => [] as { stopped: boolean }[]);
-vi.mock('d3-timer', async (importOriginal) => {
-  const real = await importOriginal<typeof import('d3-timer')>();
+vi.mock('@/viz/frame-loop', async (importOriginal) => {
+  const real = await importOriginal<typeof import('@/viz/frame-loop')>();
   return {
-    ...real,
-    timer: (cb: (elapsed: number) => void) => {
-      const t = real.timer(cb);
+    frameLoop: (tick: () => void) => {
+      const loop = real.frameLoop(tick);
       const rec = { stopped: false };
       timers.push(rec);
       return {
-        restart: t.restart.bind(t),
         stop: () => {
           rec.stopped = true;
-          t.stop();
+          loop.stop();
         },
       };
     },

@@ -1,8 +1,8 @@
 import { select } from 'd3-selection';
-import { timer, type Timer } from 'd3-timer';
 import { createMotionClock, type MotionClock } from '../domain/motion-clock';
 import { rng } from '../domain/random';
 import { smoothClosedPath } from './galaxy-layout';
+import { frameLoop, type FrameLoop } from './frame-loop';
 
 // Asteroides à deriva: dá para arremessá-los com o
 // ponteiro, e eles colidem. As sementes são as do legado.
@@ -220,11 +220,11 @@ export function drawGalaxyRocks(
     }
   });
 
-  let tick: Timer | null = null;
+  let tick: FrameLoop | null = null;
   g.attr('transform', transform);
   if (!still) {
     let last = clock.now();
-    tick = timer(() => {
+    tick = frameLoop(() => {
       if (clock.isPaused()) return;
       const now = clock.now();
       const dt = Math.min(0.05, (now - last) / 1000);

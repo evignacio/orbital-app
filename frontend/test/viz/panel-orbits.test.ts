@@ -3,14 +3,13 @@ import { createMotionClock } from '@/domain/motion-clock';
 import type { StatusMap } from '@/domain/types';
 import { drawOrbits, type PanelOrbitScene, type PanelPlanets } from '@/viz/panel-orbits';
 
-// O relógio do d3-timer é capturado na importação e escapa dos timers falsos: troca-se
-// o timer por um que guarda o callback, e o teste dá os quadros na mão.
+// Troca-se o laço de quadros por um que guarda o callback, e o teste dá os quadros na mão.
 const timers = vi.hoisted(() => ({
   ticks: [] as (() => void)[],
   stopped: 0,
 }));
-vi.mock('d3-timer', () => ({
-  timer: (cb: () => void) => {
+vi.mock('@/viz/frame-loop', () => ({
+  frameLoop: (cb: () => void) => {
     timers.ticks.push(cb);
     return {
       stop: () => {
