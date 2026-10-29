@@ -8,6 +8,14 @@ A versão é a mesma em `api/package.json` e `frontend/package.json`, e a tag `v
 
 ## [Não lançado]
 
+## [2.0.0-beta.7] - 2026-10-28
+
+Galáxia sem travar depois de muito tempo com a aba escondida.
+
+### Corrigido
+
+- A galáxia podia travar depois de a aba ficar muito tempo escondida: os planetas paravam de girar e iam para o centro da lua até recarregar a página. As animações da galáxia e do painel agora acompanham a aba e voltam a girar assim que ela reaparece.
+
 ## [2.0.0-beta.6] - 2026-10-22
 
 Tempestade na galáxia: aviso ao lado do título, chuva e galáxia sem mensagens quando vazia.
