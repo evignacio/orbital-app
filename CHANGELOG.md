@@ -8,6 +8,29 @@ A versão é a mesma em `api/package.json` e `frontend/package.json`, e a tag `v
 
 ## [Não lançado]
 
+## [2.0.0] - 2026-11-12
+
+Versão 2 oficial: health checks agendados pela API com resultados em tempo real, frontend reescrito em React + TypeScript e aplicações agrupadas em órbitas numa galáxia. Reúne as mudanças das versões `2.0.0-beta.1` a `2.0.0-beta.7`, sem mudanças de código desde a `2.0.0-beta.7`; os detalhes de cada passo estão nas seções abaixo.
+
+### ⚠ Mudanças incompatíveis (vindo da 1.0.12)
+
+- `POST /applications/:env/sync` responde `202` na hora; os resultados chegam pelo stream SSE `GET /applications/events`.
+- `SYNC_CACHE_TTL` substituída por `HEALTH_CHECK_INTERVAL_S` (padrão 30 s). A API deve rodar com uma única instância.
+- Campo `orbits` obrigatório (1 a 10 nomes) na criação e na edição de aplicações. Bancos anteriores às órbitas precisam ser migrados com o `mongo-add-orbits.js` da `v2.0.0-beta.2` e ter as chaves `orbital:apps:*` do Redis limpas.
+- API em Node 24; frontend buildado com Vite e servido pelo nginx (galáxia em `/`, painel em `/painel`).
+- CORS fechado por padrão: sem `CORS_ORIGINS` a API não libera nenhuma origem.
+- Containers rodando sem root (nginx escuta na 8080 dentro do container).
+
+### Destaques
+
+- Agendador de health checks na API, um ciclo por ambiente, com estado `degraded` para respostas lentas e último status guardado no Redis.
+- Stream SSE com `snapshot`, `status` e `cycle`; o navegador não faz mais checagens nem tem timer próprio.
+- Galáxia de órbitas na home, com resumo de saúde de cada grupo e painel filtrado por órbita.
+- Edição de aplicações (`PUT /applications/:env/:id`) e várias órbitas por aplicação.
+- Tempestade na galáxia e no painel quando a API fica inacessível.
+- Endpoint `GET /health`, endereço da API configurável no frontend (`API_BASE`), cabeçalhos de segurança, HTTPS opcional com Caddy e healthcheck nos containers.
+- Release guiado pela versão dos `package.json` e por este changelog.
+
 ## [2.0.0-beta.7] - 2026-10-28
 
 Galáxia sem travar depois de muito tempo com a aba escondida.
