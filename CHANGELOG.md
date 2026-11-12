@@ -10,7 +10,7 @@ A versão é a mesma em `api/package.json` e `frontend/package.json`, e a tag `v
 
 ## [2.0.0] - 2026-11-12
 
-Versão 2 oficial: health checks agendados pela API com resultados em tempo real, frontend reescrito em React + TypeScript e aplicações agrupadas em órbitas numa galáxia. Reúne as mudanças das versões `2.0.0-beta.1` a `2.0.0-beta.7`, sem mudanças de código desde a `2.0.0-beta.7`; os detalhes de cada passo estão nas seções abaixo.
+Versão 2 oficial: health checks agendados pela API com resultados em tempo real, frontend reescrito em React + TypeScript e aplicações agrupadas em órbitas numa galáxia. Reúne as mudanças das versões `2.0.0-beta.1` a `2.0.0-beta.7`, sem mudanças de código desde a `2.0.0-beta.7`; os detalhes de cada passo estão nas seções das betas no `CHANGELOG.md`.
 
 ### ⚠ Mudanças incompatíveis (vindo da 1.0.12)
 
