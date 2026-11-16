@@ -213,6 +213,10 @@ h3 { font-size: 19px; font-weight: 600; letter-spacing: -.01em; }
 .tech-item strong { font-size: 17px; }
 .tech-item span:last-child { font-size: 14px; color: var(--muted); }
 
+/* Demonstração */
+.demo { margin: 0; border-radius: var(--radius); border: 1px solid var(--line-strong); background: var(--bg-deep); overflow: hidden; box-shadow: 0 0 48px var(--accent-halo); }
+.demo video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; background: var(--bg-deep); }
+
 /* Começar */
 /* Começar: os passos (o caminho principal) à esquerda; pré-requisitos e outras tarefas à direita.
    No celular a ordem vira pré-requisitos → passos → outras tarefas. */
